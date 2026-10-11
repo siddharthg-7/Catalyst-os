@@ -1,21 +1,21 @@
 {
   "startupProfile": {
-    "name": "KitePay Technologies India",
-    "industry": "FinTech / Payments Infrastructure",
-    "description": "Unified UPI 2.0 Recurring Autopay Engine for D2C Brands",
-    "fundingStage": "pre-seed",
-    "cashBalance": 500000,
-    "burnRate": 25000,
-    "runwayMonths": 20,
-    "healthScore": 78,
+    "name": "BioGen Systems",
+    "industry": "Biotechnology",
+    "description": "AI genomic analysis platform",
+    "fundingStage": "Pre-Seed",
+    "cashBalance": 450000,
+    "burnRate": 26000,
+    "runwayMonths": 17.3,
+    "healthScore": 86,
     "metrics": {
-      "velocity": 80,
-      "financialHealth": 90,
+      "velocity": 85,
+      "financialHealth": 88,
       "legalCompliance": 90,
-      "growthRate": 65,
+      "growthRate": 60,
       "operationsEfficiency": 82
     },
-    "teamSize": 51
+    "teamSize": 57
   },
   "initiatives": [
     {
@@ -112,6 +112,60 @@
     }
   ],
   "approvals": [
+    {
+      "id": "appr_1791737176163_0n1s",
+      "initiativeId": "init_executive",
+      "title": "Migrate Core Cluster to Bare-Metal Data Center",
+      "description": "Infrastructure relocation commitment.",
+      "type": "contract",
+      "content": "Infrastructure relocation commitment.",
+      "impact": "Requires founder verification.",
+      "financialChange": -50000,
+      "status": "pending_review",
+      "metricChanges": {
+        "velocity": 0,
+        "financialHealth": 0,
+        "legalCompliance": 0,
+        "growthRate": 0,
+        "operationsEfficiency": 0
+      }
+    },
+    {
+      "id": "appr_1791736082890_rlw8",
+      "initiativeId": "init_executive",
+      "title": "Approve Contractor SOW",
+      "description": "Contractor engagement",
+      "type": "contract",
+      "content": "Contractor engagement",
+      "impact": "Requires founder verification.",
+      "financialChange": -40000,
+      "status": "pending_review",
+      "metricChanges": {
+        "velocity": 0,
+        "financialHealth": 0,
+        "legalCompliance": 0,
+        "growthRate": 0,
+        "operationsEfficiency": 0
+      }
+    },
+    {
+      "id": "appr_1791736068845_nm7k",
+      "initiativeId": "init_executive",
+      "title": "Hire Senior Engineer for Tenant A",
+      "description": "Engineering expansion",
+      "type": "contract",
+      "content": "Engineering expansion",
+      "impact": "Requires founder verification.",
+      "financialChange": -120000,
+      "status": "pending_review",
+      "metricChanges": {
+        "velocity": 0,
+        "financialHealth": 0,
+        "legalCompliance": 0,
+        "growthRate": 0,
+        "operationsEfficiency": 0
+      }
+    },
     {
       "id": "appr_1791730629216_aqrw",
       "initiativeId": "init_executive",
@@ -400,6 +454,106 @@
     }
   ],
   "decisionLog": [
+    {
+      "id": "dec_1791737261676",
+      "title": "Approve: Strategic Angel Seed Extension Tranche",
+      "description": "Closing $250,000 strategic angel extension from robotics syndicate.",
+      "category": "FINANCIALS",
+      "timestamp": "2026-10-11T16:47:41.676Z",
+      "impactText": "Requires founder verification.",
+      "financialImpact": 250000,
+      "status": "approved"
+    },
+    {
+      "id": "dec_1791737227506",
+      "title": "Approve: Approve Enterprise Sales One-Pager & Pitch Deck",
+      "description": "Marketing and customer collateral review for upcoming industry summit.",
+      "category": "DOCUMENT",
+      "timestamp": "2026-10-11T16:47:07.506Z",
+      "impactText": "Requires founder verification.",
+      "financialImpact": 0,
+      "status": "approved"
+    },
+    {
+      "id": "dec_1791737171681",
+      "title": "Reject: Procure 10x Industrial Edge GPU Nodes",
+      "description": "Rejected by founder with feedback: \"Postpone capital expenditure until Series A financing.\"",
+      "category": "FINANCIALS",
+      "timestamp": "2026-10-11T16:46:11.681Z",
+      "impactText": "No operational metrics modified.",
+      "financialImpact": 0,
+      "status": "rejected"
+    },
+    {
+      "id": "dec_1791737144820",
+      "title": "Approve: Hire 2x Senior Robotics Systems Engineer",
+      "description": "Expands core perception stack and automated navigation throughput.",
+      "category": "CONTRACT",
+      "timestamp": "2026-10-11T16:45:44.820Z",
+      "impactText": "Increases monthly burn by $16,000/mo. Projected runway: 12.2 months.",
+      "financialImpact": -16000,
+      "status": "approved"
+    },
+    {
+      "id": "dec_1791736693269",
+      "title": "Reject: Procure 10x Industrial Edge GPU Nodes",
+      "description": "Rejected by founder with feedback: \"Postpone capital expenditure until Series A financing.\"",
+      "category": "FINANCIALS",
+      "timestamp": "2026-10-11T16:38:13.269Z",
+      "impactText": "No operational metrics modified.",
+      "financialImpact": 0,
+      "status": "rejected"
+    },
+    {
+      "id": "dec_1791736670357",
+      "title": "Approve: Hire 2x Senior Robotics Systems Engineer",
+      "description": "Expands core perception stack and automated navigation throughput.",
+      "category": "CONTRACT",
+      "timestamp": "2026-10-11T16:37:50.357Z",
+      "impactText": "Increases monthly burn by $16,000/mo. Projected runway: 12.2 months.",
+      "financialImpact": -16000,
+      "status": "approved"
+    },
+    {
+      "id": "dec_1791736089781",
+      "title": "Approve: Procure SaaS Analytics Tool",
+      "description": "Annual analytics license",
+      "category": "FINANCIALS",
+      "timestamp": "2026-10-11T16:28:09.781Z",
+      "impactText": "Requires founder verification.",
+      "financialImpact": -18000,
+      "status": "approved"
+    },
+    {
+      "id": "dec_1791736082826",
+      "title": "Approve: Procure Enterprise Database Cluster",
+      "description": "Infrastructure commit",
+      "category": "FINANCIALS",
+      "timestamp": "2026-10-11T16:28:02.826Z",
+      "impactText": "Requires founder verification.",
+      "financialImpact": -25000,
+      "status": "approved"
+    },
+    {
+      "id": "dec_1791736080298",
+      "title": "Approve: Hire 2x Backend Engineers",
+      "description": "Engineering expansion for beta launch",
+      "category": "CONTRACT",
+      "timestamp": "2026-10-11T16:28:00.298Z",
+      "impactText": "Requires founder verification.",
+      "financialImpact": -312000,
+      "status": "approved"
+    },
+    {
+      "id": "dec_1791736077660",
+      "title": "Approve: Procure Cloud Infrastructure",
+      "description": "Hardware commit",
+      "category": "FINANCIALS",
+      "timestamp": "2026-10-11T16:27:57.660Z",
+      "impactText": "Requires founder verification.",
+      "financialImpact": -15000,
+      "status": "approved"
+    },
     {
       "id": "dec_1791730629225",
       "title": "Approve: Procure SaaS Analytics Tool",
@@ -1222,6 +1376,66 @@
     }
   ],
   "knowledgeFiles": [
+    {
+      "id": "doc_profile_37e0b364-d879-4e20-927b-a0a86561fc44",
+      "name": "[Company Profile] BioGen Systems",
+      "type": "business_plan",
+      "size": "2.7 KB",
+      "uploadDate": "2026-10-11T16:44:53.228Z",
+      "summary": "BioGen Systems is a pre-seed biotechnology startup developing an AI genomic analysis platform to accelerate clinical turnaround for genome sequencing. With a strong 20-month runway, the immediate strategic focus must be on achieving MVP delivery within 120 days and initiating critical market customer acquisition efforts among Genomics Diagnostic Labs.",
+      "insights": [
+        "The clear identification of Genomics Diagnostic Labs as the ICP provides a focused target for initial market entry, though customer acquisition remains a primary challenge for growth.",
+        "With a $200,000 cash balance and a $10,000 monthly burn, BioGen Systems boasts an excellent 20-month runway, providing ample time to achieve key milestones without immediate financial pressure.",
+        "The AI genomic analysis platform directly addresses the critical problem of slow clinical turnaround, but successful MVP delivery is paramount to validate the solution and unlock market potential.",
+        "The 120-day milestone timeline for MVP delivery is aggressive but achievable, requiring highly efficient operational execution to meet the product development and initial market engagement goals."
+      ],
+      "startupId": "37e0b364-d879-4e20-927b-a0a86561fc44"
+    },
+    {
+      "id": "doc_profile_21d440f5-b209-4969-babc-0ab2297abe9f",
+      "name": "[Company Profile] Apex Robotics Inc",
+      "type": "business_plan",
+      "size": "2.9 KB",
+      "uploadDate": "2026-10-11T16:44:14.424Z",
+      "summary": "Apex Robotics Inc. is a Seed-stage company with strong potential, addressing critical inefficiencies in 3PL logistics with autonomous warehouse robots. With significant runway and Tier-1 enterprise pilots secured, the next 90 days are crucial for MVP delivery and converting these initial engagements into foundational customer relationships.",
+      "insights": [
+        "Securing Tier-1 enterprise pilots for 3PL Logistics operations provides significant early market validation and a clear path for initial customer acquisition and product refinement.",
+        "A robust 20-month runway with $500,000 cash and a $25,000 monthly burn provides ample time for product development and market penetration without immediate fundraising pressure.",
+        "The core challenge lies in delivering a high-quality MVP within 90 days that effectively addresses manual forklift inefficiencies and converts pilot engagements into long-term customer contracts.",
+        "The aggressive 90-day MVP timeline, coupled with existing Tier-1 pilots, demands highly efficient operational execution and a sharp focus on product-market fit validation."
+      ],
+      "startupId": "21d440f5-b209-4969-babc-0ab2297abe9f"
+    },
+    {
+      "id": "doc_profile_12e739e3-699e-4cc4-b009-6b9f51e3f89f",
+      "name": "[Company Profile] BioGen Systems",
+      "type": "business_plan",
+      "size": "3.0 KB",
+      "uploadDate": "2026-10-11T16:37:00.367Z",
+      "summary": "BioGen Systems is a pre-seed biotechnology startup developing an AI genomic analysis platform to accelerate clinical turnaround for genome sequencing. With a robust 20-month runway, the immediate strategic focus must be on achieving MVP delivery within 120 days and initiating critical market customer acquisition efforts.",
+      "insights": [
+        "BioGen Systems targets Genomics Diagnostic Labs, a specialized but high-value ICP. The primary growth hurdle is effective market customer acquisition, requiring a clear go-to-market strategy post-MVP.",
+        "With a $200,000 cash balance and a $10,000 monthly burn, BioGen Systems boasts an excellent 20-month runway, providing ample time to achieve key milestones and demonstrate product-market fit before needing further capital.",
+        "The core product, an AI genomic analysis platform, directly addresses the critical problem of slow clinical turnaround. The key challenge is the successful and timely delivery of the Minimum Viable Product (MVP) to validate core assumptions.",
+        "The ambitious 120-day milestone for MVP delivery is critical. Operational efficiency and focused execution are paramount to meet this timeline, which directly impacts the ability to commence customer acquisition."
+      ],
+      "startupId": "12e739e3-699e-4cc4-b009-6b9f51e3f89f"
+    },
+    {
+      "id": "doc_profile_465f75e8-09a9-4795-9163-88c11cd30468",
+      "name": "[Company Profile] Apex Robotics Inc",
+      "type": "business_plan",
+      "size": "3.8 KB",
+      "uploadDate": "2026-10-11T16:36:24.542Z",
+      "summary": "Apex Robotics Inc is a well-positioned Seed-stage startup addressing critical inefficiencies in 3PL logistics with autonomous warehouse robots. With a healthy 20-month financial runway and validated market interest through Tier-1 enterprise pilots, the immediate strategic imperative is focused execution on MVP delivery and converting pilots into scalable customer acquisition.",
+      "insights": [
+        "The focus on 3PL Logistics Operations for autonomous warehouse robots directly targets a high-value problem (inefficient manual routing), with Tier-1 enterprise pilots providing significant early market validation and a strong foundation for future growth.",
+        "With a $500,000 cash balance and a $25,000 monthly burn, Apex Robotics boasts an excellent 20-month runway, providing ample time to achieve MVP, secure initial market penetration, and demonstrate traction without immediate fundraising pressure.",
+        "The core problem is clearly defined, and the product idea is highly relevant. The key challenge of delivering the MVP within 90 days, coupled with scaling customer acquisition, demands precise execution and strategic resource allocation to capitalize on existing pilot agreements.",
+        "The ambitious 90-day milestone for MVP delivery is critical, especially with signed pilots. This timeline necessitates exceptional operational efficiency, a clear development roadmap, and a robust plan to convert pilot successes into long-term paying customer relationships."
+      ],
+      "startupId": "465f75e8-09a9-4795-9163-88c11cd30468"
+    },
     {
       "id": "doc_profile_21314009-43bc-455a-8c8c-14ed7e10695f",
       "name": "[Company Profile] BioGen Systems",

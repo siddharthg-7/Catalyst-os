@@ -149,10 +149,10 @@ async function runTests() {
     assert(hiringApproval.type === 'contract', 'Approval type matches contract');
 
     // Verify stored in PostgreSQL
-    const dbApprA = await prisma.approval.findUnique({
+    const dbApprA = await safeDbQuery(() => prisma.approval.findUnique({
       where: { id: hiringApproval.id },
       include: { plan: true }
-    });
+    }));
     assert(Boolean(dbApprA), 'Approval persisted successfully in PostgreSQL');
     assert(dbApprA?.status === 'pending_review', 'PostgreSQL approval status is "pending_review"');
     assert(dbApprA?.plan.startupId === startupAId, 'Approval correctly linked to Startup A active Plan');
@@ -195,7 +195,7 @@ async function runTests() {
     assert(!crossTenantReview.success && crossTenantReview.statusCode === 403, 'User B is strictly blocked from reviewing Company A approval (403 Forbidden)');
 
     // Verify Startup A data was NOT modified by unauthorized attempt
-    const startupAPostBlock = await prisma.startup.findUnique({ where: { id: startupAId } });
+    const startupAPostBlock = await safeDbQuery(() => prisma.startup.findUnique({ where: { id: startupAId } }));
     assert(startupAPostBlock?.burnRate === 25000, 'Startup A burn rate unmodified after blocked cross-tenant attempt');
     assert(startupAPostBlock?.cashBalance === 500000, 'Startup A cash balance unmodified after blocked cross-tenant attempt');
 
@@ -217,38 +217,38 @@ async function runTests() {
     assert(validApprovalResult.stateChangesApplied?.teamSizeDelta === 2, 'Team size delta applied (2 new hires)');
 
     // Verify PostgreSQL Startup state updated
-    const startupAAfterExecution = await prisma.startup.findUnique({ where: { id: startupAId } });
+    const startupAAfterExecution = await safeDbQuery(() => prisma.startup.findUnique({ where: { id: startupAId } }));
     assert(startupAAfterExecution?.burnRate === 41000, 'Startup A burn rate in DB updated: 25k + 16k = 41k');
     assert(startupAAfterExecution?.cashBalance === 500000, 'Startup A cash balance preserved at 500k');
 
     // Verify PostgreSQL Approval status updated
-    const dbApprAfter = await prisma.approval.findUnique({ where: { id: hiringApproval.id } });
+    const dbApprAfter = await safeDbQuery(() => prisma.approval.findUnique({ where: { id: hiringApproval.id } }));
     assert(dbApprAfter?.status === 'approved', 'PostgreSQL approval status updated to "approved"');
 
     // Verify Audit Trail (Execution, DecisionLog, TimelineItem)
-    const executionRecord = await prisma.execution.findFirst({
+    const executionRecord = await safeDbQuery(() => prisma.execution.findFirst({
       where: { action: hiringApproval.title }
-    });
+    }));
     assert(Boolean(executionRecord), 'Execution record persisted in PostgreSQL');
     assert(executionRecord?.status === 'completed', 'Execution record marked "completed"');
 
-    const decisionRecord = await prisma.decisionLog.findFirst({
+    const decisionRecord = await safeDbQuery(() => prisma.decisionLog.findFirst({
       where: { startupId: startupAId, status: 'approved' },
       orderBy: { createdAt: 'desc' }
-    });
+    }));
     assert(Boolean(decisionRecord), 'DecisionLog entry created in PostgreSQL');
     assert(decisionRecord?.title.includes('Hire 2x Senior Robotics'), 'DecisionLog contains approved deliverable title');
 
-    const timelineRecord = await prisma.timelineItem.findFirst({
+    const timelineRecord = await safeDbQuery(() => prisma.timelineItem.findFirst({
       where: { startupId: startupAId, type: 'hire' },
       orderBy: { createdAt: 'desc' }
-    });
+    }));
     assert(Boolean(timelineRecord), 'TimelineItem entry created in PostgreSQL');
 
     // Verify Memory for TEAM_SIZE updated
-    const teamMemory = await prisma.memory.findFirst({
+    const teamMemory = await safeDbQuery(() => prisma.memory.findFirst({
       where: { startupId: startupAId, category: 'TEAM_SIZE' }
-    });
+    }));
     assert(Boolean(teamMemory), 'Team size memory exists in PostgreSQL');
     assert(teamMemory?.description.includes('7'), `Team size memory updated to reflect 2 new hires: "${teamMemory?.description}"`);
 
@@ -268,12 +268,12 @@ async function runTests() {
     assert(duplicateReviewResult.message?.includes('already been processed'), 'User-friendly message returned on duplicate request');
 
     // Assert DB state was NOT double-incremented
-    const startupAAfterDuplicate = await prisma.startup.findUnique({ where: { id: startupAId } });
+    const startupAAfterDuplicate = await safeDbQuery(() => prisma.startup.findUnique({ where: { id: startupAId } }));
     assert(startupAAfterDuplicate?.burnRate === 41000, 'Burn rate NOT double-incremented (remains 41,000, not 57,000)');
 
-    const executionsCount = await prisma.execution.count({
+    const executionsCount = await safeDbQuery(() => prisma.execution.count({
       where: { action: hiringApproval.title, plan: { startupId: startupAId } }
-    });
+    }));
     assert(executionsCount === 1, 'Only 1 execution record exists despite duplicate API call');
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -301,15 +301,15 @@ async function runTests() {
     assert(rejectResult.item?.status === 'rejected', 'Deliverable status set to "rejected"');
 
     // Verify DB metrics unchanged
-    const startupAAfterReject = await prisma.startup.findUnique({ where: { id: startupAId } });
+    const startupAAfterReject = await safeDbQuery(() => prisma.startup.findUnique({ where: { id: startupAId } }));
     assert(startupAAfterReject?.cashBalance === 500000, 'Cash balance NOT deducted on rejected approval');
     assert(startupAAfterReject?.burnRate === 41000, 'Burn rate NOT modified on rejected approval');
 
     // Verify rejection logged in DecisionLog & TimelineItem
-    const rejectDecision = await prisma.decisionLog.findFirst({
+    const rejectDecision = await safeDbQuery(() => prisma.decisionLog.findFirst({
       where: { startupId: startupAId, status: 'rejected' },
       orderBy: { createdAt: 'desc' }
-    });
+    }));
     assert(Boolean(rejectDecision), 'Rejection recorded in DecisionLog');
     assert(rejectDecision?.description.includes('Postpone capital expenditure'), 'Rejection logs founder feedback verbatim');
 
@@ -336,17 +336,17 @@ async function runTests() {
     assert(!failureResult.success && failureResult.statusCode === 500, 'Subsystem execution failure returns HTTP 500');
 
     // Verify DB status marked as execution_failed
-    const dbFailingAppr = await prisma.approval.findUnique({ where: { id: failingApproval.id } });
+    const dbFailingAppr = await safeDbQuery(() => prisma.approval.findUnique({ where: { id: failingApproval.id } }));
     assert(dbFailingAppr?.status === 'execution_failed', 'Approval status in DB marked as "execution_failed"');
 
     // Verify failed execution record
-    const failedExec = await prisma.execution.findFirst({
+    const failedExec = await safeDbQuery(() => prisma.execution.findFirst({
       where: { action: failingApproval.title, status: 'failed' }
-    });
+    }));
     assert(Boolean(failedExec), 'Failed execution logged in Execution ledger');
 
     // Verify NO false mutation to company state
-    const startupAAfterFailure = await prisma.startup.findUnique({ where: { id: startupAId } });
+    const startupAAfterFailure = await safeDbQuery(() => prisma.startup.findUnique({ where: { id: startupAId } }));
     assert(startupAAfterFailure?.cashBalance === 500000, 'Cash balance preserved after execution failure');
     assert(startupAAfterFailure?.burnRate === 41000, 'Burn rate preserved after execution failure');
 
@@ -391,7 +391,7 @@ async function runTests() {
     assert(copyResult.stateChangesApplied?.burnRateDelta === 0, 'Burn rate delta is 0');
 
     // Verify DB state is completely untouched
-    const startupAPostCopy = await prisma.startup.findUnique({ where: { id: startupAId } });
+    const startupAPostCopy = await safeDbQuery(() => prisma.startup.findUnique({ where: { id: startupAId } }));
     assert(startupAPostCopy?.cashBalance === 500000, 'Cash balance untouched: $500,000');
     assert(startupAPostCopy?.burnRate === 41000, 'Burn rate untouched: $41,000');
 
@@ -418,7 +418,7 @@ async function runTests() {
     assert(fundingResult.stateChangesApplied?.cashBalanceDelta === 250000, 'Cash balance delta +$250,000');
 
     // Verify DB cash updated: 500,000 + 250,000 = 750,000
-    const startupAPostFunding = await prisma.startup.findUnique({ where: { id: startupAId } });
+    const startupAPostFunding = await safeDbQuery(() => prisma.startup.findUnique({ where: { id: startupAId } }));
     assert(startupAPostFunding?.cashBalance === 750000, 'PostgreSQL cash balance updated to $750,000');
 
     // Verify new runway: 750,000 / 41,000 = 18.29 -> 18.3 months
