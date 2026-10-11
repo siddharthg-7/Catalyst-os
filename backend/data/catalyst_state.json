@@ -4,9 +4,9 @@
     "industry": "FinTech / Payments Infrastructure",
     "description": "Unified UPI 2.0 Recurring Autopay Engine for D2C Brands",
     "fundingStage": "pre-seed",
-    "cashBalance": 8500000,
-    "burnRate": 750000,
-    "runwayMonths": 11.3,
+    "cashBalance": 500000,
+    "burnRate": 25000,
+    "runwayMonths": 20,
     "healthScore": 78,
     "metrics": {
       "velocity": 80,
@@ -15,7 +15,7 @@
       "growthRate": 65,
       "operationsEfficiency": 82
     },
-    "teamSize": 49
+    "teamSize": 51
   },
   "initiatives": [
     {
@@ -112,6 +112,42 @@
     }
   ],
   "approvals": [
+    {
+      "id": "appr_1791730629216_aqrw",
+      "initiativeId": "init_executive",
+      "title": "Approve Contractor SOW",
+      "description": "Contractor engagement",
+      "type": "contract",
+      "content": "Contractor engagement",
+      "impact": "Requires founder verification.",
+      "financialChange": -40000,
+      "status": "pending_review",
+      "metricChanges": {
+        "velocity": 0,
+        "financialHealth": 0,
+        "legalCompliance": 0,
+        "growthRate": 0,
+        "operationsEfficiency": 0
+      }
+    },
+    {
+      "id": "appr_1791730627563_0rv1",
+      "initiativeId": "init_executive",
+      "title": "Hire Senior Engineer for Tenant A",
+      "description": "Engineering expansion",
+      "type": "contract",
+      "content": "Engineering expansion",
+      "impact": "Requires founder verification.",
+      "financialChange": -120000,
+      "status": "pending_review",
+      "metricChanges": {
+        "velocity": 0,
+        "financialHealth": 0,
+        "legalCompliance": 0,
+        "growthRate": 0,
+        "operationsEfficiency": 0
+      }
+    },
     {
       "id": "del_1791574064192",
       "initiativeId": "init_demo_hiring",
@@ -364,6 +400,46 @@
     }
   ],
   "decisionLog": [
+    {
+      "id": "dec_1791730629225",
+      "title": "Approve: Procure SaaS Analytics Tool",
+      "description": "Annual analytics license",
+      "category": "FINANCIALS",
+      "timestamp": "2026-10-11T14:57:09.225Z",
+      "impactText": "Requires founder verification.",
+      "financialImpact": -18000,
+      "status": "approved"
+    },
+    {
+      "id": "dec_1791730629164",
+      "title": "Approve: Procure Enterprise Database Cluster",
+      "description": "Infrastructure commit",
+      "category": "FINANCIALS",
+      "timestamp": "2026-10-11T14:57:09.164Z",
+      "impactText": "Requires founder verification.",
+      "financialImpact": -25000,
+      "status": "approved"
+    },
+    {
+      "id": "dec_1791730629159",
+      "title": "Approve: Hire 2x Backend Engineers",
+      "description": "Engineering expansion for beta launch",
+      "category": "CONTRACT",
+      "timestamp": "2026-10-11T14:57:09.159Z",
+      "impactText": "Requires founder verification.",
+      "financialImpact": -312000,
+      "status": "approved"
+    },
+    {
+      "id": "dec_1791730629118",
+      "title": "Approve: Procure Cloud Infrastructure",
+      "description": "Hardware commit",
+      "category": "FINANCIALS",
+      "timestamp": "2026-10-11T14:57:09.118Z",
+      "impactText": "Requires founder verification.",
+      "financialImpact": -15000,
+      "status": "approved"
+    },
     {
       "id": "dec_1791572016710",
       "title": "Approve: Vendor Payment Approval: Delhivery Logistics & Pan-India Line-Haul",
