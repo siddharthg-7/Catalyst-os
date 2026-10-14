@@ -23,7 +23,7 @@
 
 ---
 
-## 📑 Table of Contents
+##  Table of Contents
 - [ Key Features](#-key-features)
 - [ The AI Executive Suite](#-the-ai-executive-suite)
 - [ System Architecture](#️-system-architecture)
@@ -104,7 +104,7 @@ Catalyst OS simulates a C-suite corporate hierarchy where agents reason, consult
 
 ---
 
-## 🏛️ System Architecture
+##  System Architecture
 
 Catalyst OS utilizes a dual-engine architecture: a high-performance **Node.js Express + TypeScript Gateway** paired with an autonomous **Python FastAPI LangGraph Microservice**.
 
@@ -144,7 +144,7 @@ Catalyst OS utilizes a dual-engine architecture: a high-performance **Node.js Ex
 
 ---
 
-## 🔄 Executive Collaboration & Board Vote
+##  Executive Collaboration & Board Vote
 
 When a founder issues a multi-faceted objective, agents do not act in silos. They engage in structured cross-consultation:
 
@@ -192,7 +192,7 @@ Researches Candidates     Prepares Launch Plan    Maps Deliverables
 
 ---
 
-## 🛡️ Hallucination Prevention & AI Safety
+##  Hallucination Prevention & AI Safety
 
 Catalyst OS incorporates defensive engineering principles to safeguard startup operations:
 
@@ -207,7 +207,7 @@ Catalyst OS incorporates defensive engineering principles to safeguard startup o
 
 ---
 
-## 💻 Technology Stack
+## Technology Stack
 
 ### Frontend Application
 * **Framework:** React 19 (`react`, `react-dom`)
@@ -233,7 +233,7 @@ Catalyst OS incorporates defensive engineering principles to safeguard startup o
 
 ---
 
-## 📂 Project Structure
+##  Project Structure
 
 ```text
 catalyst-os/
@@ -313,7 +313,7 @@ catalyst-os/
 
 ---
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### Prerequisites
 Make sure you have the following installed on your machine:
@@ -349,7 +349,7 @@ Run the entire platform (Frontend, Node.js API Gateway, FastAPI AI Service, and 
 
 ---
 
-## ⚙️ Configuration & Environment Variables
+##  Configuration & Environment Variables
 
 Copy `.env.example` to create your local `.env` file in the project root:
 
@@ -382,11 +382,11 @@ DIRECT_URL="postgresql://neondb_owner:password@ep-late-mud-b42a9cnw.c-6.us-east-
 JWT_SECRET="your_jwt_secret_key"
 ```
 
-> 🔒 **Security Notice:** Never commit `.env` or any production secrets to source control.
+>  **Security Notice:** Never commit `.env` or any production secrets to source control.
 
 ---
 
-## 🏃 Running Locally
+##  Running Locally
 
 ### Step 1: Install Node Dependencies
 From the repository root:
@@ -438,17 +438,17 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 ---
 
-## 📡 API Reference
+##  API Reference
 
 The Express gateway routes core requests, proxying `/api/v1` and `/api/audio` to the Python microservice when online.
 
-### 🏢 Startup Profile & Context
+###  Startup Profile & Context
 | Method | Endpoint | Description | Auth Required |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/startup` | Retrieve active startup profile, burn rate, runway, and health metrics | Yes (JWT) |
 | `POST` | `/api/startup` | Update startup profile details and financial balances | Yes (Founder/Admin) |
 
-### 🤖 Multi-Agent Orchestration & Initiatives
+###  Multi-Agent Orchestration & Initiatives
 | Method | Endpoint | Description | Auth Required |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/agents` | Retrieve all executive agents and their real-time execution statuses | Yes (JWT) |
@@ -457,14 +457,14 @@ The Express gateway routes core requests, proxying `/api/v1` and `/api/audio` to
 | `POST` | `/api/initiatives/:id/simulate` | Execute multi-agent collaboration loop (LangGraph or Gemini) | Yes (JWT) |
 | `POST` | `/api/orchestrate` | Master CEO planner-executor endpoint for high-level commands | Yes (JWT) |
 
-### 🛡️ Human-in-the-Loop Approvals & Decisions
+###  Human-in-the-Loop Approvals & Decisions
 | Method | Endpoint | Description | Auth Required |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/approvals` | Fetch pending approvals queue with predicted financial impact | Yes (JWT) |
 | `POST` | `/api/approvals/:id/review` | Approve or reject a gated deliverable with founder feedback | Yes (Founder/Admin) |
 | `GET` | `/api/decisions` | Fetch immutable audit trail of corporate decisions | Yes (JWT) |
 
-### 📚 Knowledge Base & Hybrid RAG
+###  Knowledge Base & Hybrid RAG
 | Method | Endpoint | Description | Auth Required |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/knowledge` | List all indexed company documents and summaries | Yes (JWT) |
@@ -473,7 +473,7 @@ The Express gateway routes core requests, proxying `/api/v1` and `/api/audio` to
 | `POST` | `/api/chat` | Direct RAG chat query grounded in local knowledge base | Public / Semi-Private |
 | `POST` | `/api/chat/stream` | Server-Sent Events (SSE) streaming chat endpoint | Public / Semi-Private |
 
-### 🔐 Infrastructure, Vault & Voice
+###  Infrastructure, Vault & Voice
 | Method | Endpoint | Description | Auth Required |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/vault/status` | Verify connection status to HashiCorp Vault / encrypted secret store | Yes (JWT) |
@@ -482,7 +482,7 @@ The Express gateway routes core requests, proxying `/api/v1` and `/api/audio` to
 
 ---
 
-## 🗄️ Database Design & Models
+##  Database Design & Models
 
 Catalyst OS utilizes **Prisma ORM v6** with **PostgreSQL** and the `pgvector` extension for structured business state and vector embeddings:
 
