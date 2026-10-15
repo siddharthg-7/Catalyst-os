@@ -24,8 +24,12 @@ export const hasValidDbUrl = Boolean(
 function buildResilientDbUrl(url: string): string | undefined {
   if (!url || !hasValidDbUrl) return undefined;
   let formatted = url;
-  if (formatted.includes('-pooler') && !formatted.includes('pgbouncer=true')) {
-    formatted += (formatted.includes('?') ? '&' : '?') + 'pgbouncer=true';
+  if (formatted.includes('-pooler')) {
+    // PgBouncer does not support SCRAM channel binding (as per Neon official docs)
+    formatted = formatted.replace(/([?&])channel_binding=[^&]*/g, '$1');
+    if (!formatted.includes('pgbouncer=true')) {
+      formatted += (formatted.includes('?') ? '&' : '?') + 'pgbouncer=true';
+    }
   }
   if (!formatted.includes('pool_timeout')) {
     formatted += (formatted.includes('?') ? '&' : '?') + 'pool_timeout=30';
@@ -33,6 +37,7 @@ function buildResilientDbUrl(url: string): string | undefined {
   if (!formatted.includes('connect_timeout')) {
     formatted += (formatted.includes('?') ? '&' : '?') + 'connect_timeout=30';
   }
+  formatted = formatted.replace(/\?&/g, '?').replace(/&&+/g, '&').replace(/[?&]$/, '');
   return formatted;
 }
 
@@ -46,16 +51,21 @@ export const prisma = global.prismaSingleton || new PrismaClient({
   ],
 });
 
-// Attach event listeners to filter out transient idle socket disconnects from Neon serverless PgBouncer
+// Attach event listeners to filter out transient idle socket disconnects and serverless auto-suspend wakeups
 (prisma as any).$on('error', (e: any) => {
   const msg = String(e?.message || '');
-  // Ignore harmless connection resets when Neon PgBouncer closes idle connections
+  // Ignore harmless connection resets and transient pooler wakeups handled by safeDbQuery
   if (
     msg.includes('10054') ||
     msg.includes('ConnectionReset') ||
     msg.includes('kind: Closed') ||
     msg.includes('kind: Io') ||
     msg.includes('forcibly closed by the remote host') ||
+    msg.includes("Can't reach database server") ||
+    msg.includes('Timed out fetching a new connection') ||
+    msg.includes('P1001') ||
+    msg.includes('P1017') ||
+    msg.includes('P2024') ||
     msg.includes('column e.embedding does not exist') ||
     msg.includes('does not exist in the current database') ||
     msg.includes('42703') ||
