@@ -111,10 +111,17 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    const frontendDist = path.join(process.cwd(), 'frontend', 'dist');
+    const rootDist = path.join(process.cwd(), 'dist');
+    const distPath = path.resolve(frontendDist);
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+    app.use(express.static(rootDist));
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api')) return next();
+      const htmlFile = path.join(distPath, 'index.html');
+      res.sendFile(htmlFile, (err) => {
+        if (err) res.sendFile(path.join(rootDist, 'index.html'));
+      });
     });
   }
 

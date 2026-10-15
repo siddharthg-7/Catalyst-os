@@ -30,9 +30,9 @@ export class VaultService {
       });
 
       if (response.ok) {
-        const json = await response.json();
+        const json = (await response.json()) as any;
         console.log(`[Vault Service] Successfully loaded secrets from Vault at path: ${path}`);
-        return json.data?.data || {};
+        return json?.data?.data || {};
       }
     } catch (err: any) {
       console.warn(`[Vault Service] Connection to Vault failed (${err.message}). Using local .env fallback.`);

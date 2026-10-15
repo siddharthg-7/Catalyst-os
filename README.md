@@ -233,87 +233,148 @@ Catalyst OS incorporates defensive engineering principles to safeguard startup o
 
 ---
 
-##  Project Structure
+## 📂 Project Structure & Architecture
+
+The project is cleanly decoupled into standalone, developer-friendly modules with clear separation of responsibilities:
 
 ```text
 catalyst-os/
-├── src/                               # React 19 Frontend Codebase
-│   ├── components/                    # UI Components
-│   │   ├── chatbot/                   # Knowledge Base Grounded AI Chatbot
-│   │   │   ├── CatalystOsChatbot.tsx  # Main chatbot floating interface
-│   │   │   ├── ChatInput.tsx          # Prompt input with voice support
-│   │   │   ├── MessageBubble.tsx      # Markdown message bubble renderer
-│   │   │   └── SourceCard.tsx         # Document citation inspector
-│   │   ├── AgentWorkspace.tsx         # Visual agent matrix & live task cards
-│   │   ├── ApprovalQueue.tsx          # Human-in-the-loop approval center
-│   │   ├── AuthScreen.tsx             # Neon Auth / JWT authentication & landing view
-│   │   ├── CommandPalette.tsx         # Quick action palette (Ctrl+K)
-│   │   ├── DecisionLog.tsx            # Auditable corporate decision trail
-│   │   ├── FrameSequenceCanvas.tsx    # Interactive frame animation canvas
-│   │   ├── IntegrationsHub.tsx        # External tool connectors (Slack, Google)
-│   │   ├── KnowledgeBase.tsx          # Document vault & semantic search interface
-│   │   ├── MetricCards.tsx            # KPI monitors (Burn, Runway, Health Score)
-│   │   ├── NotificationPanel.tsx      # System alerts and executive briefs
-│   │   ├── SaaSDashboard.tsx          # Primary executive dashboard
-│   │   └── WorkflowCanvas.tsx         # Live multi-agent workflow visualizer
-│   ├── context/                       # Application & Auth State Context
-│   ├── hooks/                         # Custom React hooks
-│   ├── services/                      # Client-side API services
-│   ├── types.ts                       # Shared domain TypeScript interfaces
-│   ├── App.tsx                        # Root application layout & state routing
-│   ├── main.tsx                       # React DOM entrypoint
-│   └── index.css                      # Tailwind CSS v4 design tokens
 │
-├── server.ts                          # Full-Stack Server: Express 4 + Vite SSR/Middleware
+├── frontend/                          # Dedicated Frontend Application (Vite 6 + React 19)
+│   ├── public/                        # Public static assets, icons, brand marks
+│   ├── src/
+│   │   ├── assets/                    # Bundled frontend assets & media
+│   │   ├── components/                # Modular UI components
+│   │   │   ├── chatbot/               # Grounded AI Chatbot drawer & message bubbles
+│   │   │   ├── AgentWorkspace.tsx     # Visual agent matrix & live task cards
+│   │   │   ├── ApprovalQueue.tsx      # Human-in-the-loop approval center
+│   │   │   ├── DecisionLog.tsx        # Auditable corporate decision trail
+│   │   │   ├── KnowledgeBase.tsx      # RAG document vault & semantic search
+│   │   │   ├── SaaSDashboard.tsx      # Executive command center
+│   │   │   └── ...                    # Other domain components
+│   │   ├── layouts/                   # Shared shell layouts & visual wrappers
+│   │   ├── pages/                     # Full-page route views (Landing, Auth, Dashboard, etc.)
+│   │   ├── sections/                  # Page-level landing & dashboard sections
+│   │   ├── hooks/                     # Custom React hooks (voice, notifications, state)
+│   │   ├── context/                   # React context providers (AuthContext)
+│   │   ├── services/                  # Frontend API client (no hardcoded localhost URLs)
+│   │   ├── constants/                 # Centralized route definitions & API base URLs
+│   │   ├── styles/                    # Original design system & CSS (index.css)
+│   │   ├── types/                     # Frontend TypeScript domain types
+│   │   ├── utils/                     # Client helper utilities
+│   │   ├── App.tsx                    # Root routing & layout setup
+│   │   └── main.tsx                   # React DOM root entrypoint
+│   ├── .env.example                   # Frontend environment template
+│   ├── index.html                     # Vite HTML entrypoint with font preloads
+│   ├── package.json                   # Independent frontend dependencies & scripts
+│   ├── tsconfig.json                  # Standalone TypeScript configuration with `@/*` aliases
+│   ├── vite.config.ts                 # Vite bundler configuration with backend proxies
+│   └── README.md                      # Frontend-specific documentation
 │
-├── backend/                           # Backend Services & Agent Systems
-│   ├── routes/
-│   │   └── api.ts                     # Main Express REST API router
-│   ├── services/
-│   │   ├── dbService.ts               # Prisma singleton with resilient safeDbQuery wrapper
-│   │   ├── geminiService.ts           # Google Gemini multi-agent execution service
-│   │   ├── ragEngine.ts               # Hybrid search, chunking & vector ingestion
-│   │   ├── markdownRagService.ts      # Markdown RAG engine for local knowledge chatbot
-│   │   ├── documentParser.ts          # PDF, DOCX, XLSX, TXT extraction engine
-│   │   ├── neonAuthMiddleware.ts      # Neon Auth JWT authentication & role-based checks
-│   │   ├── vaultService.ts            # Encrypted secrets & HashiCorp Vault manager
-│   │   ├── sttService.ts              # Speech-to-Text audio transcription
-│   │   └── ttsService.ts              # Text-to-Speech audio synthesizer
-│   ├── agents/                        # Modular Node.js Agent Controllers
-│   │   ├── CEO/                       # Strategic decomposition & routing
-│   │   ├── Finance/                   # Cash flow, burn & runway guardrails
-│   │   ├── Talent/                    # Hiring plans & candidate ranking
-│   │   ├── Legal/                     # Compliance & contract generation
-│   │   ├── Growth/                    # GTM campaigns & content strategy
-│   │   ├── Operations/                # Milestones & dependency tracking
-│   │   ├── ConflictResolver/          # Multi-agent compromise resolution
-│   │   └── ApprovalManager/           # Deliverable gating
-│   └── py_service/                    # FastAPI Python AI Microservice
-│       ├── app/
-│       │   ├── agents/                # Python LangGraph agents & tools
-│       │   ├── core/                  # Database connections & settings
-│       │   ├── models/                # SQLAlchemy & Pydantic schemas
-│       │   ├── routers/               # Microservice API routes (audio, simulation)
-│       │   └── main.py                # FastAPI entrypoint (port 8000)
-│       └── requirements.txt           # Python package dependencies
+├── backend/                           # Dedicated Backend Application (Express 4 + TypeScript)
+│   ├── src/
+│   │   ├── config/                    # Environment validation, database & server config
+│   │   ├── controllers/               # Express route handlers & business coordination
+│   │   ├── routes/                    # Modular API route definitions
+│   │   ├── middleware/                # Auth, rate-limiting, and error-handling middleware
+│   │   ├── models/                    # Decoupled backend data models & types
+│   │   ├── services/                  # Business logic services & AI orchestrator re-exports
+│   │   ├── utils/                     # Backend utility functions
+│   │   ├── app.ts                     # Express app setup, proxy rules & health checks
+│   │   └── server.ts                  # Server entry point with Neon DB pre-warming
+│   ├── services/                      # Core agent execution & RAG engine services
+│   ├── agents/                        # Modular Node.js agent controllers (CEO, CFO, CTO, Legal, etc.)
+│   ├── routes/                        # Legacy & expanded Express routes
+│   ├── py_service/                    # Optional FastAPI Python AI Microservice (LangGraph)
+│   ├── .env.example                   # Backend environment template
+│   ├── package.json                   # Standalone backend dependencies & scripts
+│   ├── tsconfig.json                  # Standalone TypeScript configuration with `@/*` aliases
+│   └── README.md                      # Backend-specific documentation
 │
-├── prisma/                            # Database Schema & Seed
-│   ├── schema.prisma                  # PostgreSQL schema with vector extension
-│   └── seed.ts                        # Seed script for initial startup profiles
-│
-├── public/                            # Static assets and media
-├── run.bat                            # 1-Click launcher for Full-Stack Server (Port 3000)
-├── run_fastapi.bat                    # 1-Click launcher for Python FastAPI Service (Port 8000)
-├── package.json                       # Dependencies, scripts, and build pipeline
-├── tsconfig.json                      # TypeScript compiler configuration
-├── vite.config.ts                     # Vite build configuration
-├── .env.example                       # Environment variable template
-└── README.md                          # Comprehensive project documentation
+├── tests/                             # Comprehensive test suites (27 automated test files)
+├── prisma/                            # Database schema & migrations (PostgreSQL + pgvector)
+├── docs/                              # Architecture documentation & API references
+├── server.ts                          # Unified full-stack server (runs Express + serves frontend)
+├── package.json                       # Unified root scripts (run both or either subproject)
+├── tsconfig.json                      # Root TypeScript configuration
+├── .gitignore                         # Project-wide ignore rules (node_modules, dist, .env)
+├── .env.example                       # Root environment variables template
+└── README.md                          # Main project guide
 ```
 
 ---
 
-##  Getting Started
+## 🧭 Developer Guide: Where to Edit What
+
+| I want to modify... | File / Directory to Edit | Description |
+| :--- | :--- | :--- |
+| **Color palette, typography, CSS styles** | `frontend/src/styles/index.css` | All CSS variables, brand tokens, and styling rules. |
+| **A UI component (e.g. Chatbot, Approval Queue)** | `frontend/src/components/` | Reusable UI components. |
+| **Page-level layouts & new routes** | `frontend/src/pages/` & `frontend/src/App.tsx` | Route definitions and page container views. |
+| **Frontend API calls to the backend** | `frontend/src/services/api.ts` | Centralized API client utilizing `VITE_API_BASE_URL`. |
+| **Backend API endpoints & routes** | `backend/src/routes/` or `backend/routes/api.ts` | Express route definitions. |
+| **Backend business logic & controllers** | `backend/src/controllers/` & `backend/services/` | Logic for approvals, ledger, council deliberations. |
+| **AI Agent prompts & orchestration** | `backend/services/multiAgentCouncil.ts` & `backend/agents/` | Executive agent personas, deliberation rules, and prompts. |
+| **Database schemas & models** | `prisma/schema.prisma` | PostgreSQL tables, relationships, and vector columns. |
+
+---
+
+## 🚀 Running the Project
+
+### Option A: Run Unified Full-Stack (Easiest)
+From the project root:
+```bash
+# Install dependencies
+npm install
+
+# Start unified full-stack development server (Port 3000)
+npm run dev
+
+# Run automated tests
+npm test
+
+# Build all production bundles (unified + frontend + backend)
+npm run build
+```
+
+### Option B: Run Frontend & Backend Independently
+You can start and develop either subproject independently:
+
+#### 1. Frontend Only (Vite Dev Server on Port 5173)
+```bash
+# From root:
+npm run dev:frontend
+
+# Or directly in frontend folder:
+cd frontend
+npm install
+npm run dev
+```
+
+#### 2. Backend Only (Node/Express API Server on Port 3000)
+```bash
+# From root:
+npm run dev:backend
+
+# Or directly in backend folder:
+cd backend
+npm install
+npm run dev
+```
+
+### Option C: Standalone Production Builds & Linting
+```bash
+# Type-check and lint across all projects
+npm run lint
+
+# Build standalone frontend to frontend/dist/
+npm run build:frontend
+
+# Build standalone backend to backend/dist/server.cjs
+npm run build:backend
+```
+
+---
 
 ### Prerequisites
 Make sure you have the following installed on your machine:

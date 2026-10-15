@@ -1,11 +1,17 @@
 node_modules/
 build/
 dist/
+frontend/dist/
+backend/dist/
 coverage/
 .DS_Store
 *.log
 .env*
 !.env.example
+frontend/.env*
+!frontend/.env.example
+backend/.env*
+!backend/.env.example
 __pycache__/
 *.pyc
 *.pyo
