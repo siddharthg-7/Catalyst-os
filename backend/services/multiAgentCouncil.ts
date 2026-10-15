@@ -11,7 +11,7 @@ import { companyPolicyService, CompanyPolicy } from './companyPolicyService';
 import { agentRunService, AgentRunRecord } from './agentRunService';
 import { decisionLedgerService } from './decisionLedgerService';
 import { CanonicalStartupContext } from './workspaceService';
-import { AgentVote, BoardConsensus, VoteVerdict } from '../../src/types';
+import { AgentVote, BoardConsensus, VoteVerdict } from '../src/models/types';
 
 export type ExecutiveRole = 'CEO' | 'CFO' | 'Talent' | 'Growth' | 'Legal' | 'Operations' | 'Auditor';
 

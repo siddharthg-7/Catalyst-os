@@ -1,4 +1,4 @@
-import { Initiative, WorkflowTask, AgentMessage, Deliverable } from '../../src/types';
+import { Initiative, WorkflowTask, AgentMessage, Deliverable } from '../src/models/types';
 import { 
   runCEOPlanner, 
   runFinanceAgent, 

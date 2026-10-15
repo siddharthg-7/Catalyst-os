@@ -20,7 +20,7 @@ import {
   OrchestrationEvidence, 
   OrchestrationCalculation, 
   Deliverable 
-} from '../../src/types';
+} from '../src/models/types';
 import { multiAgentCouncil, CouncilExecutionResult } from './multiAgentCouncil';
 import { delegateWorkOrders, decomposeCommandToPlan } from './taskDelegationService';
 

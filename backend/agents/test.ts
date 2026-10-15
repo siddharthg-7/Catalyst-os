@@ -1,6 +1,6 @@
 import { runCEOPlanner, runFinanceAgent } from './services';
 import { runOrchestrationLoop } from '../ai/orchestrator';
-import { Initiative } from '../../src/types';
+import { Initiative } from '../src/models/types';
 
 async function runTests() {
   console.log('========================================');

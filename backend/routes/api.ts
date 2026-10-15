@@ -20,7 +20,7 @@ import {
   persistCurrentState
 } from '../state';
 import { ai, runMultiAgentCollaboration } from '../services/geminiService';
-import { Initiative, Deliverable, UserRole, User } from '../../src/types';
+import { Initiative, Deliverable, UserRole, User } from '../src/models/types';
 import { 
   authenticateJWT, 
   requireRole, 

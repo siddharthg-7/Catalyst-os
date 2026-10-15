@@ -1,7 +1,7 @@
 import { prisma, safeDbQuery } from './dbService';
 import { companyContextService } from './companyContextService';
 import { startupProfile, approvals, decisionLog, initiatives, isDbAvailable, persistCurrentState } from '../state';
-import { Deliverable, StartupProfile, DecisionRecord } from '../../src/types';
+import { Deliverable, StartupProfile, DecisionRecord } from '../src/models/types';
 import { decisionLedgerService } from './decisionLedgerService';
 import { idempotencyService } from './idempotencyService';
 

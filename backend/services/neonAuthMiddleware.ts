@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import jwt from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
-import { User, UserRole } from '../../src/types';
+import { User, UserRole } from '../src/models/types';
 import { verifyNeonAuthToken } from './neonAuthService';
 import { prisma, safeDbQuery } from './dbService';
 

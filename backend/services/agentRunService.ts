@@ -4,7 +4,7 @@
  * Guarantees that refreshing the page or restarting clients recovers full deliberation history.
  */
 
-import { AgentVote } from '../../src/types';
+import { AgentVote } from '../src/models/types';
 
 export interface AgentRunRecord {
   workflowId: string;

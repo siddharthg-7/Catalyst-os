@@ -1,4 +1,4 @@
-import { AgentRole, Agent, AgentMessage, WorkflowTask, Deliverable, Initiative, StartupProfile } from '../../src/types';
+import { AgentRole, Agent, AgentMessage, WorkflowTask, Deliverable, Initiative, StartupProfile } from '../src/models/types';
 
 export interface PlannerOutputDTO {
   initiativeId: string;

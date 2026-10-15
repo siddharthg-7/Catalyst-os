@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { StartupProfile, Agent, Initiative, Deliverable, KnowledgeFile, DecisionRecord, User, UserRole } from '../src/types';
+import { StartupProfile, Agent, Initiative, Deliverable, KnowledgeFile, DecisionRecord, User, UserRole } from './src/models/types';
 
 import bcrypt from 'bcryptjs';
 import { prisma, safeDbQuery } from './services/dbService';

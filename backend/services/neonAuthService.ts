@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import crypto from 'crypto';
-import { User, UserRole } from '../../src/types';
+import { User, UserRole } from '../src/models/types';
 
 export const NEON_AUTH_BASE_URL =
   process.env.NEON_AUTH_BASE_URL ||

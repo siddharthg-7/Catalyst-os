@@ -1,5 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
-import { Initiative, WorkflowTask, AgentMessage, Deliverable } from '../../src/types';
+import { Initiative, WorkflowTask, AgentMessage, Deliverable } from '../src/models/types';
 import { startupProfile, knowledgeFiles } from '../state';
 
 // Initialize Google GenAI client

@@ -1,4 +1,4 @@
-import { Initiative, WorkflowTask, AgentMessage, Deliverable } from '../../src/types';
+import { Initiative, WorkflowTask, AgentMessage, Deliverable } from '../src/models/types';
 import { Type } from '@google/genai';
 import { callModelJson } from './gemini.service';
 import { loadPromptAsset, renderPromptTemplate } from './prompt-loader';
