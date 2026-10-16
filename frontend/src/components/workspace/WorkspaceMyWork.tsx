@@ -375,25 +375,25 @@ export default function WorkspaceMyWork({
       )}
 
       {/* 1. HEADER & VIEW SWITCHER (Section 5.A) */}
-      <div className="bg-white rounded-xl border border-slate-200/90 p-5 shadow-sm">
+      <div className="bg-white rounded-xl border border-[#141413]/10 p-5 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-900">
+            <h1 className="text-xl font-bold tracking-tight text-[#141413]">
               My Execution Workspace
             </h1>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-[#666562] mt-0.5">
               Formulate, execute, and deliver prioritized sprint milestones.
             </p>
           </div>
 
           {/* Compact View Switcher Tabs */}
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl self-start md:self-auto">
+          <div className="flex items-center gap-1 bg-[#F3F0EE] p-1 rounded-xl self-start md:self-auto">
             <button
               onClick={() => setCurrentView('LIST')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 currentView === 'LIST'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-white text-[#141413] shadow-xs'
+                  : 'text-[#666562] hover:text-[#141413]'
               }`}
             >
               <List className="w-3.5 h-3.5" />
@@ -402,10 +402,10 @@ export default function WorkspaceMyWork({
 
             <button
               onClick={() => setCurrentView('BOARD')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 currentView === 'BOARD'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-white text-[#141413] shadow-xs'
+                  : 'text-[#666562] hover:text-[#141413]'
               }`}
             >
               <LayoutGrid className="w-3.5 h-3.5" />
@@ -414,10 +414,10 @@ export default function WorkspaceMyWork({
 
             <button
               onClick={() => setCurrentView('CALENDAR')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 currentView === 'CALENDAR'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-white text-[#141413] shadow-xs'
+                  : 'text-[#666562] hover:text-[#141413]'
               }`}
             >
               <Calendar className="w-3.5 h-3.5" />
@@ -427,16 +427,16 @@ export default function WorkspaceMyWork({
             {isReviewerRole && (
               <button
                 onClick={() => setCurrentView('REVIEW')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                   currentView === 'REVIEW'
-                    ? 'bg-white text-rose-700 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-white text-rose-800 shadow-xs'
+                    : 'text-[#666562] hover:text-[#141413]'
                 }`}
               >
                 <Shield className="w-3.5 h-3.5" />
                 <span>Awaiting Review</span>
                 {tasks.filter(t => t.status === 'submitted').length > 0 && (
-                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-rose-100 text-rose-700 font-bold">
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-rose-100 text-rose-800 font-bold">
                     {tasks.filter(t => t.status === 'submitted').length}
                   </span>
                 )}
@@ -447,7 +447,7 @@ export default function WorkspaceMyWork({
 
         {/* Filter bar for List & Board views */}
         {currentView !== 'CALENDAR' && currentView !== 'REVIEW' && (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 mt-4 border-t border-slate-100">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 mt-4 border-t border-[#141413]/10">
             {/* Status pills */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
               {[
@@ -460,14 +460,14 @@ export default function WorkspaceMyWork({
                 <button
                   key={f.id}
                   onClick={() => setFilterStatus(f.id)}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 ${
+                  className={`px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer ${
                     filterStatus === f.id
-                      ? 'bg-slate-900 text-white font-semibold'
-                      : 'text-slate-600 hover:bg-slate-100'
+                      ? 'bg-[#141413] text-white font-semibold'
+                      : 'text-[#666562] hover:bg-[#F3F0EE]'
                   }`}
                 >
                   <span>{f.label}</span>
-                  <span className={`text-[10px] px-1 rounded-full ${filterStatus === f.id ? 'bg-slate-800 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                  <span className={`text-[10px] px-1 rounded-full ${filterStatus === f.id ? 'bg-[#282725] text-white' : 'bg-[#141413]/10 text-[#141413]'}`}>
                     {f.count}
                   </span>
                 </button>
@@ -476,13 +476,13 @@ export default function WorkspaceMyWork({
 
             {/* Search input */}
             <div className="relative w-full sm:w-64">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+              <Search className="w-3.5 h-3.5 text-[#8E8D8A] absolute left-3 top-2.5" />
               <input
                 type="text"
                 placeholder="Search tasks by title or dept..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-[#141413]/15 text-xs text-[#141413] placeholder-[#8E8D8A] focus:outline-hidden focus:ring-1 focus:ring-[#141413] focus:border-[#141413]"
               />
             </div>
           </div>
@@ -491,9 +491,9 @@ export default function WorkspaceMyWork({
 
       {/* 2. MAIN WORK VIEW RENDERER */}
       {currentView === 'LIST' && (
-        <div className="bg-white rounded-xl border border-slate-200/90 shadow-sm divide-y divide-slate-100">
+        <div className="bg-white rounded-xl border border-[#141413]/10 shadow-xs divide-y divide-[#141413]/10">
           {filteredTasks.length === 0 ? (
-            <div className="p-12 text-center text-xs text-slate-400">
+            <div className="p-12 text-center text-xs text-[#8E8D8A]">
               <CheckSquare className="w-8 h-8 mx-auto mb-2 opacity-50" />
               <p>No deliverables match the active filter criteria.</p>
             </div>
@@ -510,7 +510,7 @@ export default function WorkspaceMyWork({
                   key={task.id}
                   onClick={() => onSelectTask(isSelected ? null : task.id)}
                   className={`p-4 flex items-center justify-between gap-4 cursor-pointer transition-colors ${
-                    isSelected ? 'bg-indigo-50/50' : 'hover:bg-slate-50/80'
+                    isSelected ? 'bg-[#F3F0EE]/80' : 'hover:bg-[#F3F0EE]/40'
                   }`}
                 >
                   <div className="min-w-0 flex items-start gap-3">

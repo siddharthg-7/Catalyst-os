@@ -74,28 +74,28 @@ export default function InteractiveBrandPanel() {
   return (
     <div
       ref={panelRef}
-      className="relative hidden lg:flex flex-col justify-between p-10 xl:p-12 bg-gradient-to-br from-[#EEF2FF] via-[#F8FAFC] to-[#F3E8FF] border-r border-indigo-100/70 overflow-hidden select-none"
+      className="relative hidden lg:flex flex-col justify-between p-10 xl:p-12 bg-[#FDFCFA] border-r border-[rgba(20,20,19,0.08)] overflow-hidden select-none"
       style={{
-        boxShadow: 'inset -1px 0 0 rgba(79,70,229,0.06)',
+        boxShadow: 'inset -1px 0 0 rgba(20,20,19,0.04)',
       }}
     >
-      {/* ── Cursor-following ambient radial color glow ──────────────────────── */}
+      {/* ── Cursor-following ambient radial color glow (Restrained Warm Carbon) ── */}
       <div
         ref={glowRef}
         className="pointer-events-none absolute top-0 left-0 w-[500px] h-[500px] rounded-full transition-opacity duration-700 ease-out z-0"
         style={{
           background:
-            'radial-gradient(circle, rgba(99, 102, 241, 0.22) 0%, rgba(168, 85, 247, 0.14) 35%, rgba(14, 165, 233, 0.08) 60%, transparent 75%)',
+            'radial-gradient(circle, rgba(20, 20, 19, 0.04) 0%, rgba(20, 20, 19, 0.015) 35%, transparent 70%)',
           filter: 'blur(40px)',
           opacity: 0.6,
           willChange: 'transform, opacity',
         }}
       />
 
-      {/* Decorative orbital concentric lines */}
+      {/* Decorative orbital concentric lines in subtle warm border */}
       <div className="pointer-events-none absolute inset-0 z-0 opacity-60">
         <div
-          className="absolute rounded-full border border-indigo-200/40"
+          className="absolute rounded-full border border-[rgba(20,20,19,0.06)]"
           style={{
             width: '640px',
             height: '640px',
@@ -106,7 +106,7 @@ export default function InteractiveBrandPanel() {
           }}
         />
         <div
-          className="absolute rounded-full border border-dashed border-violet-200/40"
+          className="absolute rounded-full border border-dashed border-[rgba(20,20,19,0.05)]"
           style={{
             width: '420px',
             height: '420px',
@@ -117,7 +117,7 @@ export default function InteractiveBrandPanel() {
           }}
         />
         <div
-          className="absolute rounded-full border border-blue-200/35"
+          className="absolute rounded-full border border-[rgba(20,20,19,0.04)]"
           style={{
             width: '520px',
             height: '520px',
@@ -138,50 +138,45 @@ export default function InteractiveBrandPanel() {
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
             className="flex items-center gap-3"
           >
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-600 via-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-500/30 flex items-center justify-center">
-              <CatalystLogo className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-2xl bg-[#141413] text-[#FDFCFA] shadow-sm flex items-center justify-center">
+              <CatalystLogo className="w-5 h-5 text-[#FDFCFA]" />
             </div>
             <div>
-              <span className="text-base font-extrabold text-slate-900 tracking-tight block">CatalystOS</span>
-              <span className="text-[10px] font-mono text-indigo-600 font-semibold tracking-wider uppercase">Executive Platform</span>
+              <span className="text-base font-extrabold text-[#141413] tracking-tight block">CatalystOS</span>
+              <span className="text-[10px] font-mono text-[#666562] font-semibold tracking-wider uppercase">Executive Platform</span>
             </div>
           </motion.div>
 
           {/* Elegant ambient badge */}
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/80 backdrop-blur-md border border-indigo-100 shadow-xs text-[11px] font-medium text-indigo-700">
-            <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[rgba(20,20,19,0.10)] shadow-2xs text-[11px] font-medium text-[#141413]">
+            <Sparkles className="w-3.5 h-3.5 text-[#141413]" />
             <span>AI Multi-Agent OS</span>
           </div>
         </div>
 
-        {/* Headline with Rich Gradient */}
+        {/* Headline: Clean Executive Carbon Typography */}
         <div className="mb-4">
-          <h1 className="text-3xl xl:text-4xl font-extrabold tracking-tight leading-[1.2] font-sans">
-            <span className="text-slate-900">The Autonomous </span>
-            <span className="bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-700 bg-clip-text text-transparent">
-              Executive OS
-            </span>
-            <br />
-            <span className="text-slate-900">for Startups.</span>
+          <h1 className="text-3xl xl:text-4xl font-extrabold tracking-tight leading-[1.2] font-sans text-[#141413]">
+            The Autonomous Executive OS for Startups.
           </h1>
         </div>
 
-        {/* High-tech Subtitle with DecryptedText */}
-        <p className="text-sm text-slate-600 leading-relaxed max-w-md font-sans mb-8">
+        {/* Subtitle with DecryptedText */}
+        <p className="text-sm text-[#666562] leading-relaxed max-w-md font-sans mb-8">
           <DecryptedText
             text="Deploy 8 coordinated AI executives. From strategy to cash runway, run your company with autonomous precision."
             speed={25}
             maxIterations={8}
             sequential={true}
             animateOn="view"
-            className="text-sm text-slate-600 leading-relaxed font-normal"
+            className="text-sm text-[#666562] leading-relaxed font-normal"
           />
         </p>
       </div>
 
-      {/* Center: Interactive AI Council Showcase Cards (Vibrant, tasteful colors) */}
+      {/* Center: Executive AI Council Showcase Cards */}
       <div className="relative z-10 space-y-3.5 my-2">
-        {/* Card 1: Executive AI Council (Indigo theme) */}
+        {/* Card 1: Executive AI Council */}
         <motion.div
           style={{
             transform: `translate3d(${parallax.x * 6}px, ${parallax.y * 6}px, 0)`,
@@ -189,31 +184,31 @@ export default function InteractiveBrandPanel() {
           }}
         >
           <SpotlightCard
-            className="p-4 bg-white/95 backdrop-blur-md border border-indigo-100 hover:border-indigo-300 shadow-[0_8px_24px_rgba(79,70,229,0.06)] hover:shadow-[0_12px_32px_rgba(79,70,229,0.12)] transition-all"
-            spotlightColor="rgba(99, 102, 241, 0.14)"
-            borderColor="rgba(99, 102, 241, 0.40)"
+            className="p-4 bg-white border border-[rgba(20,20,19,0.08)] hover:border-[rgba(20,20,19,0.18)] shadow-sm hover:shadow-md transition-all rounded-2xl"
+            spotlightColor="rgba(20, 20, 19, 0.04)"
+            borderColor="rgba(20, 20, 19, 0.16)"
             size={280}
           >
             <div className="flex items-center justify-between gap-3.5">
               <div className="flex items-center gap-3.5">
-                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-md shadow-indigo-500/25 flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-[#141413] text-[#FDFCFA] shadow-xs flex items-center justify-center flex-shrink-0">
                   <Bot className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-xs font-bold text-slate-900 font-sans">Atlas & Aura Intelligence</h3>
-                  <p className="text-[11px] text-slate-500 font-sans mt-0.5 leading-normal">
+                  <h3 className="text-xs font-bold text-[#141413] font-sans">Atlas & Aura Intelligence</h3>
+                  <p className="text-[11px] text-[#666562] font-sans mt-0.5 leading-normal">
                     Strategic alignment, sprint roadmaps & council consensus.
                   </p>
                 </div>
               </div>
-              <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/70 shadow-2xs flex-shrink-0">
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-[#F3F0EE] text-[#141413] border border-[rgba(20,20,19,0.08)] shadow-2xs flex-shrink-0">
                 Co-Pilots
               </span>
             </div>
           </SpotlightCard>
         </motion.div>
 
-        {/* Card 2: Financial Engine & Governance (Sky/Blue theme) */}
+        {/* Card 2: Financial Engine & Governance */}
         <motion.div
           style={{
             transform: `translate3d(${parallax.x * -4}px, ${parallax.y * -4}px, 0)`,
@@ -221,31 +216,31 @@ export default function InteractiveBrandPanel() {
           }}
         >
           <SpotlightCard
-            className="p-4 bg-white/95 backdrop-blur-md border border-sky-100 hover:border-sky-300 shadow-[0_8px_24px_rgba(14,165,233,0.06)] hover:shadow-[0_12px_32px_rgba(14,165,233,0.12)] transition-all"
-            spotlightColor="rgba(14, 165, 233, 0.14)"
-            borderColor="rgba(14, 165, 233, 0.40)"
+            className="p-4 bg-white border border-[rgba(20,20,19,0.08)] hover:border-[rgba(20,20,19,0.18)] shadow-sm hover:shadow-md transition-all rounded-2xl"
+            spotlightColor="rgba(20, 20, 19, 0.04)"
+            borderColor="rgba(20, 20, 19, 0.16)"
             size={280}
           >
             <div className="flex items-center justify-between gap-3.5">
               <div className="flex items-center gap-3.5">
-                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 text-white shadow-md shadow-blue-500/25 flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-[#141413] text-[#FDFCFA] shadow-xs flex items-center justify-center flex-shrink-0">
                   <TrendingUp className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-xs font-bold text-slate-900 font-sans">Nexus Financial Engine</h3>
-                  <p className="text-[11px] text-slate-500 font-sans mt-0.5 leading-normal">
-                    Automated burn rate projections & scenario simulations.
+                  <h3 className="text-xs font-bold text-[#141413] font-sans">Nexus Financial Engine</h3>
+                  <p className="text-[11px] text-[#666562] font-sans mt-0.5 leading-normal">
+                    Deterministic runway calculations & real-time burn audits.
                   </p>
                 </div>
               </div>
-              <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-sky-50 text-sky-700 border border-sky-200/70 shadow-2xs flex-shrink-0">
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-[#DCFCE7] text-[#15803D] border border-emerald-200/80 shadow-2xs flex-shrink-0">
                 Runway Guard
               </span>
             </div>
           </SpotlightCard>
         </motion.div>
 
-        {/* Card 3: Enterprise Trust & Row Security (Violet/Purple theme) */}
+        {/* Card 3: Enterprise Trust & Governance */}
         <motion.div
           style={{
             transform: `translate3d(${parallax.x * 5}px, ${parallax.y * 5}px, 0)`,
@@ -253,24 +248,24 @@ export default function InteractiveBrandPanel() {
           }}
         >
           <SpotlightCard
-            className="p-4 bg-white/95 backdrop-blur-md border border-purple-100 hover:border-purple-300 shadow-[0_8px_24px_rgba(168,85,247,0.06)] hover:shadow-[0_12px_32px_rgba(168,85,247,0.12)] transition-all"
-            spotlightColor="rgba(168, 85, 247, 0.14)"
-            borderColor="rgba(168, 85, 247, 0.40)"
+            className="p-4 bg-white border border-[rgba(20,20,19,0.08)] hover:border-[rgba(20,20,19,0.18)] shadow-sm hover:shadow-md transition-all rounded-2xl"
+            spotlightColor="rgba(20, 20, 19, 0.04)"
+            borderColor="rgba(20, 20, 19, 0.16)"
             size={280}
           >
             <div className="flex items-center justify-between gap-3.5">
               <div className="flex items-center gap-3.5">
-                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-md shadow-purple-500/25 flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-[#141413] text-[#FDFCFA] shadow-xs flex items-center justify-center flex-shrink-0">
                   <Lock className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-xs font-bold text-slate-900 font-sans">Role-Based Security</h3>
-                  <p className="text-[11px] text-slate-500 font-sans mt-0.5 leading-normal">
-                    Database row isolation with cryptographic session tokens.
+                  <h3 className="text-xs font-bold text-[#141413] font-sans">Deterministic Governance</h3>
+                  <p className="text-[11px] text-[#666562] font-sans mt-0.5 leading-normal">
+                    Multi-agent human-in-the-loop gating with cryptographic audit logs.
                   </p>
                 </div>
               </div>
-              <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200/70 shadow-2xs flex-shrink-0">
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-[#F3F0EE] text-[#666562] border border-[rgba(20,20,19,0.08)] shadow-2xs flex-shrink-0">
                 Enterprise
               </span>
             </div>
@@ -279,15 +274,15 @@ export default function InteractiveBrandPanel() {
       </div>
 
       {/* Bottom Footer */}
-      <div className="relative z-10 pt-6 border-t border-indigo-100/80 flex items-center justify-between text-[11px] text-slate-500 font-mono">
+      <div className="relative z-10 pt-6 border-t border-[rgba(20,20,19,0.08)] flex items-center justify-between text-[11px] text-[#8E8D8A] font-mono">
         <div className="flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-          <span className="text-slate-600">CatalystOS Protocol 2026</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-[#141413]" />
+          <span className="text-[#666562]">CatalystOS Protocol 2026</span>
         </div>
-        <div className="flex items-center gap-4 text-slate-500">
-          <span className="hover:text-indigo-600 transition-colors cursor-pointer">Enterprise Security</span>
+        <div className="flex items-center gap-4 text-[#8E8D8A]">
+          <span className="hover:text-[#141413] transition-colors cursor-pointer">Enterprise Security</span>
           <span>•</span>
-          <span className="hover:text-indigo-600 transition-colors cursor-pointer">Privacy First</span>
+          <span className="hover:text-[#141413] transition-colors cursor-pointer">Privacy First</span>
         </div>
       </div>
     </div>

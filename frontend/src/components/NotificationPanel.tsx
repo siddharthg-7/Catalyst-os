@@ -109,21 +109,21 @@ export default function NotificationPanel({ isOpen, onClose, onNavigate }: Notif
   };
 
   const getBgStyle = (type: string, read: boolean) => {
-    if (read) return 'bg-slate-50/70 border-slate-200/80 opacity-70';
+    if (read) return 'bg-[#FDFCFA] border-[rgba(20,20,19,0.06)] opacity-70';
     const t = (type || '').toUpperCase();
     switch (t) {
       case 'APPROVAL':
       case 'WARNING':
-        return 'bg-amber-50/80 border-amber-200 shadow-xs';
+        return 'bg-amber-50/60 border-amber-200/80 shadow-xs';
       case 'RISK':
       case 'CRITICAL':
-        return 'bg-rose-50/80 border-rose-200 shadow-xs';
+        return 'bg-rose-50/60 border-rose-200/80 shadow-xs';
       case 'DOCUMENT':
-        return 'bg-sky-50/80 border-sky-200 shadow-xs';
+        return 'bg-sky-50/60 border-sky-200/80 shadow-xs';
       case 'SUCCESS':
-        return 'bg-emerald-50/80 border-emerald-200 shadow-xs';
+        return 'bg-emerald-50/60 border-emerald-200/80 shadow-xs';
       default:
-        return 'bg-indigo-50/80 border-indigo-200 shadow-xs';
+        return 'bg-[#F3F0EE]/50 border-[rgba(20,20,19,0.10)] shadow-xs';
     }
   };
 
@@ -138,43 +138,43 @@ export default function NotificationPanel({ isOpen, onClose, onNavigate }: Notif
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-slate-900/20 backdrop-blur-xs z-40"
+            className="fixed inset-0 bg-[#141413]/30 backdrop-blur-xs z-40"
           />
           <motion.div
             initial={{ x: '100%', opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: '100%', opacity: 0 }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed top-0 right-0 h-screen w-full max-w-sm bg-white border-l border-slate-200 z-50 flex flex-col shadow-2xl font-sans"
+            className="fixed top-0 right-0 h-screen w-full max-w-sm bg-white border-l border-[rgba(20,20,19,0.10)] z-50 flex flex-col shadow-2xl font-sans"
           >
             {/* Header */}
-            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-white">
+            <div className="p-5 border-b border-[rgba(20,20,19,0.08)] flex items-center justify-between bg-white">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+                <div className="w-8 h-8 rounded-lg bg-[#141413] flex items-center justify-center text-[#FDFCFA]">
                   <Bell className="w-4 h-4" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-bold text-slate-900 tracking-tight">Executive Notifications</h2>
-                  <p className="text-[10px] text-slate-400 font-mono">OPERATIONAL AUDIT TRAIL</p>
+                  <h2 className="text-sm font-bold text-[#141413] tracking-tight">Executive Notifications</h2>
+                  <p className="text-[10px] text-[#8E8D8A] font-mono uppercase tracking-wider">Operational Audit Trail</p>
                 </div>
               </div>
               <button 
                 onClick={onClose}
-                className="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-all cursor-pointer"
+                className="w-8 h-8 rounded-lg hover:bg-[#F3F0EE] text-[#666562] hover:text-[#141413] flex items-center justify-center transition-all cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Sub-bar */}
-            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50/60">
-              <span className="text-xs font-medium text-slate-500">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-[rgba(20,20,19,0.08)] bg-[#FDFCFA]">
+              <span className="text-xs font-medium text-[#666562]">
                 {unreadCount > 0 ? `${unreadCount} Unread Alerts` : 'All Caught Up'}
               </span>
               {unreadCount > 0 && (
                 <button 
                   onClick={markAllRead}
-                  className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors flex items-center gap-1 cursor-pointer"
+                  className="text-xs font-semibold text-[#141413] hover:text-[#262627] transition-colors flex items-center gap-1 cursor-pointer"
                 >
                   <CheckCheck className="w-3.5 h-3.5" />
                   <span>Mark all read</span>
@@ -183,20 +183,20 @@ export default function NotificationPanel({ isOpen, onClose, onNavigate }: Notif
             </div>
 
             {/* Notifications List */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#F3F0EE]/30">
               {loading ? (
-                <div className="py-12 flex flex-col items-center justify-center text-slate-400 space-y-2">
-                  <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
+                <div className="py-12 flex flex-col items-center justify-center text-[#8E8D8A] space-y-2">
+                  <Loader2 className="w-6 h-6 animate-spin text-[#141413]" />
                   <span className="text-xs font-mono">Syncing operational events...</span>
                 </div>
               ) : notifications.length === 0 ? (
                 <div className="py-16 text-center space-y-3">
-                  <div className="w-12 h-12 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center mx-auto text-slate-400">
+                  <div className="w-12 h-12 rounded-full bg-white border border-[rgba(20,20,19,0.10)] flex items-center justify-center mx-auto text-[#8E8D8A]">
                     <CheckCircle2 className="w-6 h-6" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-slate-800">No Notifications Yet</h4>
-                    <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
+                    <h4 className="text-sm font-bold text-[#141413]">No Notifications Yet</h4>
+                    <p className="text-xs text-[#666562] mt-1 max-w-xs mx-auto">
                       Events from agent analyses, document indexation, and approval requirements will appear here in real-time.
                     </p>
                   </div>
@@ -206,7 +206,7 @@ export default function NotificationPanel({ isOpen, onClose, onNavigate }: Notif
                   <div 
                     key={n.id}
                     onClick={() => handleNotificationClick(n)}
-                    className={`p-4 rounded-xl border transition-all cursor-pointer hover:border-slate-300 ${getBgStyle(n.type, n.read)}`}
+                    className={`p-3.5 rounded-xl border transition-all cursor-pointer hover:border-[rgba(20,20,19,0.20)] ${getBgStyle(n.type, n.read)}`}
                   >
                     <div className="flex gap-3 items-start">
                       <div className="shrink-0 mt-0.5">
@@ -214,14 +214,14 @@ export default function NotificationPanel({ isOpen, onClose, onNavigate }: Notif
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1 gap-2">
-                          <h4 className={`text-xs font-bold truncate ${n.read ? 'text-slate-600' : 'text-slate-900'}`}>
+                          <h4 className={`text-xs font-bold truncate ${n.read ? 'text-[#666562]' : 'text-[#141413]'}`}>
                             {n.title}
                           </h4>
-                          <span className="text-[9px] font-mono text-slate-400 shrink-0">
+                          <span className="text-[9px] font-mono text-[#8E8D8A] shrink-0">
                             {timeAgo(n.createdAt)}
                           </span>
                         </div>
-                        <p className={`text-xs leading-relaxed line-clamp-2 ${n.read ? 'text-slate-400' : 'text-slate-600'}`}>
+                        <p className={`text-xs leading-relaxed line-clamp-2 ${n.read ? 'text-[#8E8D8A]' : 'text-[#666562]'}`}>
                           {n.message}
                         </p>
                         {n.type === 'APPROVAL' && (
@@ -244,8 +244,8 @@ export default function NotificationPanel({ isOpen, onClose, onNavigate }: Notif
             </div>
             
             {/* Footer */}
-            <div className="p-4 border-t border-slate-100 bg-slate-50/60">
-              <p className="text-[10px] text-center text-slate-400 font-mono">
+            <div className="p-4 border-t border-[rgba(20,20,19,0.08)] bg-[#FDFCFA]">
+              <p className="text-[10px] text-center text-[#8E8D8A] font-mono">
                 CatalystOS Operational Event Stream • Scoped to Workspace
               </p>
             </div>

@@ -182,7 +182,7 @@ export default function CommandPalette({ isOpen, onClose, onNavigate, onRunActio
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[12vh] p-4 bg-slate-900/30 backdrop-blur-xs animate-fade-in select-none">
+    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[12vh] p-4 bg-[#141413]/35 backdrop-blur-xs animate-fade-in select-none">
       <div 
         ref={containerRef}
         className="w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[640px] border transition-all"
