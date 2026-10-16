@@ -153,7 +153,7 @@ export default function NotificationPanel({
       case 'SUCCESS':
         return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
       default:
-        return <Info className="w-4 h-4 text-indigo-500" />;
+        return <Info className="w-4 h-4 text-[#141413]" />;
     }
   };
 
@@ -182,7 +182,7 @@ export default function NotificationPanel({
   };
 
   const getBgStyle = (type: string, read: boolean) => {
-    if (read) return 'bg-slate-50/70 border-slate-200/80 opacity-75';
+    if (read) return 'bg-[#FDFCFA] border-[rgba(20,20,19,0.06)] opacity-70';
     const t = (type || '').toUpperCase();
     switch (t) {
       case 'TASK_ASSIGNED':
@@ -199,16 +199,16 @@ export default function NotificationPanel({
         return 'bg-emerald-50/70 border-emerald-200 shadow-xs';
       case 'APPROVAL':
       case 'WARNING':
-        return 'bg-amber-50/80 border-amber-200 shadow-xs';
+        return 'bg-amber-50/60 border-amber-200/80 shadow-xs';
       case 'RISK':
       case 'CRITICAL':
-        return 'bg-rose-50/80 border-rose-200 shadow-xs';
+        return 'bg-rose-50/60 border-rose-200/80 shadow-xs';
       case 'DOCUMENT':
-        return 'bg-sky-50/80 border-sky-200 shadow-xs';
+        return 'bg-sky-50/60 border-sky-200/80 shadow-xs';
       case 'SUCCESS':
-        return 'bg-emerald-50/80 border-emerald-200 shadow-xs';
+        return 'bg-emerald-50/60 border-emerald-200/80 shadow-xs';
       default:
-        return 'bg-indigo-50/80 border-indigo-200 shadow-xs';
+        return 'bg-[#F3F0EE]/50 border-[rgba(20,20,19,0.10)] shadow-xs';
     }
   };
 
@@ -234,29 +234,29 @@ export default function NotificationPanel({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-slate-900/20 backdrop-blur-xs z-40"
+            className="fixed inset-0 bg-[#141413]/30 backdrop-blur-xs z-40"
           />
           <motion.div
             initial={{ x: '100%', opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: '100%', opacity: 0 }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed top-0 right-0 h-screen w-full max-w-md bg-white border-l border-slate-200 z-50 flex flex-col shadow-2xl font-sans"
+            className="fixed top-0 right-0 h-screen w-full max-w-md bg-white border-l border-[rgba(20,20,19,0.10)] z-50 flex flex-col shadow-2xl font-sans"
           >
             {/* Header */}
-            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-white">
+            <div className="p-5 border-b border-[rgba(20,20,19,0.08)] flex items-center justify-between bg-white">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+                <div className="w-8 h-8 rounded-lg bg-[#141413] flex items-center justify-center text-[#FDFCFA]">
                   <Bell className="w-4 h-4" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-bold text-slate-900 tracking-tight">Work & Task Notifications</h2>
-                  <p className="text-[10px] text-slate-400 font-mono">LIVE COLLABORATION FEED</p>
+                  <h2 className="text-sm font-bold text-[#141413] tracking-tight">Work & Task Notifications</h2>
+                  <p className="text-[10px] text-[#8E8D8A] font-mono uppercase tracking-wider">Live Collaboration Feed</p>
                 </div>
               </div>
               <button 
                 onClick={onClose}
-                className="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-all cursor-pointer"
+                className="w-8 h-8 rounded-lg hover:bg-[#F3F0EE] text-[#666562] hover:text-[#141413] flex items-center justify-center transition-all cursor-pointer"
                 title="Close"
               >
                 <X className="w-4 h-4" />
@@ -264,14 +264,14 @@ export default function NotificationPanel({
             </div>
 
             {/* Filter Sub-bar */}
-            <div className="flex items-center justify-between px-5 py-2.5 border-b border-slate-100 bg-slate-50/70">
-              <div className="flex items-center gap-1.5 bg-slate-200/60 p-0.5 rounded-lg">
+            <div className="flex items-center justify-between px-5 py-2.5 border-b border-[rgba(20,20,19,0.08)] bg-[#FDFCFA]">
+              <div className="flex items-center gap-1.5 bg-[#F3F0EE] p-0.5 rounded-lg">
                 <button
                   onClick={() => setActiveFilter('all')}
                   className={`px-2.5 py-1 text-xs rounded-md font-medium transition-colors cursor-pointer ${
                     activeFilter === 'all'
-                      ? 'bg-white text-slate-900 shadow-xs font-semibold'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-white text-[#141413] shadow-xs font-semibold'
+                      : 'text-[#666562] hover:text-[#141413]'
                   }`}
                 >
                   All ({notifications.length})
@@ -280,8 +280,8 @@ export default function NotificationPanel({
                   onClick={() => setActiveFilter('unread')}
                   className={`px-2.5 py-1 text-xs rounded-md font-medium transition-colors cursor-pointer ${
                     activeFilter === 'unread'
-                      ? 'bg-white text-slate-900 shadow-xs font-semibold'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-white text-[#141413] shadow-xs font-semibold'
+                      : 'text-[#666562] hover:text-[#141413]'
                   }`}
                 >
                   Unread ({unreadCount})
@@ -291,7 +291,7 @@ export default function NotificationPanel({
               {unreadCount > 0 && (
                 <button 
                   onClick={markAllRead}
-                  className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors flex items-center gap-1 cursor-pointer"
+                  className="text-xs font-semibold text-[#141413] hover:text-[#262627] transition-colors flex items-center gap-1 cursor-pointer"
                   title="Mark all notifications as read"
                 >
                   <CheckCheck className="w-3.5 h-3.5" />
@@ -301,22 +301,22 @@ export default function NotificationPanel({
             </div>
 
             {/* Notifications List */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#F3F0EE]/30">
               {loading ? (
-                <div className="py-16 flex flex-col items-center justify-center text-slate-400 space-y-2">
-                  <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
+                <div className="py-16 flex flex-col items-center justify-center text-[#8E8D8A] space-y-2">
+                  <Loader2 className="w-6 h-6 animate-spin text-[#141413]" />
                   <span className="text-xs font-mono">Syncing task notifications...</span>
                 </div>
               ) : filteredNotifications.length === 0 ? (
-                <div className="py-20 text-center space-y-3">
-                  <div className="w-12 h-12 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center mx-auto text-slate-400">
+                <div className="py-16 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-full bg-white border border-[rgba(20,20,19,0.10)] flex items-center justify-center mx-auto text-[#8E8D8A]">
                     <CheckCircle2 className="w-6 h-6" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-slate-800">
+                    <h4 className="text-sm font-bold text-[#141413]">
                       {activeFilter === 'unread' ? 'No Unread Notifications' : 'No Notifications Yet'}
                     </h4>
-                    <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
+                    <p className="text-xs text-[#666562] mt-1 max-w-xs mx-auto">
                       {activeFilter === 'unread'
                         ? 'All caught up! New assignments, review requests, and approvals will show here.'
                         : 'Task assignments, transfers, revisions, review requests, and approvals appear here in real-time.'}
@@ -328,29 +328,29 @@ export default function NotificationPanel({
                   <div 
                     key={n.id}
                     onClick={() => handleNotificationClick(n)}
-                    className={`p-4 rounded-xl border transition-all cursor-pointer hover:border-slate-300 relative ${getBgStyle(n.type, n.read)}`}
+                    className={`p-4 rounded-xl border transition-all cursor-pointer hover:border-[rgba(20,20,19,0.20)] relative ${getBgStyle(n.type, n.read)}`}
                   >
                     {!n.read && (
-                      <span className="absolute top-3 right-3 w-2 h-2 rounded-full bg-indigo-600 shadow-xs" />
+                      <span className="absolute top-3 right-3 w-2 h-2 rounded-full bg-[#141413] shadow-xs" />
                     )}
 
                     <div className="flex gap-3 items-start">
-                      <div className="shrink-0 mt-0.5 p-1.5 rounded-lg bg-white/90 border border-slate-200/80 shadow-2xs">
+                      <div className="shrink-0 mt-0.5 p-1.5 rounded-lg bg-white/90 border border-[rgba(20,20,19,0.08)] shadow-2xs">
                         {getIcon(n.type)}
                       </div>
                       <div className="flex-1 min-w-0 pr-3">
                         <div className="flex items-center gap-2 mb-1">
                           {getTypeBadge(n.type)}
-                          <span className="text-[10px] font-mono text-slate-400 shrink-0">
+                          <span className="text-[10px] font-mono text-[#8E8D8A] shrink-0">
                             {timeAgo(n.createdAt)}
                           </span>
                         </div>
 
-                        <h4 className={`text-xs font-bold leading-snug mb-1 ${n.read ? 'text-slate-700' : 'text-slate-900'}`}>
+                        <h4 className={`text-xs font-bold leading-snug mb-1 ${n.read ? 'text-[#666562]' : 'text-[#141413]'}`}>
                           {n.title}
                         </h4>
 
-                        <p className={`text-xs leading-relaxed ${n.read ? 'text-slate-500' : 'text-slate-600'}`}>
+                        <p className={`text-xs leading-relaxed ${n.read ? 'text-[#8E8D8A]' : 'text-[#666562]'}`}>
                           {n.message}
                         </p>
 
@@ -362,22 +362,22 @@ export default function NotificationPanel({
                                 e.stopPropagation();
                                 handleTaskAction(n);
                               }}
-                              className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#141413] hover:bg-[#262627] text-[#FDFCFA] rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
                             >
                               <span>View Task</span>
                               <ArrowRight className="w-3.5 h-3.5" />
                             </button>
-                            <span className="text-[10px] text-slate-400 font-mono">
+                            <span className="text-[10px] text-[#8E8D8A] font-mono">
                               ID: {n.taskId.slice(0, 10)}...
                             </span>
                           </div>
                         ) : n.type === 'APPROVAL' ? (
-                          <div className="mt-2.5 flex items-center gap-1 text-[11px] text-amber-700 font-semibold">
+                          <div className="mt-2.5 flex items-center gap-1 text-[11px] text-amber-800 font-semibold">
                             <span>Review required in Approvals Queue</span>
                             <ArrowRight className="w-3.5 h-3.5" />
                           </div>
                         ) : n.type === 'DOCUMENT' ? (
-                          <div className="mt-2.5 flex items-center gap-1 text-[11px] text-sky-700 font-semibold">
+                          <div className="mt-2.5 flex items-center gap-1 text-[11px] text-sky-800 font-semibold">
                             <span>Open in Knowledge Base</span>
                             <ArrowRight className="w-3.5 h-3.5" />
                           </div>
@@ -390,7 +390,7 @@ export default function NotificationPanel({
             </div>
             
             {/* Footer */}
-            <div className="p-3.5 border-t border-slate-100 bg-slate-50/70 flex items-center justify-between text-[10px] text-slate-500 font-mono">
+            <div className="p-3.5 border-t border-[rgba(20,20,19,0.08)] bg-[#FDFCFA] flex items-center justify-between text-[10px] text-[#8E8D8A] font-mono">
               <span>Scoped to Company Workspace</span>
               <span>Reliable Realtime Polling</span>
             </div>

@@ -137,16 +137,16 @@ export default function VoiceStudioPanel({ isOpen, onClose }: VoiceStudioPanelPr
           }}
         >
           {/* Header */}
-          <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+          <div className="p-6 border-b border-[#141413]/10 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-2xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center">
+              <div className="w-9 h-9 rounded-2xl bg-[#F3F0EE] text-[#141413] flex items-center justify-center">
                 <Radio className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                <h3 className="text-base font-bold text-[#141413]">
                   Voice Studio
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <p className="text-xs text-[#666562]">
                   Manage speech engines, profiles, and neural models
                 </p>
               </div>
@@ -154,7 +154,7 @@ export default function VoiceStudioPanel({ isOpen, onClose }: VoiceStudioPanelPr
 
             <button
               onClick={onClose}
-              className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="p-2 rounded-xl text-[#666562] hover:text-[#141413] hover:bg-[#F3F0EE] transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -163,28 +163,28 @@ export default function VoiceStudioPanel({ isOpen, onClose }: VoiceStudioPanelPr
           {/* Scrollable Content */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
             {/* Service Health & Status Card */}
-            <div className="p-4 rounded-2xl border border-slate-200/70 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 space-y-3">
+            <div className="p-4 rounded-2xl border border-[#141413]/10 bg-[#FDFCFA] space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider font-mono">
+                <span className="text-xs font-bold text-[#141413] uppercase tracking-wider font-mono">
                   Engine Status
                 </span>
                 <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono ${
                   status?.connected
-                    ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200'
-                    : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200'
+                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                    : 'bg-amber-50 text-amber-800 border border-amber-200'
                 }`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${status?.connected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                  <span className={`w-1.5 h-1.5 rounded-full ${status?.connected ? 'bg-emerald-600 animate-pulse' : 'bg-amber-600'}`} />
                   {status?.connected ? 'Voice Studio Online' : 'Browser Web Speech Active'}
                 </span>
               </div>
 
-              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+              <p className="text-xs text-[#666562] leading-relaxed">
                 {status?.engine || 'Catalyst Native Speech Engine'}
               </p>
 
-              <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500">
+              <div className="pt-2 border-t border-[#141413]/10 flex items-center justify-between text-[11px] text-[#666562]">
                 <span className="flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
                   Processing: <strong>{status?.local ? 'LOCAL (Private)' : 'REMOTE'}</strong>
                 </span>
                 <span>Active Voices: <strong>{voices.length}</strong></span>
@@ -194,7 +194,7 @@ export default function VoiceStudioPanel({ isOpen, onClose }: VoiceStudioPanelPr
             {/* General Settings */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                <span className="text-xs font-bold text-[#141413] uppercase tracking-wider">
                   Speech Response Output
                 </span>
                 <label className="relative inline-flex items-center cursor-pointer">
@@ -204,15 +204,15 @@ export default function VoiceStudioPanel({ isOpen, onClose }: VoiceStudioPanelPr
                     onChange={(e) => handleToggleVoiceEnabled(e.target.checked)}
                     className="sr-only peer"
                   />
-                  <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                  <div className="w-9 h-5 bg-[#EAE6E2] peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#141413]"></div>
                 </label>
               </div>
 
               {/* Speed Slider */}
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
+                <div className="flex items-center justify-between text-xs text-[#666562]">
                   <span>Speech Rate</span>
-                  <span className="font-mono font-bold text-slate-900 dark:text-white">{speechSpeed}x</span>
+                  <span className="font-mono font-bold text-[#141413]">{speechSpeed}x</span>
                 </div>
                 <input
                   type="range"
@@ -221,7 +221,7 @@ export default function VoiceStudioPanel({ isOpen, onClose }: VoiceStudioPanelPr
                   step="0.05"
                   value={speechSpeed}
                   onChange={(e) => handleSpeedChange(Number(e.target.value))}
-                  className="w-full accent-indigo-600 cursor-pointer"
+                  className="w-full accent-[#141413] cursor-pointer"
                 />
               </div>
             </div>
@@ -229,13 +229,13 @@ export default function VoiceStudioPanel({ isOpen, onClose }: VoiceStudioPanelPr
             {/* Available Voices List */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                <span className="text-xs font-bold text-[#141413] uppercase tracking-wider">
                   Council Voice Profiles
                 </span>
                 <button
                   type="button"
                   onClick={() => setIsCreatingProfile(true)}
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-[#141413] hover:underline cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>New Clone</span>
@@ -253,23 +253,23 @@ export default function VoiceStudioPanel({ isOpen, onClose }: VoiceStudioPanelPr
                       onClick={() => handleSelectVoice(v.id)}
                       className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
                         isSelected
-                          ? 'bg-indigo-50/70 dark:bg-indigo-950/50 border-indigo-500 shadow-xs'
-                          : 'border-slate-200/80 dark:border-slate-800 hover:border-indigo-200'
+                          ? 'bg-[#F3F0EE] border-[#141413] shadow-xs'
+                          : 'bg-white border-[#141413]/10 hover:border-[#141413]/30'
                       }`}
                     >
                       <div className="flex items-center gap-3">
                         <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold ${
                           isSelected
-                            ? 'bg-indigo-600 text-white'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                            ? 'bg-[#141413] text-white'
+                            : 'bg-[#F3F0EE] text-[#666562]'
                         }`}>
                           {v.type === 'CLONED' ? 'CL' : 'AI'}
                         </div>
                         <div>
-                          <p className="text-xs font-bold text-slate-900 dark:text-white">
+                          <p className="text-xs font-bold text-[#141413]">
                             {v.name}
                           </p>
-                          <span className="text-[10px] text-slate-400 font-mono">
+                          <span className="text-[10px] text-[#666562] font-mono">
                             {v.language.toUpperCase()} · {v.type}
                           </span>
                         </div>
@@ -281,22 +281,22 @@ export default function VoiceStudioPanel({ isOpen, onClose }: VoiceStudioPanelPr
                           onClick={() => handlePreviewVoice(v)}
                           disabled={isPreviewing}
                           title="Preview Voice"
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                          className="p-1.5 rounded-lg text-[#666562] hover:text-[#141413] hover:bg-[#F3F0EE] transition-colors cursor-pointer"
                         >
-                          <Volume2 className={`w-4 h-4 ${isPreviewing ? 'text-indigo-600 animate-pulse' : ''}`} />
+                          <Volume2 className={`w-4 h-4 ${isPreviewing ? 'text-[#141413] animate-pulse' : ''}`} />
                         </button>
                         {v.type === 'CUSTOM' && (
                           <button
                             type="button"
                             onClick={() => handleDeleteVoice(v.id)}
                             title="Delete Profile"
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                            className="p-1.5 rounded-lg text-[#666562] hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         )}
                         {isSelected && (
-                          <Check className="w-4 h-4 text-indigo-600 ml-1" />
+                          <Check className="w-4 h-4 text-[#141413] ml-1" />
                         )}
                       </div>
                     </div>
@@ -307,22 +307,22 @@ export default function VoiceStudioPanel({ isOpen, onClose }: VoiceStudioPanelPr
 
             {/* Create Custom Profile Drawer */}
             {isCreatingProfile && (
-              <form onSubmit={handleCreateVoice} className="p-4 rounded-2xl border border-indigo-200 dark:border-indigo-900 bg-indigo-50/40 dark:bg-indigo-950/30 space-y-3">
+              <form onSubmit={handleCreateVoice} className="p-4 rounded-2xl border border-[#141413]/10 bg-[#FDFCFA] space-y-3">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                  <h4 className="text-xs font-bold text-[#141413]">
                     Create Custom Voice Profile
                   </h4>
                   <button
                     type="button"
                     onClick={() => setIsCreatingProfile(false)}
-                    className="text-slate-400 hover:text-slate-700"
+                    className="text-[#666562] hover:text-[#141413]"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">
+                  <label className="text-[11px] font-semibold text-[#666562] block mb-1">
                     Profile Name
                   </label>
                   <input
@@ -331,18 +331,18 @@ export default function VoiceStudioPanel({ isOpen, onClose }: VoiceStudioPanelPr
                     placeholder="e.g. Founder Cloned Voice"
                     value={newVoiceName}
                     onChange={(e) => setNewVoiceName(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl text-xs border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-hidden focus:border-indigo-500"
+                    className="w-full px-3 py-2 rounded-xl text-xs border border-[#141413]/15 bg-white text-[#141413] outline-hidden focus:border-[#141413]"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">
+                  <label className="text-[11px] font-semibold text-[#666562] block mb-1">
                     Primary Language
                   </label>
                   <select
                     value={newVoiceLanguage}
                     onChange={(e) => setNewVoiceLanguage(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl text-xs border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-hidden"
+                    className="w-full px-3 py-2 rounded-xl text-xs border border-[#141413]/15 bg-white text-[#141413] outline-hidden"
                   >
                     <option value="en">English (US/UK)</option>
                     <option value="es">Spanish</option>
@@ -355,7 +355,7 @@ export default function VoiceStudioPanel({ isOpen, onClose }: VoiceStudioPanelPr
 
                 <button
                   type="submit"
-                  className="w-full py-2 rounded-xl bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition-colors shadow-xs cursor-pointer"
+                  className="w-full py-2 rounded-xl bg-[#141413] text-white text-xs font-semibold hover:bg-[#282725] transition-colors shadow-xs cursor-pointer"
                 >
                   Save Profile to Voice Studio
                 </button>

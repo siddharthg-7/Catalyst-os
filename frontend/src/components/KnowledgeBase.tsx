@@ -437,15 +437,15 @@ export default function KnowledgeBase({ documents, onUploadDoc }: KnowledgeBaseP
               type="button"
               onClick={() => openWizard('file')}
               id="launch-source-wizard-card-btn"
-              className="w-full p-3.5 rounded-xl text-xs font-semibold flex items-center justify-between transition-all cursor-pointer group"
+              className="w-full p-3.5 rounded-xl text-xs font-semibold flex items-center justify-between transition-all cursor-pointer group hover:bg-[#141413]/5"
               style={{
-                backgroundColor: 'rgba(99, 102, 241, 0.08)',
-                border: '1px solid rgba(99, 102, 241, 0.25)',
+                backgroundColor: 'rgba(20, 20, 19, 0.03)',
+                border: '1px solid var(--c-border)',
                 color: 'var(--c-fg)'
               }}
             >
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-indigo-600 text-white shrink-0 shadow-sm">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#141413] text-[#FDFCFA] shrink-0 shadow-sm">
                   <Sparkles className="w-4 h-4" />
                 </div>
                 <div className="text-left">
@@ -453,7 +453,7 @@ export default function KnowledgeBase({ documents, onUploadDoc }: KnowledgeBaseP
                   <div className="text-[10px]" style={{ color: 'var(--c-muted)' }}>Choose format, drag payload & configure domain</div>
                 </div>
               </div>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" style={{ color: 'var(--c-accent)' }} />
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" style={{ color: 'var(--c-fg)' }} />
             </button>
 
             {/* Quick Ingest Section */}
@@ -519,8 +519,8 @@ export default function KnowledgeBase({ documents, onUploadDoc }: KnowledgeBaseP
                   onClick={() => fileInputRef.current?.click()}
                   className="p-5 rounded-xl border-2 border-dashed transition-all cursor-pointer flex flex-col items-center justify-center text-center gap-1.5"
                   style={{
-                    borderColor: isDragging ? 'var(--c-accent)' : 'var(--c-border-strong)',
-                    backgroundColor: isDragging ? 'rgba(99, 102, 241, 0.05)' : 'var(--c-surface-2)'
+                    borderColor: isDragging ? 'var(--c-fg)' : 'var(--c-border-strong)',
+                    backgroundColor: isDragging ? 'rgba(20, 20, 19, 0.04)' : 'var(--c-surface-2)'
                   }}
                 >
                   <UploadCloud className="w-5 h-5" style={{ color: 'var(--c-fg)' }} />
@@ -1091,8 +1091,8 @@ export default function KnowledgeBase({ documents, onUploadDoc }: KnowledgeBaseP
                         onClick={() => wizardFileInputRef.current?.click()}
                         className="p-8 rounded-2xl border-2 border-dashed transition-all cursor-pointer flex flex-col items-center justify-center text-center gap-2"
                         style={{
-                          borderColor: wizardDragging ? 'var(--c-accent)' : 'var(--c-border-strong)',
-                          backgroundColor: wizardDragging ? 'rgba(99, 102, 241, 0.05)' : 'var(--c-surface-2)'
+                          borderColor: wizardDragging ? 'var(--c-fg)' : 'var(--c-border-strong)',
+                          backgroundColor: wizardDragging ? 'rgba(20, 20, 19, 0.04)' : 'var(--c-surface-2)'
                         }}
                       >
                         <div className="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 mb-1">
@@ -1463,13 +1463,13 @@ export default function KnowledgeBase({ documents, onUploadDoc }: KnowledgeBaseP
 
                     {/* Progress State while indexing */}
                     {(ingestionStatus === 'uploading' || ingestionStatus === 'indexing') && (
-                      <div className="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 space-y-2 text-xs">
-                        <div className="flex items-center justify-between font-semibold text-indigo-600 dark:text-indigo-400">
+                      <div className="p-4 rounded-xl bg-[#141413]/5 border border-[#141413]/10 space-y-2 text-xs">
+                        <div className="flex items-center justify-between font-semibold text-[#141413]">
                           <span className="flex items-center gap-2">
-                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <Loader2 className="w-4 h-4 animate-spin text-[#141413]" />
                             {ingestionStatus === 'uploading' ? 'Uploading source payload...' : 'Chunking, embedding & vector indexing...'}
                           </span>
-                          <span className="font-mono text-[10px]">Neural Processing</span>
+                          <span className="font-mono text-[10px] text-[#666562]">Neural Processing</span>
                         </div>
                         <p className="text-[11px] text-slate-500 dark:text-slate-400">
                           Extracting tokens, computing vector embeddings, and creating cross-council citations.

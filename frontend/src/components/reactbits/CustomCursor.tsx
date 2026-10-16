@@ -8,8 +8,8 @@ export interface CustomCursorProps {
 }
 
 export default function CustomCursor({
-  color = '#4F46E5',
-  ringColor = 'rgba(79, 70, 229, 0.22)',
+  color = '#141413',
+  ringColor = 'rgba(20, 20, 19, 0.16)',
   dotSize = 6,
   ringSize = 32,
 }: CustomCursorProps) {

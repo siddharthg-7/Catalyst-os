@@ -267,10 +267,9 @@ export default function DecisionLog({ decisions, onRefresh }: DecisionLogProps) 
       <Section delay={0.2} className="rounded-2xl overflow-hidden divide-y" style={{ backgroundColor: 'var(--c-surface)', border: '1px solid var(--c-border)' }}>
         {/* Table Header Columns: Decision | Context | Owner | Recommendation | Status | Date */}
         <div 
-          className="hidden lg:grid grid-cols-12 gap-4 px-6 py-3.5 text-[10px] font-mono font-bold uppercase tracking-wider"
+          className="hidden lg:grid grid-cols-12 gap-4 px-6 py-3.5 text-[12px] font-medium text-[#666562]"
           style={{
             backgroundColor: 'var(--c-surface-2)',
-            color: 'var(--c-muted)',
             borderBottom: '1px solid var(--c-border)'
           }}
         >
@@ -319,7 +318,7 @@ export default function DecisionLog({ decisions, onRefresh }: DecisionLogProps) 
                       </span>
                     )}
                   </div>
-                  <h4 className="text-xs font-bold line-clamp-1 transition-colors group-hover:text-indigo-400" style={{ color: 'var(--c-fg)' }}>
+                  <h4 className="text-xs font-bold line-clamp-1 transition-colors group-hover:text-[#141413]" style={{ color: 'var(--c-fg)' }}>
                     {record.title}
                   </h4>
                 </div>

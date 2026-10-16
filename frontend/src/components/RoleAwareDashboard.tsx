@@ -180,7 +180,7 @@ export default function RoleAwareDashboard({
               <img 
                 src={companion.avatar} 
                 alt={companion.name}
-                className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover ring-2 ring-indigo-500/20 shadow-md"
+                className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover ring-2 ring-[var(--c-border)] shadow-md"
               />
               <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 ring-2 ring-black animate-pulse" title="AI Partner Online" />
             </div>
@@ -203,7 +203,7 @@ export default function RoleAwareDashboard({
               </div>
 
               <p className="text-xs sm:text-sm font-sans mt-1.5" style={{ color: 'var(--c-muted)' }}>
-                Welcome back, <span className="font-semibold text-indigo-500">{userName}</span>. You are paired with{' '}
+                Welcome back, <span className="font-semibold" style={{ color: 'var(--c-fg)' }}>{userName}</span>. You are paired with{' '}
                 <span className="font-semibold" style={{ color: 'var(--c-fg)' }}>{companion.name}</span> ({companion.title}).
               </p>
 
@@ -271,7 +271,7 @@ export default function RoleAwareDashboard({
             <div className="text-[10px] uppercase font-mono tracking-wider" style={{ color: 'var(--c-muted)' }}>
               AI Companion SLA
             </div>
-            <div className="text-2xl font-bold font-mono mt-1 text-indigo-500">
+            <div className="text-2xl font-bold font-mono mt-1 text-emerald-500">
               100%
             </div>
             <div className="text-[10px] font-sans mt-0.5" style={{ color: 'var(--c-faint)' }}>Policy-grounded co-pilot</div>
@@ -335,12 +335,12 @@ export default function RoleAwareDashboard({
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Briefcase className="w-4 h-4 text-indigo-500" />
+                <Briefcase className="w-4 h-4 text-[#141413]" />
                 <h3 className="text-sm font-bold font-sans" style={{ color: 'var(--c-fg)' }}>
                   Hiring & Active Requisitions
                 </h3>
               </div>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 font-semibold">
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#141413]/5 text-[#141413]/80 border border-[#141413]/10 font-semibold">
                 3 Open Roles
               </span>
             </div>
@@ -360,7 +360,7 @@ export default function RoleAwareDashboard({
                     <div className="text-xs font-semibold font-sans" style={{ color: 'var(--c-fg)' }}>{req.title}</div>
                     <div className="text-[10px] font-mono mt-0.5" style={{ color: 'var(--c-muted)' }}>Stage: {req.stage}</div>
                   </div>
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-[#141413]/5 text-[#141413]/80 border border-[#141413]/10">
                     {req.level}
                   </span>
                 </div>
@@ -426,14 +426,14 @@ export default function RoleAwareDashboard({
 
             <div className="space-y-2.5 pt-1">
               {[
-                { name: 'Engineering & Product (R&D)', pct: '55%', bar: 'w-[55%] bg-indigo-500' },
+                { name: 'Engineering & Product (R&D)', pct: '55%', bar: 'w-[55%] bg-[#141413]' },
                 { name: 'Growth, Marketing & Sales', pct: '25%', bar: 'w-[25%] bg-amber-500' },
                 { name: 'General, Operations & Admin', pct: '20%', bar: 'w-[20%] bg-emerald-500' }
               ].map((b, i) => (
                 <div key={i} className="p-3 rounded-xl space-y-1.5" style={{ backgroundColor: 'var(--c-surface-2)', border: '1px solid var(--c-border)' }}>
                   <div className="flex justify-between text-xs font-semibold font-sans">
                     <span style={{ color: 'var(--c-fg)' }}>{b.name}</span>
-                    <span className="font-mono text-indigo-400">{b.pct}</span>
+                    <span className="font-mono" style={{ color: 'var(--c-fg)' }}>{b.pct}</span>
                   </div>
                   <div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
                     <div className={`h-full rounded-full ${b.bar}`} />
@@ -700,7 +700,7 @@ export default function RoleAwareDashboard({
 
                       <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] font-sans" style={{ color: 'var(--c-muted)' }}>
                         <span className="flex items-center gap-1.5">
-                          <Bot className="w-3.5 h-3.5 text-indigo-400" />
+                          <Bot className="w-3.5 h-3.5 text-[#141413]" />
                           <span>AI Partner: <strong>{companion.name}</strong> ({companion.title})</span>
                         </span>
                         <span>•</span>
@@ -740,12 +740,12 @@ export default function RoleAwareDashboard({
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <Sparkles className="w-5 h-5 text-indigo-400" />
+            <Sparkles className="w-5 h-5 text-[#141413]" />
             <h2 className="text-lg font-bold font-sans" style={{ color: 'var(--c-fg)' }}>
               Ask {companion.name} — Your AI Executive Co-Pilot
             </h2>
           </div>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 font-bold border border-indigo-500/20">
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#141413]/5 text-[#141413] font-bold border border-[#141413]/10">
             Zero Cross-Dept Leaks
           </span>
         </div>
@@ -763,10 +763,10 @@ export default function RoleAwareDashboard({
                 setPartnerQuery(chip);
                 handleAskPartner(chip);
               }}
-              className="px-3 py-1.5 rounded-xl text-xs font-sans transition-all cursor-pointer flex items-center gap-1.5 hover:border-indigo-400"
+              className="px-3 py-1.5 rounded-xl text-xs font-sans transition-all cursor-pointer flex items-center gap-1.5 hover:border-[#141413]/30"
               style={{ backgroundColor: 'var(--c-surface-2)', border: '1px solid var(--c-border)', color: 'var(--c-muted)' }}
             >
-              <Sparkles className="w-3 h-3 text-indigo-400" />
+              <Sparkles className="w-3 h-3 text-[#141413]" />
               <span>{chip}</span>
             </button>
           ))}
@@ -798,9 +798,9 @@ export default function RoleAwareDashboard({
         {partnerResponse && (
           <div 
             className="p-4 rounded-2xl text-xs font-sans leading-relaxed border space-y-2 mt-3 animate-fade-in"
-            style={{ backgroundColor: 'var(--c-surface-2)', borderColor: 'rgba(99, 102, 241, 0.3)' }}
+            style={{ backgroundColor: 'var(--c-surface-2)', borderColor: 'var(--c-border)' }}
           >
-            <div className="flex items-center gap-2 text-indigo-400 font-semibold font-mono text-[11px]">
+            <div className="flex items-center gap-2 font-semibold font-mono text-[11px]" style={{ color: 'var(--c-fg)' }}>
               <Bot className="w-3.5 h-3.5" />
               <span>{companion.name}'s Recommendation & Analysis:</span>
             </div>
@@ -808,7 +808,7 @@ export default function RoleAwareDashboard({
             <div className="pt-2 flex justify-end">
               <button
                 onClick={() => onNavigate('workspace')}
-                className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 cursor-pointer"
+                className="text-[11px] font-semibold text-[#141413] hover:underline flex items-center gap-1 cursor-pointer"
               >
                 <span>Incorporate in Employee Work Area</span>
                 <ArrowRight className="w-3 h-3" />

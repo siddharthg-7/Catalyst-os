@@ -293,7 +293,7 @@ export default function WorkflowCanvas({ initiatives, onLaunchInitiative, onSimu
                       </span>
                     </div>
 
-                    <h4 className="text-sm font-bold line-clamp-2 transition-colors group-hover:text-indigo-400" style={{ color: 'var(--c-fg)' }}>
+                    <h4 className="text-sm font-bold line-clamp-2 transition-colors group-hover:text-[#141413]" style={{ color: 'var(--c-fg)' }}>
                       {init.title}
                     </h4>
                     <p className="text-xs line-clamp-3 leading-relaxed" style={{ color: 'var(--c-muted)' }}>

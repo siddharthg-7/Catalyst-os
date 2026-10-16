@@ -9,6 +9,7 @@ export interface StartupProfile {
   industry: string;
   description: string;
   fundingStage: string;
+  stage?: string;
   teamSize?: number | string;
   monthlyRevenue?: number | string;
   strategy?: string;
@@ -16,7 +17,6 @@ export interface StartupProfile {
   primaryProduct?: string;
   goals?: string[];
   priorities?: string[];
-  stage?: string;
   cashBalance: number;
   burnRate: number;
   runwayMonths: number;
@@ -78,6 +78,7 @@ export interface DelegatedTask {
   priority?: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
   dueDate?: string;
   projectName?: string;
+  expectedOutcome?: string;
   reviewerId?: string;
   reviewerName?: string;
   collaborators?: Array<{ id: string; name: string; role: string }>;
@@ -215,6 +216,7 @@ export interface Deliverable {
   reversibility?: 'REVERSIBLE' | 'IRREVERSIBLE';
   headcount?: number;
   conditions?: string[];
+  urgency?: string;
   // Phase D — Employee Review -> Founder Approval Experience
   preparedBy?: string;
   preparedByRole?: string;
@@ -337,7 +339,6 @@ export interface DecisionRecord {
   reversibility?: 'REVERSIBLE' | 'IRREVERSIBLE';
   modifications?: string;
   approver?: string;
-  recommendationBy?: string;
   rawCouncilDeliberation?: any;
 }
 
@@ -524,7 +525,7 @@ export interface OrgMemberNode {
   title: string;
   department: string;
   level: 1 | 2 | 3;
-  reportsTo?: string;
+  reportsTo?: string | null;
   reportsToId?: string | null;
   reportsToName?: string | null;
   directReportsCount?: number;

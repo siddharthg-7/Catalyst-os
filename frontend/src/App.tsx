@@ -914,7 +914,7 @@ export default function App() {
         <div className="flex h-screen w-screen items-center justify-center transition-colors duration-300" style={{ backgroundColor: 'var(--c-bg)', color: 'var(--c-fg)' }}>
           <div className="text-center space-y-4">
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto shadow-md border" style={{ backgroundColor: 'var(--c-surface)', borderColor: 'var(--c-border)' }}>
-              <RefreshCw className="w-6 h-6 animate-spin text-indigo-600" />
+              <RefreshCw className="w-6 h-6 animate-spin text-[#141413]" />
             </div>
             <p className="text-xs font-mono uppercase tracking-widest text-slate-500">Initializing CatalystOS Executive Council...</p>
           </div>
@@ -957,7 +957,7 @@ export default function App() {
       {
         title: 'Intelligence',
         items: [
-          { id: 'orchestration' as const, label: 'Multi-Agent Orchestrator', Icon: Cpu, badge: '5-Step', badgeColor: 'text-indigo-600 bg-indigo-50 border-indigo-200' },
+          { id: 'orchestration' as const, label: 'Multi-Agent Orchestrator', Icon: Cpu, badge: '5-Step', badgeColor: 'text-[#141413]/70 bg-[#141413]/5 border-[#141413]/10' },
           { id: 'knowledge' as const, label: 'Company Knowledge', Icon: BookOpen },
           { id: 'workflows' as const, label: 'Workflows', Icon: GitMerge },
           { id: 'scenarios' as const, label: 'Scenario Planning', Icon: SlidersHorizontal },
@@ -978,38 +978,38 @@ export default function App() {
     const tabLabel = currentNavItem.label;
 
     return (
-      <div className="flex h-screen overflow-hidden font-sans bg-slate-50 text-slate-900">
-      {/* ── Desktop Sidebar (Clean, Minimal, Aura Template Structure) ───────────────────── */}
+      <div className="flex h-screen overflow-hidden font-sans bg-[#F3F0EE] text-[#141413]">
+      {/* ── Desktop Sidebar (Refined Landing Page Aesthetic) ───────────────────── */}
       <aside 
-        className="hidden md:flex flex-col border-r border-slate-200 bg-white shrink-0 justify-between select-none z-20 transition-all duration-200" 
+        className="hidden md:flex flex-col border-r border-[#141413]/10 bg-white shrink-0 justify-between select-none z-20 transition-all duration-200" 
         style={{ width: sidebarCollapsed ? '68px' : '240px' }}
       >
         <div className="flex flex-col flex-1 min-h-0">
           
           {/* Workspace Identity & Switcher */}
-          <div className="p-3.5 border-b border-slate-200">
+          <div className="p-3.5 border-b border-[#141413]/08">
             <div 
               onClick={() => setIsSettingsOpen(true)}
-              className={`flex items-center gap-3 p-2 rounded-xl transition-colors hover:bg-slate-50 cursor-pointer group ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`}
+              className={`flex items-center gap-3 p-2 rounded-[12px] transition-colors hover:bg-[#F3F0EE] cursor-pointer group ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`}
               title={sidebarCollapsed ? `${startup?.name || 'CatalystOS'} - Workspace Settings` : undefined}
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-xs shrink-0 text-white shadow-xs">
-                  <CatalystLogo className="w-4 h-4 text-white" />
+                <div className="w-8 h-8 rounded-[10px] bg-[#141413] flex items-center justify-center font-bold text-xs shrink-0 text-[#F3F0EE] shadow-xs">
+                  <CatalystLogo className="w-4 h-4 text-[#F3F0EE]" />
                 </div>
                 {!sidebarCollapsed && (
                   <div className="min-w-0">
-                    <span className="font-semibold text-xs text-slate-900 truncate block">
+                    <span className="font-bold text-xs text-[#141413] truncate block font-sans">
                       {startup?.name || 'CatalystOS'}
                     </span>
-                    <span className="text-[11px] block truncate text-slate-500 font-normal">
+                    <span className="text-[11px] block truncate text-[#696969] font-normal font-sans">
                       {startup?.stage || 'Seed'} Workspace
                     </span>
                   </div>
                 )}
               </div>
               {!sidebarCollapsed && (
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-colors shrink-0" />
+                <ChevronDown className="w-3.5 h-3.5 text-[#696969] group-hover:text-[#141413] transition-colors shrink-0" />
               )}
             </div>
           </div>
@@ -1021,7 +1021,7 @@ export default function App() {
               return (
                 <div key={idx} className="space-y-0.5">
                   {!sidebarCollapsed && (
-                    <div className="px-2.5 pb-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                    <div className="px-2.5 pb-1 text-[10px] font-mono font-bold text-[#696969] uppercase tracking-wider">
                       {section.title}
                     </div>
                   )}
@@ -1033,18 +1033,18 @@ export default function App() {
                           key={id}
                           onClick={() => handleTabChange(id as any)}
                           title={sidebarCollapsed ? label : undefined}
-                          className={`w-full flex items-center rounded-lg text-xs font-medium transition-colors cursor-pointer text-left ${
+                          className={`w-full flex items-center rounded-[10px] text-xs transition-all cursor-pointer text-left ${
                             sidebarCollapsed ? 'justify-center p-2' : 'justify-between px-2.5 py-2'
                           } ${
                             isActive
-                              ? 'bg-indigo-50 text-indigo-700 font-semibold'
-                              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                              ? 'bg-[#141413] text-[#F3F0EE] font-semibold shadow-[rgba(0,0,0,0.08)_0px_4px_12px_0px]'
+                              : 'text-[#696969] hover:text-[#141413] hover:bg-[#F3F0EE] font-medium'
                           }`}
                         >
                           <span className="flex items-center gap-2.5 min-w-0">
                             <Icon 
                               className={`w-4 h-4 shrink-0 transition-colors ${
-                                isActive ? 'text-indigo-600' : 'text-slate-400'
+                                isActive ? 'text-[#F3F0EE]' : 'text-[#696969]'
                               }`} 
                             />
                             {!sidebarCollapsed && (
@@ -1052,7 +1052,9 @@ export default function App() {
                             )}
                           </span>
                           {!sidebarCollapsed && badge && (
-                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${badgeColor}`}>
+                            <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border shrink-0 ${
+                              isActive ? 'bg-white/15 text-[#F3F0EE] border-white/20' : badgeColor
+                            }`}>
                               {badge}
                             </span>
                           )}
@@ -1066,22 +1068,22 @@ export default function App() {
           </nav>
 
           {/* Administration & User Profile Footer */}
-          <div className="p-2.5 border-t border-slate-200 space-y-1 bg-white">
+          <div className="p-2.5 border-t border-[#141413]/08 space-y-1 bg-white">
             
             {/* Voice Studio Action */}
             <button
               onClick={() => setIsVoiceStudioOpen(true)}
-              className={`w-full flex items-center rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer ${
+              className={`w-full flex items-center rounded-[10px] text-xs font-medium text-[#141413] hover:bg-[#F3F0EE] transition-colors cursor-pointer ${
                 sidebarCollapsed ? 'justify-center p-2' : 'justify-between px-2.5 py-2'
               }`}
               title="Voice Studio"
             >
               <span className="flex items-center gap-2.5 min-w-0">
-                <Radio className="w-4 h-4 text-indigo-600 shrink-0" />
+                <Radio className="w-4 h-4 text-[#141413] shrink-0" />
                 {!sidebarCollapsed && <span>Voice Studio</span>}
               </span>
               {!sidebarCollapsed && (
-                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 border border-indigo-100">
+                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/80">
                   Live
                 </span>
               )}
@@ -1090,17 +1092,17 @@ export default function App() {
             {/* Dedicated Employee Workspace Action */}
             <button
               onClick={() => navigate('/employee')}
-              className={`w-full flex items-center rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer ${
+              className={`w-full flex items-center rounded-[10px] text-xs font-medium text-[#141413] hover:bg-[#F3F0EE] transition-colors cursor-pointer ${
                 sidebarCollapsed ? 'justify-center p-2' : 'justify-between px-2.5 py-2'
               }`}
               title="Employee Workspace"
             >
               <span className="flex items-center gap-2.5 min-w-0">
-                <Users className="w-4 h-4 text-emerald-600 shrink-0" />
+                <Users className="w-4 h-4 text-[#696969] shrink-0" />
                 {!sidebarCollapsed && <span>Employee Workspace</span>}
               </span>
               {!sidebarCollapsed && (
-                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-100">
+                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-[#F3F0EE] text-[#141413] border border-[#141413]/10">
                   /employee
                 </span>
               )}
@@ -1109,31 +1111,31 @@ export default function App() {
             {/* Workspace Settings Action */}
             <button
               onClick={() => setIsSettingsOpen(true)}
-              className={`w-full flex items-center rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer ${
+              className={`w-full flex items-center rounded-[10px] text-xs font-medium text-[#141413] hover:bg-[#F3F0EE] transition-colors cursor-pointer ${
                 sidebarCollapsed ? 'justify-center p-2' : 'justify-between px-2.5 py-2'
               }`}
               title="Settings"
             >
               <span className="flex items-center gap-2.5 min-w-0">
-                <Settings className="w-4 h-4 text-slate-400 shrink-0" />
+                <Settings className="w-4 h-4 text-[#696969] shrink-0" />
                 {!sidebarCollapsed && <span>Settings</span>}
               </span>
             </button>
             
             {/* User Profile Card */}
-            <div className={`mt-1.5 pt-2 border-t border-slate-100 flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between px-1'}`}>
+            <div className={`mt-1.5 pt-2 border-t border-[#141413]/08 flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between px-1'}`}>
               <div 
                 onClick={() => setIsSettingsOpen(true)}
                 className={`flex items-center gap-2 min-w-0 cursor-pointer ${sidebarCollapsed ? 'justify-center' : ''}`}
                 title={sidebarCollapsed ? `${user?.name || 'Founder'} (${user?.role || 'Founder'})` : undefined}
               >
-                <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                <div className="w-7 h-7 rounded-[8px] bg-[#141413] text-[#F3F0EE] font-bold text-xs flex items-center justify-center shrink-0">
                   {user?.name?.slice(0, 2).toUpperCase() || 'AD'}
                 </div>
                 {!sidebarCollapsed && (
                   <div className="min-w-0">
-                    <div className="text-xs font-semibold text-slate-900 truncate">{user?.name || 'Founder'}</div>
-                    <div className="text-[10px] text-slate-500 truncate capitalize">{user?.role || 'Founder'}</div>
+                    <div className="text-xs font-bold text-[#141413] truncate font-sans">{user?.name || 'Founder'}</div>
+                    <div className="text-[10px] font-mono text-[#696969] truncate capitalize">{user?.role || 'Founder'}</div>
                   </div>
                 )}
               </div>
@@ -1144,7 +1146,7 @@ export default function App() {
                     navigate('/');
                   }}
                   title="Sign Out"
-                  className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                  className="p-1 rounded-lg text-[#696969] hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                 </button>
@@ -1155,34 +1157,34 @@ export default function App() {
       </aside>
 
       {/* ── Main Content Area ──────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative bg-slate-50">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative bg-[#F3F0EE]">
         
         {/* Top Navbar */}
-        <header className="shrink-0 z-30 px-6 py-2.5 bg-white border-b border-slate-200">
+        <header className="shrink-0 z-30 px-6 py-2.5 bg-white border-b border-[#141413]/10">
           <div className="flex items-center justify-between w-full">
             {/* Left: Mobile Menu, Sidebar Toggle, Breadcrumbs */}
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setMobileMenuOpen(true)}
-                className="md:hidden p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
+                className="md:hidden p-1.5 rounded-lg border border-[#141413]/10 text-[#696969] hover:bg-[#F3F0EE] transition-colors"
               >
                 <Menu className="w-4 h-4" />
               </button>
 
               <button
                 onClick={() => setSidebarCollapsed(prev => !prev)}
-                className="hidden md:flex p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors cursor-pointer"
+                className="hidden md:flex p-1.5 rounded-lg border border-[#141413]/10 text-[#696969] hover:text-[#141413] hover:bg-[#F3F0EE] transition-colors cursor-pointer"
                 title={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
               >
                 {sidebarCollapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
               </button>
 
-              <div className="flex items-center gap-2 text-xs">
-                <span className="font-medium text-slate-500">
+              <div className="flex items-center gap-2 text-xs font-sans">
+                <span className="font-medium text-[#696969]">
                   {startup?.name || 'CatalystOS'}
                 </span>
-                <span className="text-slate-300">/</span>
-                <span className="font-semibold text-slate-900">
+                <span className="text-[#141413]/20">/</span>
+                <span className="font-bold text-[#141413]">
                   {tabLabel}
                 </span>
               </div>
@@ -1193,11 +1195,11 @@ export default function App() {
               {/* Search ⌘K */}
               <button
                 onClick={() => setCommandPaletteOpen(true)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-200 bg-slate-50 hover:bg-white text-slate-600 transition-colors cursor-pointer shadow-xs"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-[10px] text-xs font-medium border border-[#141413]/10 bg-white hover:bg-[#FCFBFA] text-[#696969] hover:text-[#141413] transition-colors cursor-pointer shadow-[rgba(0,0,0,0.02)_0px_1px_4px_0px]"
               >
-                <Search className="w-3.5 h-3.5 text-slate-400" />
+                <Search className="w-3.5 h-3.5 text-[#696969]" />
                 <span className="hidden sm:inline">Search...</span>
-                <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white border border-slate-200 text-slate-500">
+                <kbd className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#F3F0EE] border border-[#141413]/10 text-[#696969]">
                   ⌘K
                 </kbd>
               </button>
@@ -1205,17 +1207,17 @@ export default function App() {
               {/* Voice Studio Button */}
               <button
                 onClick={() => setIsVoiceStudioOpen(true)}
-                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors cursor-pointer shadow-xs"
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] text-xs font-medium border border-[#141413]/10 bg-white hover:bg-[#FCFBFA] text-[#141413] transition-colors cursor-pointer shadow-[rgba(0,0,0,0.02)_0px_1px_4px_0px]"
                 title="Voice Studio"
               >
-                <Radio className="w-3.5 h-3.5 text-indigo-600" />
+                <Radio className="w-3.5 h-3.5 text-[#141413]" />
                 <span>Voice</span>
               </button>
 
               {/* Notifications */}
               <button 
                 onClick={() => setNotificationsOpen(true)}
-                className="relative p-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer shadow-xs"
+                className="relative p-2 rounded-[10px] border border-[#141413]/10 bg-white hover:bg-[#FCFBFA] text-[#141413] transition-colors cursor-pointer shadow-[rgba(0,0,0,0.02)_0px_1px_4px_0px]"
                 title="Open Work Notifications"
               >
                 <Bell className="w-4 h-4" />
@@ -1231,7 +1233,7 @@ export default function App() {
               {/* Settings */}
               <button
                 onClick={() => setIsSettingsOpen(true)}
-                className="p-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer shadow-xs"
+                className="p-2 rounded-[10px] border border-[#141413]/10 bg-white hover:bg-[#FCFBFA] text-[#141413] transition-colors cursor-pointer shadow-[rgba(0,0,0,0.02)_0px_1px_4px_0px]"
                 title="Workspace Settings"
               >
                 <Settings className="w-4 h-4" />
@@ -1240,12 +1242,12 @@ export default function App() {
               {/* User Avatar */}
               <div 
                 onClick={() => setIsSettingsOpen(true)}
-                className="flex items-center gap-2 pl-1 pr-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-colors cursor-pointer shadow-xs"
+                className="flex items-center gap-2 pl-1 pr-2.5 py-1 rounded-[10px] border border-[#141413]/10 bg-white hover:bg-[#FCFBFA] transition-colors cursor-pointer shadow-[rgba(0,0,0,0.02)_0px_1px_4px_0px]"
               >
-                <div className="w-6 h-6 rounded-md bg-indigo-600 text-white font-bold text-[10px] flex items-center justify-center">
+                <div className="w-6 h-6 rounded-[8px] bg-[#141413] text-[#F3F0EE] font-bold text-[10px] flex items-center justify-center font-mono">
                   {user?.name?.slice(0, 2).toUpperCase() || 'AD'}
                 </div>
-                <span className="text-xs font-semibold text-slate-800 hidden sm:inline">{user?.name}</span>
+                <span className="text-xs font-bold text-[#141413] hidden sm:inline font-sans">{user?.name}</span>
               </div>
             </div>
           </div>
@@ -1255,9 +1257,8 @@ export default function App() {
         <main
           onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 15)}
           className="flex-1 overflow-y-auto scroll-smooth"
-          style={{ backgroundColor: 'transparent' }}
         >
-          <div className={`${activeTab === 'people' ? 'max-w-[1440px] py-6 space-y-6' : 'app-container py-8 space-y-8'} page-padding mx-auto w-full`}>
+          <div className="max-w-[1400px] py-6 sm:py-8 px-4 sm:px-6 lg:px-8 mx-auto w-full space-y-6 sm:space-y-8">
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeTab}
@@ -1310,17 +1311,17 @@ export default function App() {
                     {/* Founder notice for dedicated separate employee workspace */}
                     <div className="bg-white border border-slate-200/90 rounded-xl p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs shrink-0">
+                        <div className="w-8 h-8 rounded-lg bg-[#141413]/5 text-[#141413] flex items-center justify-center font-bold text-xs shrink-0">
                           EW
                         </div>
                         <div>
                           <h4 className="text-xs font-semibold text-slate-900">Separate Employee Operating Environment</h4>
-                          <p className="text-[11px] text-slate-500">Employees operate in their own focused environment at <code className="bg-slate-100 text-indigo-600 px-1 py-0.5 rounded font-mono font-medium">/employee</code> with Overview, My Work, Team, and Community.</p>
+                          <p className="text-[11px] text-slate-500">Employees operate in their own focused environment at <code className="bg-slate-100 text-[#141413] px-1 py-0.5 rounded font-mono font-medium">/employee</code> with Overview, My Work, Team, and Community.</p>
                         </div>
                       </div>
                       <button
                         onClick={() => navigate('/employee')}
-                        className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 shadow-xs shrink-0 self-start sm:self-auto"
+                        className="px-3.5 py-1.5 bg-[#141413] hover:bg-[#262627] text-[#FDFCFA] rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 shadow-xs shrink-0 self-start sm:self-auto cursor-pointer"
                       >
                         <span>Open Employee Workspace</span>
                         <ArrowRight className="w-3.5 h-3.5" />
@@ -1514,8 +1515,8 @@ export default function App() {
               <div className="p-5 space-y-5 flex-1 overflow-y-auto">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-xs text-white shadow-xs">
-                      <CatalystLogo className="w-4 h-4 text-white" />
+                    <div className="w-8 h-8 rounded-lg bg-[#141413] flex items-center justify-center font-bold text-xs text-[#FDFCFA] shadow-xs">
+                      <CatalystLogo className="w-4 h-4 text-[#FDFCFA]" />
                     </div>
                     <div>
                       <span className="text-xs font-semibold text-slate-900 block">{startup?.name || 'CatalystOS'}</span>
@@ -1533,49 +1534,58 @@ export default function App() {
                 <nav className="space-y-4">
                   {navSections.map((section, idx) => (
                     <div key={idx} className="space-y-1">
-                      <div className="px-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                      <div className="px-2 text-[10px] font-mono font-bold text-[#696969] uppercase tracking-wider">
                         {section.title}
                       </div>
                       <div className="space-y-0.5">
-                        {section.items.map(({ id, label, Icon, badge, badgeColor }) => (
-                          <button
-                            key={id}
-                            onClick={() => { handleTabChange(id as any); setMobileMenuOpen(false); }}
-                            className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
-                              activeTab === id
-                                ? 'bg-indigo-50 text-indigo-700 font-semibold'
-                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                            }`}
-                          >
-                            <span className="flex items-center gap-2.5">
-                              <Icon className={`w-4 h-4 ${activeTab === id ? 'text-indigo-600' : 'text-slate-400'}`} />
-                              <span>{label}</span>
-                            </span>
-                            {badge && <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${badgeColor}`}>{badge}</span>}
-                          </button>
-                        ))}
+                        {section.items.map(({ id, label, Icon, badge, badgeColor }) => {
+                          const isActive = activeTab === id;
+                          return (
+                            <button
+                              key={id}
+                              onClick={() => { handleTabChange(id as any); setMobileMenuOpen(false); }}
+                              className={`w-full flex items-center justify-between px-2.5 py-2 rounded-[10px] text-xs font-medium transition-all text-left ${
+                                isActive
+                                  ? 'bg-[#141413] text-[#F3F0EE] font-semibold shadow-xs'
+                                  : 'text-[#696969] hover:text-[#141413] hover:bg-[#F3F0EE]'
+                              }`}
+                            >
+                              <span className="flex items-center gap-2.5">
+                                <Icon className={`w-4 h-4 ${isActive ? 'text-[#F3F0EE]' : 'text-[#696969]'}`} />
+                                <span>{label}</span>
+                              </span>
+                              {badge && (
+                                <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${
+                                  isActive ? 'bg-white/15 text-[#F3F0EE] border-white/20' : badgeColor
+                                }`}>
+                                  {badge}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   ))}
                 </nav>
               </div>
 
-              <div className="p-4 border-t border-slate-200 bg-slate-50 space-y-2">
+              <div className="p-3 border-t border-[#141413]/10 bg-[#FCFBFA] space-y-1.5">
                 <button
                   onClick={() => { setIsVoiceStudioOpen(true); setMobileMenuOpen(false); }}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 cursor-pointer"
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-[10px] text-xs font-medium text-[#141413] bg-white border border-[#141413]/10 hover:bg-[#F3F0EE] cursor-pointer"
                 >
                   <span className="flex items-center gap-2">
-                    <Radio className="w-4 h-4 text-indigo-600" />
+                    <Radio className="w-4 h-4 text-[#141413]" />
                     <span>Voice Studio</span>
                   </span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 font-medium">Live</span>
+                  <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/80">Live</span>
                 </button>
                 <button
                   onClick={() => { setIsSettingsOpen(true); setMobileMenuOpen(false); }}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 cursor-pointer"
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-[10px] text-xs font-medium text-[#141413] bg-white border border-[#141413]/10 hover:bg-[#F3F0EE] cursor-pointer"
                 >
-                  <Settings className="w-4 h-4 text-slate-500" />
+                  <Settings className="w-4 h-4 text-[#696969]" />
                   <span>Settings</span>
                 </button>
               </div>
@@ -1630,9 +1640,9 @@ export default function App() {
               <div className="flex h-screen w-screen items-center justify-center transition-colors duration-300" style={{ backgroundColor: 'var(--c-bg)', color: 'var(--c-fg)' }}>
                 <div className="text-center space-y-4">
                   <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto shadow-md border" style={{ backgroundColor: 'var(--c-surface)', borderColor: 'var(--c-border)' }}>
-                    <RefreshCw className="w-6 h-6 animate-spin text-indigo-600" />
+                    <RefreshCw className="w-6 h-6 animate-spin text-[#141413]" />
                   </div>
-                  <p className="text-xs font-mono uppercase tracking-widest text-slate-500">Checking Workspace Status...</p>
+                  <p className="text-xs font-mono uppercase tracking-widest text-[#8E8D8A]">Checking Workspace Status...</p>
                 </div>
               </div>
             ) : user ? (
@@ -1671,7 +1681,7 @@ export default function App() {
             <div className="flex h-screen w-screen items-center justify-center transition-colors duration-300" style={{ backgroundColor: 'var(--c-bg)', color: 'var(--c-fg)' }}>
               <div className="text-center space-y-4">
                 <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto shadow-md border" style={{ backgroundColor: 'var(--c-surface)', borderColor: 'var(--c-border)' }}>
-                  <RefreshCw className="w-6 h-6 animate-spin text-indigo-600" />
+                  <RefreshCw className="w-6 h-6 animate-spin text-[#141413]" />
                 </div>
                 <p className="text-xs font-mono uppercase tracking-widest text-slate-500">Checking Workspace Status...</p>
               </div>
@@ -1698,9 +1708,9 @@ export default function App() {
             <div className="flex h-screen w-screen items-center justify-center transition-colors duration-300" style={{ backgroundColor: 'var(--c-bg)', color: 'var(--c-fg)' }}>
               <div className="text-center space-y-4">
                 <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto shadow-md border" style={{ backgroundColor: 'var(--c-surface)', borderColor: 'var(--c-border)' }}>
-                  <RefreshCw className="w-6 h-6 animate-spin text-indigo-600" />
+                  <RefreshCw className="w-6 h-6 animate-spin text-[#141413]" />
                 </div>
-                <p className="text-xs font-mono uppercase tracking-widest text-slate-500">Checking Workspace Status...</p>
+                <p className="text-xs font-mono uppercase tracking-widest text-[#8E8D8A]">Checking Workspace Status...</p>
               </div>
             </div>
           ) : !user ? (

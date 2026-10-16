@@ -8,11 +8,11 @@ import InteractiveBrandPanel from './reactbits/InteractiveBrandPanel';
 import AuthForm from './reactbits/AuthForm';
 import CustomCursor from './reactbits/CustomCursor';
 
-// ── Luminous atmospheric ambient background for Auth ──────────────────────
+// ── Warm Luxury Enterprise Carbon atmospheric ambient background for Auth ──
 function AmbientAuthBackground() {
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none select-none z-0">
-      {/* Soft Indigo / Violet luminous glow orb */}
+      {/* Subtle warm ambient elevation glow */}
       <div
         className="absolute rounded-full"
         style={{
@@ -20,11 +20,11 @@ function AmbientAuthBackground() {
           height: '750px',
           top: '-250px',
           right: '-180px',
-          background: 'radial-gradient(circle, rgba(99, 102, 241, 0.16) 0%, rgba(139, 92, 246, 0.08) 40%, transparent 70%)',
-          filter: 'blur(55px)',
+          background: 'radial-gradient(circle, rgba(20, 20, 19, 0.035) 0%, rgba(20, 20, 19, 0.01) 45%, transparent 70%)',
+          filter: 'blur(60px)',
         }}
       />
-      {/* Soft Sky / Cyan luminous glow orb */}
+      {/* Warm stone atmospheric glow */}
       <div
         className="absolute rounded-full"
         style={{
@@ -32,29 +32,17 @@ function AmbientAuthBackground() {
           height: '700px',
           bottom: '-240px',
           left: '-160px',
-          background: 'radial-gradient(circle, rgba(14, 165, 233, 0.14) 0%, rgba(99, 102, 241, 0.06) 50%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(253, 252, 250, 0.9) 0%, rgba(243, 240, 238, 0.5) 50%, transparent 70%)',
           filter: 'blur(55px)',
         }}
       />
-      {/* Soft Rose luminous accent */}
+      {/* Subtle orbital lines in warm border */}
       <div
-        className="absolute rounded-full"
-        style={{
-          width: '500px',
-          height: '500px',
-          top: '30%',
-          left: '20%',
-          background: 'radial-gradient(circle, rgba(244, 114, 182, 0.06) 0%, transparent 65%)',
-          filter: 'blur(60px)',
-        }}
-      />
-      {/* Subtle orbital lines with soft indigo tint */}
-      <div
-        className="absolute rounded-full border border-indigo-200/35"
+        className="absolute rounded-full border border-[rgba(20,20,19,0.06)]"
         style={{ width: '850px', height: '850px', top: '-220px', right: '-240px' }}
       />
       <div
-        className="absolute rounded-full border border-violet-200/25"
+        className="absolute rounded-full border border-[rgba(20,20,19,0.04)]"
         style={{ width: '600px', height: '600px', bottom: '-150px', left: '-150px' }}
       />
     </div>
@@ -92,9 +80,9 @@ export default function AuthScreen({ initialView = 'landing', onOnboardingComple
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#F8FAFC] via-[#F1F5F9] to-[#EEF2FF] text-slate-900 relative font-sans overflow-x-hidden selection:bg-indigo-100 selection:text-indigo-900">
+    <div className="min-h-screen bg-[#F3F0EE] text-[#141413] relative font-sans overflow-x-hidden selection:bg-[#141413]/10 selection:text-[#141413]">
       {/* Custom cursor accent on desktop fine pointers */}
-      <CustomCursor color="#4F46E5" ringColor="rgba(79, 70, 229, 0.22)" />
+      <CustomCursor color="#141413" ringColor="rgba(20, 20, 19, 0.16)" />
 
       <AmbientAuthBackground />
 
@@ -150,7 +138,7 @@ export default function AuthScreen({ initialView = 'landing', onOnboardingComple
           </motion.div>
         )}
 
-        {/* ── AUTH VIEW (Premium Split-Screen with React Bits) ───────────── */}
+        {/* ── AUTH VIEW (Premium Split-Screen with Warm Luxury Enterprise Carbon) ─ */}
         {view === 'auth' && (
           <motion.div
             key="auth"
@@ -162,7 +150,7 @@ export default function AuthScreen({ initialView = 'landing', onOnboardingComple
             transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
             className="min-h-screen flex items-center justify-center p-4 sm:p-6 lg:p-8 relative z-10"
           >
-            <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 rounded-[32px] overflow-hidden bg-white border border-indigo-100/80 shadow-[0_32px_80px_-16px_rgba(79,70,229,0.14),0_0_0_1px_rgba(99,102,241,0.08)]">
+            <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 rounded-[28px] overflow-hidden bg-white border border-[rgba(20,20,19,0.10)] shadow-[rgba(20,20,19,0.06)_0px_24px_50px_-12px,rgba(20,20,19,0.04)_0px_0px_0px_1px]">
               {/* Left Panel: Interactive Visual Brand Panel */}
               <InteractiveBrandPanel />
 

@@ -82,6 +82,7 @@ export default function SaaSDashboard({
   const [isVoiceModeOpen, setIsVoiceModeOpen] = useState(false);
   const [isVoiceStudioOpen, setIsVoiceStudioOpen] = useState(false);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
+  const [auxiliaryTab, setAuxiliaryTab] = useState<'sprints' | 'tasks' | 'decisions'>('sprints');
 
   // Form states - realistic INR defaults (₹72L reserves, ₹8L/mo burn)
   const [editCash, setEditCash] = useState<number>(startup.cashBalance || 7200000);
@@ -593,25 +594,25 @@ export default function SaaSDashboard({
   };
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className="space-y-6 pb-12 font-sans">
 
       {/* ── 1. Page Header ──────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900">
+          <h1 className="text-2xl lg:text-[30px] font-semibold tracking-tight text-[#141413] leading-tight font-sans">
             Overview
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Real-time operating telemetry, capital runway, and governance execution for <span className="font-semibold text-slate-700">{startup.name}</span>.
+          <p className="text-[14px] lg:text-[15px] font-normal leading-relaxed text-[#666562] mt-1 font-sans">
+            Real-time operating telemetry, capital runway, and governance execution for <span className="font-semibold text-[#141413]">{startup.name}</span>.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setIsCalibratingTreasury(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition-colors shadow-xs cursor-pointer"
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg border border-[#141413]/10 bg-white hover:bg-[#FDFCFA] hover:border-[#141413]/25 text-[#141413] text-xs font-medium transition-all shadow-[rgba(20,20,19,0.02)_0px_1px_3px_0px] cursor-pointer"
           >
-            <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
+            <SlidersHorizontal className="w-3.5 h-3.5 text-[#666562]" />
             <span>Calibrate Treasury</span>
           </button>
 
@@ -628,432 +629,569 @@ export default function SaaSDashboard({
 
           <button
             onClick={() => setIsDirectiveOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition-colors shadow-xs cursor-pointer"
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg border border-[#141413]/10 bg-white hover:bg-[#FDFCFA] hover:border-[#141413]/25 text-[#141413] text-xs font-medium transition-all shadow-[rgba(20,20,19,0.02)_0px_1px_3px_0px] cursor-pointer"
           >
-            <Bot className="w-3.5 h-3.5 text-indigo-600" />
+            <Sparkles className="w-3.5 h-3.5 text-[#141413]" />
             <span>Issue Directive</span>
           </button>
 
           <button
             onClick={() => setIsLaunchingInitiative(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium transition-colors shadow-xs cursor-pointer"
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-[#141413] hover:bg-[#262627] text-[#FDFCFA] text-xs font-semibold transition-all shadow-[rgba(20,20,19,0.08)_0px_2px_6px_0px] cursor-pointer font-sans"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-3.5 h-3.5 text-[#FDFCFA]" />
             <span>New Initiative</span>
           </button>
         </div>
       </div>
 
-      {/* ── 1.5 Executive Directive Dispatcher (Sophia Vance) ──────────────── */}
-      <ExecutiveDirectiveDispatcher
-        messages={messages}
-        isTyping={isTyping}
-        onSendDirective={async (directive) => {
-          await sendMessage(directive);
-          if (onRefreshTasks) setTimeout(() => onRefreshTasks(), 1200);
-        }}
-        onCancelRun={cancelRun}
-        onNavigate={onNavigate}
-        startupName={startup.name}
-      />
+      {/* ── 2. Unified Top Telemetry Strip ───────────────────────────────── */}
+      <div className="bg-[#FDFCFA] rounded-2xl border border-[#141413]/10 shadow-[rgba(20,20,19,0.02)_0px_1px_4px_0px] overflow-hidden">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#141413]/10">
+          
+          {/* Treasury Reserve */}
+          <div 
+            onClick={() => setIsCalibratingTreasury(true)}
+            className="px-6 py-3.5 hover:bg-white transition-colors cursor-pointer group flex flex-col justify-between"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[12px] font-medium text-[#666562]">Treasury Reserve</span>
+              <span className="text-emerald-700 bg-emerald-50 border border-emerald-200/40 px-2 py-0.5 rounded-md font-mono text-xs flex items-center gap-1 font-medium">
+                <TrendingUp className="w-3 h-3 text-emerald-600" />
+                <span>+12.4% MoM</span>
+              </span>
+            </div>
+            <div className="mt-2 flex items-baseline justify-between gap-2">
+              <span className="text-2xl lg:text-[24px] font-semibold font-mono tracking-tight text-[#141413]">
+                {formatCurrency(cashBalance)}
+              </span>
+              <span className="text-[11px] font-mono text-[#666562] group-hover:text-[#141413] transition-colors">
+                Edit ⚙
+              </span>
+            </div>
+          </div>
 
-      {/* ── 2. Core Metrics: 4 Clean KPI Cards ────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        
-        {/* Treasury Reserves */}
-        <div 
-          onClick={() => setIsCalibratingTreasury(true)}
-          className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs hover:border-slate-300 transition-colors cursor-pointer group"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">Treasury Reserves</span>
-            <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 flex items-center gap-1">
-              <TrendingUp className="w-3 h-3" />
-              <span>+12.4% MoM</span>
-            </span>
+          {/* Net Monthly Burn */}
+          <div 
+            onClick={() => setIsCalibratingTreasury(true)}
+            className="px-6 py-3.5 hover:bg-white transition-colors cursor-pointer group flex flex-col justify-between"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[12px] font-medium text-[#666562]">Net Monthly Burn</span>
+              <span className="text-[#666562] bg-[#141413]/5 border border-[#141413]/08 px-2 py-0.5 rounded-md font-mono text-xs font-medium">
+                {monthlyBurnRatio}% / mo
+              </span>
+            </div>
+            <div className="mt-2 flex items-baseline justify-between gap-2">
+              <span className="text-2xl lg:text-[24px] font-semibold font-mono tracking-tight text-[#141413]">
+                {formatCurrency(burnRate)}<span className="text-sm text-[#666562] font-normal font-sans">/mo</span>
+              </span>
+              <span className="text-[11px] font-mono text-[#666562]">Outflows</span>
+            </div>
           </div>
-          <div className="mt-2 text-2xl font-bold tracking-tight text-slate-900 font-sans">
-            {formatCurrency(cashBalance)}
+
+          {/* Runway Horizon */}
+          <div className="px-6 py-3.5 flex flex-col justify-between">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[12px] font-medium text-[#666562]">Runway Horizon</span>
+              <span className={`px-2 py-0.5 rounded-md font-mono text-xs font-medium border ${
+                runwayMonths >= 12
+                  ? 'text-emerald-700 bg-emerald-50 border-emerald-200/40'
+                  : runwayMonths >= 6
+                  ? 'text-amber-700 bg-amber-50 border-amber-200/60'
+                  : 'text-rose-700 bg-rose-50 border-rose-200/60'
+              }`}>
+                {runwayMonths >= 12 ? 'Healthy' : runwayMonths >= 6 ? 'Buffer Zone' : 'Critical'}
+              </span>
+            </div>
+            <div className="mt-2 flex items-baseline justify-between gap-2">
+              <span className="text-2xl lg:text-[24px] font-semibold font-mono tracking-tight text-[#141413]">
+                {runwayMonths.toFixed(1)} <span className="text-sm text-[#666562] font-normal font-sans">months</span>
+              </span>
+              <span className="text-[11px] font-mono text-[#666562]">Gate: &lt;4.0mo</span>
+            </div>
           </div>
-          <div className="mt-2 text-[11px] text-slate-500 flex items-center justify-between">
-            <span>Monthly Burn {formatCurrency(burnRate)}</span>
-            <span className="text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity font-medium">Edit →</span>
+
+          {/* Startup Health Index */}
+          <div className="px-6 py-3.5 flex flex-col justify-between">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[12px] font-medium text-[#666562]">Health Index</span>
+              <span className="text-[#141413] bg-[#141413]/5 border border-[#141413]/08 px-2 py-0.5 rounded-md font-mono text-xs font-medium">
+                {healthScore} / 100
+              </span>
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <span className="text-2xl lg:text-[24px] font-semibold font-mono tracking-tight text-[#141413]">
+                {healthScore}%
+              </span>
+              <div className="w-24 bg-[#141413]/08 h-2 rounded-full overflow-hidden border border-[#141413]/06">
+                <div 
+                  className="bg-[#141413] h-full rounded-full transition-all duration-700" 
+                  style={{ width: `${Math.min(100, Math.max(0, healthScore))}%` }}
+                />
+              </div>
+            </div>
           </div>
+
         </div>
-
-        {/* Monthly Net Burn */}
-        <div 
-          onClick={() => setIsCalibratingTreasury(true)}
-          className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs hover:border-slate-300 transition-colors cursor-pointer group"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">Monthly Net Burn</span>
-            <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
-              {monthlyBurnRatio}% of capital/mo
-            </span>
-          </div>
-          <div className="mt-2 text-2xl font-bold tracking-tight text-slate-900 font-sans">
-            {formatCurrency(burnRate)}
-          </div>
-          <div className="mt-2 text-[11px] text-slate-500 flex items-center justify-between">
-            <span>Operating Outflows</span>
-            <span className="text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity font-medium">Edit →</span>
-          </div>
-        </div>
-
-        {/* Estimated Runway */}
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">Runway Horizon</span>
-            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${
-              runwayMonths >= 12
-                ? 'text-emerald-700 bg-emerald-50 border-emerald-100'
-                : runwayMonths >= 6
-                ? 'text-amber-700 bg-amber-50 border-amber-100'
-                : 'text-rose-700 bg-rose-50 border-rose-100'
-            }`}>
-              {runwayMonths >= 12 ? 'Healthy' : runwayMonths >= 6 ? 'Buffer Zone' : 'Critical'}
-            </span>
-          </div>
-          <div className="mt-2 text-2xl font-bold tracking-tight text-slate-900 font-sans">
-            {runwayMonths.toFixed(1)} <span className="text-xs font-normal text-slate-500">months</span>
-          </div>
-          <div className="mt-2 text-[11px] text-slate-500">
-            <span>CFO Veto Gate: &lt; 4.0 months</span>
-          </div>
-        </div>
-
-        {/* Operational Health Index */}
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">Health Index</span>
-            <span className="text-[11px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
-              {healthScore} / 100
-            </span>
-          </div>
-          <div className="mt-2 text-2xl font-bold tracking-tight text-slate-900 font-sans">
-            {healthScore}%
-          </div>
-          <div className="mt-2 w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-            <div 
-              className="bg-indigo-600 h-full rounded-full transition-all duration-500" 
-              style={{ width: `${Math.min(100, Math.max(0, healthScore))}%` }}
-            />
-          </div>
-        </div>
-
       </div>
 
-      {/* ── 3. Section 1: Today's Priorities & Action Items (Top Priority) ── */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-indigo-600" />
-            <h2 className="text-sm font-semibold text-slate-900">Today's Priorities</h2>
-            <span className="text-[11px] font-medium text-slate-500">
-              ({pendingApprovals.length + detectedRisks.length} actionable items)
-            </span>
+      {/* ── 3. Main 60/40 Asymmetrical Workspace (7 Cols / 5 Cols) ─────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+        {/* ── Left Column (7 Cols): Strategic Engine ──────────────────────── */}
+        <div className="lg:col-span-7 space-y-6">
+
+          {/* 3.1 Executive Directive Dispatcher (Sophia Vance) */}
+          <ExecutiveDirectiveDispatcher
+            messages={messages}
+            isTyping={isTyping}
+            onSendDirective={async (directive) => {
+              await sendMessage(directive);
+              if (onRefreshTasks) setTimeout(() => onRefreshTasks(), 1200);
+            }}
+            onCancelRun={cancelRun}
+            onNavigate={onNavigate}
+            startupName={startup.name}
+          />
+
+          {/* 3.2 Tabbed Auxiliary Workspace: Sprints, Tasks, Decisions */}
+          <div className="bg-white rounded-xl border border-[#141413]/10 shadow-[rgba(20,20,19,0.02)_0px_1px_4px_0px] overflow-hidden">
+            {/* Tab Bar Header */}
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#141413]/08 bg-[#FDFCFA]">
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setAuxiliaryTab('sprints')}
+                  className={`px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                    auxiliaryTab === 'sprints'
+                      ? 'bg-[#141413] text-[#FDFCFA] shadow-xs'
+                      : 'text-[#666562] hover:text-[#141413] hover:bg-[#141413]/05'
+                  }`}
+                >
+                  Active Sprints ({initiatives.length})
+                </button>
+                <button
+                  onClick={() => setAuxiliaryTab('tasks')}
+                  className={`px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                    auxiliaryTab === 'tasks'
+                      ? 'bg-[#141413] text-[#FDFCFA] shadow-xs'
+                      : 'text-[#666562] hover:text-[#141413] hover:bg-[#141413]/05'
+                  }`}
+                >
+                  Priority Tasks ({tasks.length})
+                </button>
+                <button
+                  onClick={() => setAuxiliaryTab('decisions')}
+                  className={`px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                    auxiliaryTab === 'decisions'
+                      ? 'bg-[#141413] text-[#FDFCFA] shadow-xs'
+                      : 'text-[#666562] hover:text-[#141413] hover:bg-[#141413]/05'
+                  }`}
+                >
+                  Recent Decisions ({decisions.length})
+                </button>
+              </div>
+
+              {onNavigate && (
+                <button
+                  onClick={() => {
+                    if (auxiliaryTab === 'sprints') onNavigate('workflows');
+                    else if (auxiliaryTab === 'tasks') onNavigate('workspace');
+                    else onNavigate('decisions');
+                  }}
+                  className="text-xs font-medium text-[#666562] hover:text-[#141413] flex items-center gap-1 transition-colors cursor-pointer"
+                >
+                  <span>View all</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Tab Content 1: Active Sprints */}
+            {auxiliaryTab === 'sprints' && (
+              <div className="p-4 space-y-3">
+                {initiatives.length > 0 ? (
+                  initiatives.slice(0, 4).map((init) => {
+                    const completedTasks = init.tasks?.filter(t => t.status === 'completed').length || 0;
+                    const totalTasks = init.tasks?.length || 1;
+                    const progressPct = Math.round((completedTasks / totalTasks) * 100);
+
+                    return (
+                      <div 
+                        key={init.id}
+                        className="p-3.5 rounded-lg border border-[#141413]/08 bg-[#FDFCFA] hover:bg-white transition-all space-y-2 shadow-[rgba(20,20,19,0.01)_0px_1px_3px_0px]"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-xs font-semibold text-[#141413] truncate font-sans">{init.title}</span>
+                            <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-[#141413]/5 border border-[#141413]/08 text-[#141413]/70 shrink-0">
+                              {init.category}
+                            </span>
+                          </div>
+                          <span className="text-xs font-mono font-semibold text-[#141413] shrink-0">
+                            {progressPct}%
+                          </span>
+                        </div>
+
+                        <div className="w-full bg-[#F3F0EE] h-1.5 rounded-full overflow-hidden border border-[#141413]/06">
+                          <div 
+                            className="bg-[#141413] h-full rounded-full transition-all duration-300"
+                            style={{ width: `${progressPct}%` }}
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px] text-[#666562] pt-0.5 font-sans">
+                          <span>Status: {init.status === 'active' ? 'Execution in Progress' : 'Pending Deployment'}</span>
+                          <button
+                            onClick={() => onSimulateInitiative(init.id)}
+                            className="text-[#141413] hover:underline font-semibold flex items-center gap-1 cursor-pointer font-sans"
+                          >
+                            <span>Simulate Next Step</span>
+                            <ArrowRight className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="py-8 text-center text-[#666562] text-xs">
+                    <p>No active workflow initiatives currently deployed.</p>
+                    <button
+                      onClick={() => setIsLaunchingInitiative(true)}
+                      className="mt-3 px-3.5 py-1.5 rounded-lg bg-[#141413] text-[#FDFCFA] font-semibold hover:bg-[#262627] transition-all cursor-pointer shadow-xs"
+                    >
+                      Launch Strategic Initiative
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Tab Content 2: Priority Tasks */}
+            {auxiliaryTab === 'tasks' && (
+              <div className="p-4 space-y-2">
+                {tasks.length > 0 ? (
+                  tasks.slice(0, 5).map((t) => (
+                    <div 
+                      key={t.id}
+                      className="p-3 rounded-lg border border-[#141413]/08 bg-[#FDFCFA] hover:bg-white transition-all flex items-center justify-between gap-3 shadow-[rgba(20,20,19,0.01)_0px_1px_3px_0px]"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-xs text-[#141413] truncate font-sans">{t.title}</span>
+                          <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-[#141413]/5 border border-[#141413]/08 text-[#141413]/70">
+                            {t.department}
+                          </span>
+                          <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md border ${
+                            t.priority === 'CRITICAL' ? 'bg-rose-50 text-rose-700 border-rose-200/60' :
+                            t.priority === 'HIGH' ? 'bg-amber-50 text-amber-700 border-amber-200/60' :
+                            'bg-[#F3F0EE] text-[#666562] border-[#141413]/08'
+                          }`}>
+                            {t.priority}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-[#666562] line-clamp-1 mt-0.5">{t.expectedOutcome || t.title}</p>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md border ${
+                          t.status === 'approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-200/40' :
+                          t.status === 'in_progress' ? 'bg-[#141413]/5 text-[#141413] border-[#141413]/10' :
+                          'bg-[#F3F0EE] text-[#666562] border-[#141413]/08'
+                        }`}>
+                          {t.status.replace('_', ' ')}
+                        </span>
+                        {onNavigate && (
+                          <button
+                            onClick={() => onNavigate('workspace')}
+                            className="text-xs text-[#141413] hover:underline font-medium"
+                          >
+                            Inspect
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-8 text-center text-[#666562] text-xs">
+                    <p>No tasks delegated yet. Issue a directive above to dispatch work.</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Tab Content 3: Recent Decisions */}
+            {auxiliaryTab === 'decisions' && (
+              <div className="p-4">
+                {decisions.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs font-sans">
+                      <thead>
+                        <tr className="border-b border-[#141413]/10 text-[#666562] text-[12px] font-medium">
+                          <th className="py-2.5 px-3 font-medium">Timestamp</th>
+                          <th className="py-2.5 px-3 font-medium">Decision Title</th>
+                          <th className="py-2.5 px-3 font-medium">Category</th>
+                          <th className="py-2.5 px-3 font-medium">Financial Impact</th>
+                          <th className="py-2.5 px-3 font-medium text-right">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#141413]/06">
+                        {decisions.slice(0, 5).map((d) => (
+                          <tr key={d.id} className="hover:bg-[#FDFCFA] transition-colors">
+                            <td className="py-3 px-3 text-[#666562] font-mono text-[11px]">
+                              {new Date(d.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </td>
+                            <td className="py-3 px-3 font-semibold text-[#141413] max-w-xs truncate">
+                              {d.title}
+                            </td>
+                            <td className="py-3 px-3">
+                              <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-[#141413]/5 text-[#141413]/70 border border-[#141413]/08">
+                                {d.category}
+                              </span>
+                            </td>
+                            <td className="py-3 px-3 font-mono font-medium">
+                              {d.financialImpact !== undefined && d.financialImpact !== 0 ? (
+                                <span className={d.financialImpact > 0 ? 'text-emerald-700' : 'text-[#141413]'}>
+                                  {d.financialImpact > 0 ? `+${formatCurrency(d.financialImpact)}` : formatCurrency(d.financialImpact)}
+                                </span>
+                              ) : (
+                                <span className="text-[#666562]/50 font-normal">—</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-3 text-right">
+                              <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md border ${
+                                d.status === 'approved'
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200/40'
+                                  : 'bg-[#F3F0EE] text-[#666562] border-[#141413]/10'
+                              }`}>
+                                {d.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="py-6 text-center text-[#666562] text-xs">
+                    No decisions logged yet. Decisions signed off in the Approval Queue will be recorded here.
+                  </div>
+                )}
+              </div>
+            )}
+
           </div>
-          {onNavigate && (
-            <button
-              onClick={() => onNavigate('approvals')}
-              className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1 cursor-pointer"
-            >
-              <span>View all approvals</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          )}
+
         </div>
 
-        {/* Priority Items List */}
-        {pendingApprovals.length > 0 || detectedRisks.length > 0 ? (
-          <div className="divide-y divide-slate-100">
-            {/* Pending Approvals (Distinct, Deduplicated) */}
-            {pendingApprovals.map((item) => (
-              <div 
-                key={item.id} 
-                className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 first:pt-0 last:pb-0"
-              >
-                <div className="flex items-start gap-3 min-w-0">
-                  <div className="w-8 h-8 rounded-lg bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 shrink-0 mt-0.5">
-                    <ShieldCheck className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-xs text-slate-900">{item.title}</span>
-                      <span className="text-[10px] font-medium uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-700">
-                        {item.type.replace('_', ' ')}
-                      </span>
+        {/* ── Right Column (5 Cols): Founder's Desk / Gating Station ────────── */}
+        <div className="lg:col-span-5 space-y-6">
+
+          {/* 3.3 Founder's Desk: Pending Approvals Station */}
+          <div className="bg-white rounded-xl border border-[#141413]/10 p-5 shadow-[rgba(20,20,19,0.02)_0px_1px_4px_0px] space-y-3.5">
+            <div className="flex items-center justify-between pb-3 border-b border-[#141413]/08">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-[#141413]" />
+                <h2 className="text-base font-semibold text-[#141413] tracking-tight font-sans">
+                  Founder's Desk ({pendingApprovals.length})
+                </h2>
+              </div>
+              {onNavigate && (
+                <button
+                  onClick={() => onNavigate('approvals')}
+                  className="text-xs font-semibold text-[#141413] hover:underline flex items-center gap-0.5 cursor-pointer font-sans"
+                >
+                  <span>Queue</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {pendingApprovals.length > 0 ? (
+              <div className="divide-y divide-[#141413]/06">
+                {pendingApprovals.map((item) => (
+                  <div key={item.id} className="py-3 first:pt-0 last:pb-0 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-semibold text-xs text-[#141413]">{item.title}</span>
+                          <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-[#141413]/5 text-[#141413]/80 border border-[#141413]/08">
+                            {item.type.replace('_', ' ')}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-[#666562] line-clamp-1 mt-0.5">{item.description}</p>
+                      </div>
+
                       {item.financialChange !== undefined && item.financialChange !== 0 && (
-                        <span className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded ${
+                        <span className={`text-xs font-mono font-medium px-2 py-0.5 rounded-md border shrink-0 ${
                           item.financialChange > 0 
-                            ? 'text-emerald-700 bg-emerald-50' 
-                            : 'text-rose-700 bg-rose-50'
+                            ? 'text-emerald-700 bg-emerald-50 border-emerald-200/40' 
+                            : 'text-rose-700 bg-rose-50 border-rose-200/60'
                         }`}>
                           {item.financialChange > 0 ? `+${formatCurrency(item.financialChange)}` : `-${formatCurrency(Math.abs(item.financialChange))}`}
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">{item.description}</p>
-                  </div>
-                </div>
 
-                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                  <button
-                    disabled={reviewingId === item.id}
-                    onClick={() => handleQuickApprove(item.id)}
-                    className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium transition-colors shadow-xs flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                  >
-                    {reviewingId === item.id ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : (
-                      <Check className="w-3 h-3" />
-                    )}
-                    <span>Approve</span>
-                  </button>
-                  {onNavigate && (
-                    <button
-                      onClick={() => onNavigate('approvals')}
-                      className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-medium transition-colors cursor-pointer"
-                    >
-                      Details
-                    </button>
-                  )}
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-[11px] font-mono text-[#666562]">
+                        Urgency: {item.urgency || 'NORMAL'}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          disabled={reviewingId === item.id}
+                          onClick={() => handleQuickApprove(item.id)}
+                          className="px-2.5 py-1 rounded-md bg-[#141413] hover:bg-[#262627] text-[#FDFCFA] text-[11px] font-semibold transition-all shadow-xs flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                        >
+                          {reviewingId === item.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin text-[#FDFCFA]" />
+                          ) : (
+                            <Check className="w-3 h-3 text-[#FDFCFA]" />
+                          )}
+                          <span>Approve</span>
+                        </button>
+                        {onNavigate && (
+                          <button
+                            onClick={() => onNavigate('approvals')}
+                            className="px-2 py-1 rounded-md border border-[#141413]/10 text-[#141413] hover:bg-[#FDFCFA] text-[11px] font-medium transition-all cursor-pointer"
+                          >
+                            Inspect
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-4 rounded-xl bg-[#FDFCFA] border border-[#141413]/08 flex items-center gap-3">
+                <div className="w-7 h-7 rounded-full bg-emerald-50 border border-emerald-200/50 flex items-center justify-center shrink-0">
+                  <Check className="w-3.5 h-3.5 text-emerald-700" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-[#141413]">✓ All caught up</p>
+                  <p className="text-[11px] text-[#666562] mt-0.5">No pending executive authorizations or budget requests requiring review.</p>
                 </div>
               </div>
-            ))}
+            )}
+          </div>
 
-            {/* Critical Sentinel Risks */}
-            {detectedRisks.map((risk) => (
-              <div 
-                key={risk.id} 
-                className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 first:pt-0 last:pb-0"
-              >
-                <div className="flex items-start gap-3 min-w-0">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
-                    risk.severity === 'CRITICAL' 
-                      ? 'bg-rose-50 text-rose-600 border border-rose-100'
-                      : risk.severity === 'HIGH'
-                      ? 'bg-amber-50 text-amber-600 border border-amber-100'
-                      : 'bg-indigo-50 text-indigo-600 border border-indigo-100'
-                  }`}>
-                    <AlertCircle className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-xs text-slate-900">{risk.title}</span>
-                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
-                        risk.severity === 'CRITICAL'
-                          ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                          : risk.severity === 'HIGH'
-                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                          : 'bg-slate-100 text-slate-700 border border-slate-200'
+          {/* 3.4 Sentinel Risk Radar */}
+          <div className="bg-white rounded-xl border border-[#141413]/10 p-5 shadow-[rgba(20,20,19,0.02)_0px_1px_4px_0px] space-y-3.5">
+            <div className="flex items-center justify-between pb-3 border-b border-[#141413]/08">
+              <div className="flex items-center gap-2">
+                <Shield className="w-4 h-4 text-[#141413]" />
+                <h3 className="text-base font-semibold text-[#141413] tracking-tight font-sans">
+                  Sentinel Risk Radar
+                </h3>
+              </div>
+              <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full border ${
+                detectedRisks.length === 0
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200/50'
+                  : 'bg-amber-50 text-amber-700 border-amber-200/60'
+              }`}>
+                {detectedRisks.length === 0 ? 'All Systems Nominal' : `${detectedRisks.length} Guardrails Active`}
+              </span>
+            </div>
+
+            {detectedRisks.length > 0 ? (
+              <div className="space-y-2">
+                {detectedRisks.map((risk) => (
+                  <div 
+                    key={risk.id}
+                    className="p-3 rounded-lg border border-[#141413]/08 bg-[#FDFCFA] space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold text-xs text-[#141413]">{risk.title}</span>
+                      <span className={`text-[10px] font-mono font-medium px-1.5 py-0.5 rounded border ${
+                        risk.severity === 'CRITICAL' ? 'bg-rose-50 text-rose-700 border-rose-200/60' :
+                        risk.severity === 'HIGH' ? 'bg-amber-50 text-amber-700 border-amber-200/60' :
+                        'bg-[#F3F0EE] text-[#141413] border-[#141413]/10'
                       }`}>
                         {risk.severity}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">{risk.description}</p>
-                  </div>
-                </div>
-
-                <button
-                  onClick={risk.action}
-                  className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-medium transition-colors cursor-pointer shrink-0 self-end sm:self-center"
-                >
-                  {risk.actionLabel}
-                </button>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="divide-y divide-slate-100">
-            {fallbackPriorities.map((item) => (
-              <div 
-                key={item.id} 
-                className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 first:pt-0 last:pb-0"
-              >
-                <div className="flex items-start gap-3 min-w-0">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 mt-0.5">
-                    <Sparkles className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-xs text-slate-900">{item.title}</span>
-                      <span className="text-[10px] font-medium uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-700">
-                        {item.category}
-                      </span>
-                      <span className="text-[10px] font-mono text-slate-500">
-                        Owner: {item.owner}
-                      </span>
+                    <p className="text-[11px] text-[#666562]">{risk.description}</p>
+                    <div className="pt-1 flex justify-end">
+                      <button
+                        onClick={risk.action}
+                        className="text-[11px] font-semibold text-[#141413] hover:underline"
+                      >
+                        {risk.actionLabel} →
+                      </button>
                     </div>
-                    <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">{item.description}</p>
                   </div>
-                </div>
-
-                <button
-                  onClick={item.action}
-                  className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-medium transition-colors cursor-pointer shrink-0 self-end sm:self-center"
-                >
-                  {item.actionLabel}
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ── 4. Section 2: Work in Progress (Active Sprints & Council) ────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-        
-        {/* Left: Active Strategic Sprints (7 cols) */}
-        <div className="lg:col-span-7 bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4 flex flex-col justify-between h-full">
-          <div>
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <Layers className="w-4 h-4 text-indigo-600" />
-                <h3 className="text-sm font-semibold text-slate-900">Work in Progress</h3>
-                <span className="text-xs text-slate-400">({initiatives.length} initiatives)</span>
-              </div>
-              {onNavigate && (
-                <button
-                  onClick={() => onNavigate('workflows')}
-                  className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1 cursor-pointer"
-                >
-                  <span>Workflows &amp; DAG</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-
-            {initiatives.length > 0 ? (
-              <div className="space-y-3 mt-3">
-                {initiatives.slice(0, 3).map((init) => {
-                  const completedTasks = init.tasks?.filter(t => t.status === 'completed').length || 0;
-                  const totalTasks = init.tasks?.length || 1;
-                  const progressPct = Math.round((completedTasks / totalTasks) * 100);
-
-                  return (
-                    <div 
-                      key={init.id}
-                      className="p-3.5 rounded-lg border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-colors space-y-2.5"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-xs font-semibold text-slate-900 truncate">{init.title}</span>
-                          <span className="text-[10px] uppercase font-medium px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-600 shrink-0">
-                            {init.category}
-                          </span>
-                        </div>
-                        <span className="text-xs font-mono font-medium text-slate-500 shrink-0">
-                          {progressPct}%
-                        </span>
-                      </div>
-
-                      <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                        <div 
-                          className="bg-indigo-600 h-full rounded-full transition-all duration-300"
-                          style={{ width: `${progressPct}%` }}
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between text-[11px] text-slate-500 pt-0.5">
-                        <span>Phase: {init.status === 'active' ? 'Execution in Progress' : 'Pending Deployment'}</span>
-                        <button
-                          onClick={() => onSimulateInitiative(init.id)}
-                          className="text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1 cursor-pointer"
-                        >
-                          <span>Simulate Next Step</span>
-                          <ArrowRight className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+                ))}
               </div>
             ) : (
-              <div className="py-8 text-center text-slate-500 text-xs">
-                <p>No active workflow initiatives currently deployed.</p>
-                <button
-                  onClick={() => setIsLaunchingInitiative(true)}
-                  className="mt-3 px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors"
-                >
-                  Launch Strategic Initiative
-                </button>
+              <div className="px-3.5 py-2.5 rounded-xl bg-[#FDFCFA] border border-emerald-200/50 flex items-center gap-2.5 text-xs">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="font-medium text-[#141413]">All systems nominal</span>
+                  <span className="text-[#666562]">— Capital runway ({runwayMonths.toFixed(1)}mo) and governance compliance within safe bounds.</span>
+                </div>
               </div>
             )}
+
+            {/* Checklist Telemetry */}
+            <div className="space-y-2 pt-2 border-t border-[#141413]/06 text-[12px]">
+              <div className="flex items-center justify-between text-[#666562]">
+                <span>Treasury Runway Horizon</span>
+                <span className="font-mono font-semibold text-[#141413]">{runwayMonths.toFixed(1)} mo</span>
+              </div>
+              <div className="flex items-center justify-between text-[#666562]">
+                <span>Executive Task Delegation</span>
+                <span className="font-mono font-semibold text-[#141413]">
+                  {unassignedTasks.length > 0 ? `${unassignedTasks.length} unassigned` : 'Fully Staffed'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-[#666562]">
+                <span>Ledger Security</span>
+                <span className="font-mono font-semibold text-emerald-700">SOC-2 Ready</span>
+              </div>
+            </div>
           </div>
 
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-            <span>Autonomous multi-agent sprint orchestration</span>
-            {onNavigate && (
-              <button 
-                onClick={() => onNavigate('workflows')} 
-                className="text-indigo-600 font-medium hover:underline"
-              >
-                Manage full DAG pipeline →
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Right: Executive Council Roster (5 cols) */}
-        <div className="lg:col-span-5 bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+          {/* 3.5 Executive Roster Pulse */}
+          <div className="bg-white rounded-xl border border-[#141413]/10 p-5 shadow-[rgba(20,20,19,0.02)_0px_1px_4px_0px] space-y-3">
+            <div className="flex items-center justify-between pb-2.5 border-b border-[#141413]/08">
               <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-indigo-600" />
-                <h3 className="text-sm font-semibold text-slate-900">Executive Council</h3>
+                <Users className="w-4 h-4 text-[#141413]" />
+                <h3 className="text-base font-semibold text-[#141413] tracking-tight font-sans">
+                  Executive Council ({agents.length})
+                </h3>
               </div>
               {onNavigate && (
                 <button
                   onClick={() => onNavigate('council')}
-                  className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1 cursor-pointer"
+                  className="text-xs font-semibold text-[#141413] hover:underline"
                 >
-                  <span>Council Suite</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
+                  Convene →
                 </button>
               )}
             </div>
 
-            <div className="space-y-2 mt-3">
-              {agents.slice(0, 5).map((ag) => (
+            <div className="grid grid-cols-2 gap-2">
+              {agents.slice(0, 4).map((ag) => (
                 <div 
                   key={ag.id}
                   onClick={() => onNavigate?.('council')}
-                  className="p-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-colors flex items-center justify-between gap-3 cursor-pointer"
+                  className="p-2.5 rounded-lg border border-[#141413]/08 bg-[#FDFCFA] hover:bg-white transition-all cursor-pointer"
                 >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-7 h-7 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-xs text-slate-700 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-md bg-[#141413] text-[#FDFCFA] flex items-center justify-center font-mono font-bold text-[10px] shrink-0">
                       {ag.role.slice(0, 2).toUpperCase()}
                     </div>
                     <div className="min-w-0">
-                      <div className="font-semibold text-xs text-slate-900 truncate">{ag.name.split(' ')[0]}</div>
-                      <div className="text-[10px] text-slate-500 truncate">{ag.role}</div>
+                      <div className="font-semibold text-xs text-[#141413] truncate">{ag.name.split(' ')[0]}</div>
+                      <div className="text-[10px] font-mono text-[#666562] truncate uppercase">{ag.role}</div>
                     </div>
-                  </div>
-
-                  <div className="text-right shrink-0">
-                    <span className="text-[11px] font-mono font-medium text-slate-700 block">
-                      {ag.metricValue}
-                    </span>
-                    <span className="text-[10px] text-slate-400 block">{ag.keyMetric}</span>
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-            <span>8 Autonomous Executives Grounded</span>
-            {onNavigate && (
-              <button 
-                onClick={() => onNavigate('council')} 
-                className="text-indigo-600 font-medium hover:underline"
-              >
-                Convene Council →
-              </button>
-            )}
-          </div>
         </div>
 
       </div>
@@ -1502,64 +1640,64 @@ export default function SaaSDashboard({
 
       {/* ── 7. Calibrate Treasury Modal ────────────────────────────────────── */}
       {isCalibratingTreasury && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-lg w-full p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                  <SlidersHorizontal className="w-4 h-4" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#141413]/40 backdrop-blur-xs">
+          <div className="bg-white rounded-[24px] border border-[#141413]/15 shadow-2xl max-w-lg w-full p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-3.5 border-b border-[#141413]/08">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-[12px] bg-[#141413] text-[#F3F0EE] flex items-center justify-center shadow-xs">
+                  <SlidersHorizontal className="w-4 h-4 text-[#F3F0EE]" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-900">Calibrate Treasury &amp; Runway</h3>
-                  <p className="text-xs text-slate-500">Update cash reserves and monthly net burn rate</p>
+                  <h3 className="text-sm font-bold text-[#141413] font-sans">Calibrate Treasury &amp; Runway</h3>
+                  <p className="text-xs text-[#696969]">Update cash reserves and monthly net burn rate</p>
                 </div>
               </div>
               <button
                 onClick={() => setIsCalibratingTreasury(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                className="p-1.5 rounded-lg text-[#696969] hover:text-[#141413] hover:bg-[#F3F0EE] transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveTreasury} className="space-y-4 text-xs">
+            <form onSubmit={handleSaveTreasury} className="space-y-4 text-xs font-sans">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block font-medium text-slate-700 mb-1">Cash Reserves (₹ INR)</label>
+                  <label className="block font-semibold text-[#141413] mb-1">Cash Reserves (₹ INR)</label>
                   <input
                     type="number"
                     min="0"
                     step="50000"
                     value={editCash}
                     onChange={(e) => setEditCash(Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-xs font-semibold text-slate-900"
+                    className="w-full px-3.5 py-2.5 rounded-[12px] border border-[#141413]/15 focus:outline-none focus:border-[#141413] focus:ring-1 focus:ring-[#141413]/10 text-xs font-mono font-semibold text-[#141413]"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-slate-700 mb-1">Monthly Net Burn (₹/mo)</label>
+                  <label className="block font-semibold text-[#141413] mb-1">Monthly Net Burn (₹/mo)</label>
                   <input
                     type="number"
                     min="0"
                     step="10000"
                     value={editBurn}
                     onChange={(e) => setEditBurn(Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-xs font-semibold text-slate-900"
+                    className="w-full px-3.5 py-2.5 rounded-[12px] border border-[#141413]/15 focus:outline-none focus:border-[#141413] focus:ring-1 focus:ring-[#141413]/10 text-xs font-mono font-semibold text-[#141413]"
                     required
                   />
                 </div>
               </div>
 
-              <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between">
+              <div className="p-3.5 rounded-[14px] bg-[#FCFBFA] border border-[#141413]/10 flex items-center justify-between text-xs">
                 <div>
-                  <span className="text-slate-500">Projected Runway: </span>
-                  <span className="font-bold text-slate-900">
+                  <span className="text-[#696969]">Projected Runway: </span>
+                  <span className="font-bold text-[#141413] font-mono">
                     {editBurn > 0 ? (editCash / editBurn).toFixed(1) : '∞'} Months
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500">Burn Ratio: </span>
-                  <span className="font-bold text-slate-900">
+                  <span className="text-[#696969]">Burn Ratio: </span>
+                  <span className="font-bold text-[#141413] font-mono">
                     {editCash > 0 ? ((editBurn / editCash) * 100).toFixed(1) : 0}% / mo
                   </span>
                 </div>
@@ -1569,16 +1707,16 @@ export default function SaaSDashboard({
                 <button
                   type="button"
                   onClick={() => setIsCalibratingTreasury(false)}
-                  className="px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors font-medium"
+                  className="px-4 py-2 rounded-[12px] border border-[#141413]/10 text-[#141413] hover:bg-[#FCFBFA] transition-colors font-medium cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSavingTreasury}
-                  className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-xs transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-5 py-2 rounded-[12px] bg-[#141413] hover:bg-[#262627] text-[#F3F0EE] font-semibold shadow-xs transition-all disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
                 >
-                  {isSavingTreasury ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  {isSavingTreasury ? <Loader2 className="w-3.5 h-3.5 animate-spin text-[#F3F0EE]" /> : <Check className="w-3.5 h-3.5 text-[#F3F0EE]" />}
                   <span>Save Parameters</span>
                 </button>
               </div>
@@ -1589,45 +1727,45 @@ export default function SaaSDashboard({
 
       {/* ── 8. Launch Initiative Modal ──────────────────────────────────────── */}
       {isLaunchingInitiative && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-lg w-full p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                  <Plus className="w-4 h-4" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#141413]/40 backdrop-blur-xs">
+          <div className="bg-white rounded-[24px] border border-[#141413]/15 shadow-2xl max-w-lg w-full p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-3.5 border-b border-[#141413]/08">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-[12px] bg-[#141413] text-[#F3F0EE] flex items-center justify-center shadow-xs">
+                  <Plus className="w-4 h-4 text-[#F3F0EE]" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-900">Launch Strategic Initiative</h3>
-                  <p className="text-xs text-slate-500">Deploy cross-functional workflow to executive council</p>
+                  <h3 className="text-sm font-bold text-[#141413] font-sans">Launch Strategic Initiative</h3>
+                  <p className="text-xs text-[#696969]">Deploy cross-functional workflow to executive council</p>
                 </div>
               </div>
               <button
                 onClick={() => setIsLaunchingInitiative(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                className="p-1.5 rounded-lg text-[#696969] hover:text-[#141413] hover:bg-[#F3F0EE] transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateInitiative} className="space-y-4 text-xs">
+            <form onSubmit={handleCreateInitiative} className="space-y-4 text-xs font-sans">
               <div>
-                <label className="block font-medium text-slate-700 mb-1">Initiative Title</label>
+                <label className="block font-semibold text-[#141413] mb-1">Initiative Title</label>
                 <input
                   type="text"
                   value={initTitle}
                   onChange={(e) => setInitTitle(e.target.value)}
                   placeholder="e.g. Q3 Enterprise Sales GTM Acceleration"
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-xs"
+                  className="w-full px-3.5 py-2.5 rounded-[12px] border border-[#141413]/15 focus:outline-none focus:border-[#141413] focus:ring-1 focus:ring-[#141413]/10 text-xs text-[#141413]"
                   required
                 />
               </div>
 
               <div>
-                <label className="block font-medium text-slate-700 mb-1">Category &amp; Domain</label>
+                <label className="block font-semibold text-[#141413] mb-1">Category &amp; Domain</label>
                 <select
                   value={initCategory}
                   onChange={(e: any) => setInitCategory(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-xs"
+                  className="w-full px-3.5 py-2.5 rounded-[12px] border border-[#141413]/15 focus:outline-none focus:border-[#141413] focus:ring-1 focus:ring-[#141413]/10 text-xs text-[#141413]"
                 >
                   <option value="growth">Growth &amp; Acquisition (Vector)</option>
                   <option value="hiring">Hiring &amp; Headcount (Echo)</option>
@@ -1638,13 +1776,13 @@ export default function SaaSDashboard({
               </div>
 
               <div>
-                <label className="block font-medium text-slate-700 mb-1">Strategic Objective &amp; Scope</label>
+                <label className="block font-semibold text-[#141413] mb-1">Strategic Objective &amp; Scope</label>
                 <textarea
                   rows={3}
                   value={initDesc}
                   onChange={(e) => setInitDesc(e.target.value)}
                   placeholder="Describe target deliverable, success criteria, and budget expectations..."
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-xs"
+                  className="w-full px-3.5 py-2.5 rounded-[12px] border border-[#141413]/15 focus:outline-none focus:border-[#141413] focus:ring-1 focus:ring-[#141413]/10 text-xs text-[#141413] resize-none"
                   required
                 />
               </div>
@@ -1653,16 +1791,16 @@ export default function SaaSDashboard({
                 <button
                   type="button"
                   onClick={() => setIsLaunchingInitiative(false)}
-                  className="px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors font-medium"
+                  className="px-4 py-2 rounded-[12px] border border-[#141413]/10 text-[#141413] hover:bg-[#FCFBFA] transition-colors font-medium cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isDeployingInit}
-                  className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-xs transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-5 py-2 rounded-[12px] bg-[#141413] hover:bg-[#262627] text-[#F3F0EE] font-semibold shadow-xs transition-all disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
                 >
-                  {isDeployingInit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                  {isDeployingInit ? <Loader2 className="w-3.5 h-3.5 animate-spin text-[#F3F0EE]" /> : <Plus className="w-3.5 h-3.5 text-[#F3F0EE]" />}
                   <span>Deploy to Council</span>
                 </button>
               </div>
@@ -1673,21 +1811,21 @@ export default function SaaSDashboard({
 
       {/* ── 9. Issue Executive Directive Modal ─────────────────────────────── */}
       {isDirectiveOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-2xl w-full p-4 sm:p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                  <Bot className="w-4 h-4" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#141413]/40 backdrop-blur-xs">
+          <div className="bg-white rounded-[24px] border border-[#141413]/15 shadow-2xl max-w-2xl w-full p-4 sm:p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3.5 border-b border-[#141413]/08">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-[12px] bg-[#141413] text-[#F3F0EE] flex items-center justify-center shadow-xs">
+                  <Bot className="w-4 h-4 text-[#F3F0EE]" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-900">Issue Executive Directive</h3>
-                  <p className="text-xs text-slate-500">Sophia Vance — Executive Directive Dispatcher</p>
+                  <h3 className="text-sm font-bold text-[#141413] font-sans">Issue Executive Directive</h3>
+                  <p className="text-xs text-[#696969]">Sophia Vance — Executive Directive Dispatcher</p>
                 </div>
               </div>
               <button
                 onClick={() => setIsDirectiveOpen(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                className="p-1.5 rounded-lg text-[#696969] hover:text-[#141413] hover:bg-[#F3F0EE] transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>

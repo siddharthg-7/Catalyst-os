@@ -478,7 +478,7 @@ export default function WorkspaceCommunity({
               <Video className="w-3.5 h-3.5" />
               <span>Meetings</span>
               {upcomingMeetings.length > 0 && (
-                <span className="text-[10px] px-1 rounded-full bg-indigo-100 text-indigo-700 font-bold">
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-[#141413]/5 text-[#141413] border border-[#141413]/10 font-bold">
                   {upcomingMeetings.length}
                 </span>
               )}
@@ -535,7 +535,7 @@ export default function WorkspaceCommunity({
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setIsComposerOpen(!isComposerOpen)}
-                className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors shrink-0"
+                className="px-3.5 py-1.5 bg-[#141413] hover:bg-[#262627] text-[#FDFCFA] rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors shrink-0 cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>New Discussion</span>
@@ -552,7 +552,7 @@ export default function WorkspaceCommunity({
             </span>
             <button
               onClick={() => setIsScheduleModalOpen(true)}
-              className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors"
+              className="px-3.5 py-1.5 bg-[#141413] hover:bg-[#262627] text-[#FDFCFA] rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Video className="w-3.5 h-3.5" />
               <span>Schedule Meeting</span>
@@ -566,7 +566,7 @@ export default function WorkspaceCommunity({
         <div className="space-y-4">
           {/* Post Composer Drawer / Modal */}
           {isComposerOpen && (
-            <div className="bg-white rounded-xl border border-indigo-200 p-5 shadow-sm space-y-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-xl border border-[#141413]/10 p-5 shadow-sm space-y-4 animate-in fade-in duration-200">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                 <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Start a Company Discussion</h3>
                 <button onClick={() => setIsComposerOpen(false)}><X className="w-4 h-4 text-slate-400" /></button>
@@ -612,7 +612,7 @@ export default function WorkspaceCommunity({
                     placeholder="Subject title (e.g. 'UPI Autopay Sandbox Credentials Verification')..."
                     value={newTitle}
                     onChange={e => setNewTitle(e.target.value)}
-                    className="w-full p-2.5 rounded-lg border border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                    className="w-full p-2.5 rounded-lg border border-slate-200 text-xs font-semibold focus:ring-1 focus:ring-[#141413]/10 focus:border-[#141413]"
                   />
                 </div>
 
@@ -623,7 +623,7 @@ export default function WorkspaceCommunity({
                     placeholder="Write your update, ask your question, or share technical notes..."
                     value={newContent}
                     onChange={e => setNewContent(e.target.value)}
-                    className="w-full p-3 rounded-lg border border-slate-200 text-xs leading-relaxed focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                    className="w-full p-3 rounded-lg border border-slate-200 text-xs leading-relaxed focus:ring-1 focus:ring-[#141413]/10 focus:border-[#141413]"
                   />
                 </div>
 
@@ -631,14 +631,14 @@ export default function WorkspaceCommunity({
                   <button
                     type="button"
                     onClick={() => setIsComposerOpen(false)}
-                    className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg"
+                    className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmittingPost}
-                    className="px-4 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs"
+                    className="px-4 py-1.5 text-xs font-bold text-[#FDFCFA] bg-[#141413] hover:bg-[#262627] rounded-lg shadow-xs cursor-pointer"
                   >
                     {isSubmittingPost ? 'Publishing...' : 'Publish to Community'}
                   </button>
@@ -698,8 +698,8 @@ export default function WorkspaceCommunity({
                         )}
                         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
                           isAnnouncement ? 'bg-amber-100 text-amber-800 border-amber-300' :
-                          isQuestion ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
-                          isKnowledge ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                          isQuestion ? 'bg-[#141413]/5 text-[#141413]/80 border-[#141413]/10' :
+                          isKnowledge ? 'bg-[#141413]/5 text-[#141413]/80 border-[#141413]/10' :
                           'bg-slate-100 text-slate-700 border-slate-200'
                         }`}>
                           {post.type.toUpperCase()}
@@ -718,7 +718,7 @@ export default function WorkspaceCommunity({
                       <div className="flex items-center gap-3">
                         <button
                           onClick={() => handleToggleReaction(post.id, 'helpful')}
-                          className="flex items-center gap-1.5 font-medium hover:text-indigo-600 transition-colors"
+                          className="flex items-center gap-1.5 font-medium hover:text-[#141413] transition-colors cursor-pointer"
                         >
                           <ThumbsUp className="w-3.5 h-3.5" />
                           <span>{post.reactions?.helpful || 0} Helpful</span>
@@ -726,7 +726,7 @@ export default function WorkspaceCommunity({
 
                         <button
                           onClick={() => toggleComments(post.id)}
-                          className="flex items-center gap-1.5 font-medium hover:text-indigo-600 transition-colors"
+                          className="flex items-center gap-1.5 font-medium hover:text-[#141413] transition-colors cursor-pointer"
                         >
                           <MessageSquare className="w-3.5 h-3.5" />
                           <span>{post.commentsCount || 0} Comments</span>
@@ -785,7 +785,7 @@ export default function WorkspaceCommunity({
                           <button
                             onClick={() => handleAddComment(post.id)}
                             disabled={submittingComment[post.id] || !newCommentText[post.id]?.trim()}
-                            className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs"
+                            className="px-3.5 py-1.5 bg-[#141413] hover:bg-[#262627] text-[#FDFCFA] rounded-lg text-xs font-semibold shadow-xs cursor-pointer"
                           >
                             Reply
                           </button>
@@ -806,7 +806,7 @@ export default function WorkspaceCommunity({
           {/* Upcoming Meetings Card */}
           <div className="bg-white rounded-xl border border-slate-200/90 p-6 shadow-sm space-y-4">
             <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-indigo-600" />
+              <Calendar className="w-4 h-4 text-[#141413]" />
               <span>Upcoming Scheduled Meetings</span>
             </h2>
 
@@ -832,12 +832,12 @@ export default function WorkspaceCommunity({
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <h3 className="text-xs font-bold text-slate-900">{meet.title}</h3>
-                          <div className="text-[11px] text-indigo-600 font-mono mt-0.5 font-semibold flex items-center gap-1">
+                          <div className="text-[11px] text-[#141413] font-mono mt-0.5 font-semibold flex items-center gap-1">
                             <Clock className="w-3.5 h-3.5" />
                             <span>{startTime} IST</span>
                           </div>
                         </div>
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-[#141413]/5 text-[#141413]/80 border border-[#141413]/10">
                           {meet.provider.replace('_', ' ').toUpperCase()}
                         </span>
                       </div>
@@ -850,7 +850,7 @@ export default function WorkspaceCommunity({
                           href={meet.joinUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors"
+                          className="px-3.5 py-1.5 bg-[#141413] hover:bg-[#262627] text-[#FDFCFA] rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
                         >
                           <Video className="w-3.5 h-3.5" />
                           <span>Join Meeting</span>
@@ -868,7 +868,7 @@ export default function WorkspaceCommunity({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-indigo-600" />
+                  <FileText className="w-4 h-4 text-[#141413]" />
                   <span>Previous Meetings & Notes Archive</span>
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
@@ -902,7 +902,7 @@ export default function WorkspaceCommunity({
                   return (
                     <div
                       key={meet.id}
-                      className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-indigo-300 transition-all space-y-3 flex flex-col justify-between"
+                      className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-[#141413]/25 transition-all space-y-3 flex flex-col justify-between"
                     >
                       <div className="space-y-2.5">
                         <div className="flex items-start justify-between gap-2">
@@ -913,7 +913,7 @@ export default function WorkspaceCommunity({
                             </div>
                           </div>
                           {meet.projectName && (
-                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0 truncate max-w-[150px]">
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-[#141413]/5 text-[#141413]/80 border border-[#141413]/10 shrink-0 truncate max-w-[150px]">
                               {meet.projectName}
                             </span>
                           )}
@@ -922,7 +922,7 @@ export default function WorkspaceCommunity({
                         {/* Meet Notes Preview Snippet */}
                         {meet.meetingNotes ? (
                           <div className="bg-white rounded-lg p-2.5 border border-slate-200/80 text-[11px] text-slate-700 space-y-1">
-                            <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block">
+                            <span className="text-[10px] font-bold text-[#141413] uppercase tracking-wider block">
                               Meeting Notes
                             </span>
                             <p className="line-clamp-2 leading-relaxed text-slate-600">
@@ -955,7 +955,7 @@ export default function WorkspaceCommunity({
                       <div className="flex items-center justify-between pt-2.5 border-t border-slate-200/70 text-xs">
                         <button
                           onClick={() => handleOpenNotes(meet)}
-                          className="font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition-colors"
+                          className="font-semibold text-[#141413] hover:underline flex items-center gap-1 transition-colors cursor-pointer"
                         >
                           <FileText className="w-3.5 h-3.5" />
                           <span>View Full Notes & Action Items →</span>
@@ -988,7 +988,7 @@ export default function WorkspaceCommunity({
             <div key={res.id} className="bg-white p-5 rounded-xl border border-slate-200/90 shadow-sm space-y-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                  <div className="w-9 h-9 rounded-lg bg-[#141413]/5 text-[#141413] flex items-center justify-center shrink-0">
                     <FileText className="w-4 h-4" />
                   </div>
                   <div>
@@ -1051,7 +1051,7 @@ export default function WorkspaceCommunity({
                 <p className="text-xs text-slate-600 mt-2 line-clamp-2 leading-relaxed">{exp.bio}</p>
 
                 {exp.activeProjects && exp.activeProjects.length > 0 && (
-                  <div className="mt-2 text-[10px] text-indigo-700 bg-indigo-50/60 px-2 py-1 rounded border border-indigo-100 truncate">
+                  <div className="mt-2 text-[10px] text-[#141413] bg-[#141413]/5 px-2 py-1 rounded border border-[#141413]/10 truncate font-mono">
                     Projects: {exp.activeProjects.join(', ')}
                   </div>
                 )}
@@ -1072,7 +1072,7 @@ export default function WorkspaceCommunity({
                     setIsComposerOpen(true);
                     setNewTitle(`Question for ${exp.name} on domain guidance`);
                   }}
-                  className="w-full py-1.5 text-center text-xs font-semibold text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-indigo-100"
+                  className="w-full py-1.5 text-center text-xs font-semibold text-[#141413] hover:bg-[#141413]/5 rounded-lg transition-colors border border-[#141413]/10 cursor-pointer"
                 >
                   Ask for Guidance in Community →
                 </button>
@@ -1087,7 +1087,7 @@ export default function WorkspaceCommunity({
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <div className="flex items-center gap-2 text-indigo-700 font-bold text-sm">
+              <div className="flex items-center gap-2 text-[#141413] font-bold text-sm">
                 <Video className="w-5 h-5" />
                 <span>Schedule Team Video Meeting</span>
               </div>
@@ -1139,14 +1139,14 @@ export default function WorkspaceCommunity({
                 <button
                   type="button"
                   onClick={() => setIsScheduleModalOpen(false)}
-                  className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg"
+                  className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingMeeting}
-                  className="px-4 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs"
+                  className="px-4 py-1.5 text-xs font-bold text-[#FDFCFA] bg-[#141413] hover:bg-[#262627] rounded-lg shadow-xs cursor-pointer"
                 >
                   {isSubmittingMeeting ? 'Scheduling...' : 'Save & Notify Team'}
                 </button>
@@ -1171,7 +1171,7 @@ export default function WorkspaceCommunity({
 
               <div className="pr-8">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded border border-indigo-200">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#141413]/80 bg-[#141413]/5 px-2.5 py-0.5 rounded border border-[#141413]/10">
                     Previous Meet Notes
                   </span>
                   {selectedMeetingForNotes.projectName && (
@@ -1212,7 +1212,7 @@ export default function WorkspaceCommunity({
                       value={editNotesText}
                       onChange={e => setEditNotesText(e.target.value)}
                       placeholder="Summarize key discussions, customer feedback, architecture decisions..."
-                      className="w-full p-3 rounded-lg border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                      className="w-full p-3 rounded-lg border border-slate-200 text-xs focus:ring-1 focus:ring-[#141413]/10 focus:border-[#141413]"
                     />
                   </div>
 
@@ -1225,21 +1225,21 @@ export default function WorkspaceCommunity({
                       value={editDecisionsText}
                       onChange={e => setEditDecisionsText(e.target.value)}
                       placeholder="Decision 1&#10;Decision 2&#10;Decision 3"
-                      className="w-full p-3 rounded-lg border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-mono"
+                      className="w-full p-3 rounded-lg border border-slate-200 text-xs focus:ring-1 focus:ring-[#141413]/10 focus:border-[#141413] font-mono"
                     />
                   </div>
 
                   <div className="flex items-center justify-end gap-2 pt-2">
                     <button
                       onClick={() => setIsEditingNotes(false)}
-                      className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+                      className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleSaveNotes}
                       disabled={isSavingNotes}
-                      className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs"
+                      className="px-4 py-1.5 rounded-lg bg-[#141413] hover:bg-[#262627] text-[#FDFCFA] text-xs font-semibold shadow-xs cursor-pointer"
                     >
                       {isSavingNotes ? 'Saving Notes...' : 'Save Notes'}
                     </button>
@@ -1252,12 +1252,12 @@ export default function WorkspaceCommunity({
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
-                        <FileText className="w-3.5 h-3.5 text-indigo-600" />
+                        <FileText className="w-3.5 h-3.5 text-[#141413]" />
                         <span>Executive Discussion Summary & Notes</span>
                       </h3>
                       <button
                         onClick={() => setIsEditingNotes(true)}
-                        className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                        className="text-[11px] font-semibold text-[#141413] hover:underline flex items-center gap-1 cursor-pointer"
                       >
                         <Edit3 className="w-3 h-3" />
                         <span>Edit Notes</span>
@@ -1310,7 +1310,7 @@ export default function WorkspaceCommunity({
                                 type="checkbox"
                                 checked={item.completed}
                                 onChange={() => {}}
-                                className="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500 cursor-pointer shrink-0"
+                                className="w-4 h-4 rounded text-[#141413] border-slate-300 focus:ring-[#141413] cursor-pointer shrink-0"
                               />
                               <span className={`truncate ${item.completed ? 'line-through text-slate-400 font-normal' : 'text-slate-800 font-medium'}`}>
                                 {item.text}
