@@ -131,6 +131,8 @@ export function normalizeRole(raw: string | null | undefined): Role {
     case 'CEO':
       return 'FOUNDER';
     case 'EXECUTIVE':
+    case 'EMPLOYEE':
+    case 'EMPLOYEES':
       return 'OPERATIONS';
     case 'PEOPLE':
     case 'TALENT':

@@ -105,10 +105,11 @@ export async function authenticateJWT(
   // 1. Try verifying native JWT signed with JWT_SECRET
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
-    if (decoded && decoded.sub) {
+    const userId = decoded?.sub || decoded?.id;
+    if (decoded && userId) {
       req.user = {
-        id: decoded.sub,
-        email: decoded.email || `${decoded.sub}@catalyst.os`,
+        id: userId,
+        email: decoded.email || `${userId}@catalyst.os`,
         name: decoded.name || 'Founder',
         role: (decoded.role as UserRole) || 'Founder',
       };

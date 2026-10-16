@@ -29,7 +29,7 @@ interface AuthFormProps {
 
 export default function AuthForm({ onBackToLanding }: AuthFormProps) {
   const navigate = useNavigate();
-  const { signin, signup, loginAsDemo } = useAuth();
+  const { signin, signup, loginAsDemo, forgotPassword } = useAuth();
 
   const [authTab, setAuthTab] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
@@ -86,7 +86,7 @@ export default function AuthForm({ onBackToLanding }: AuthFormProps) {
           }, 450);
         }
       } else {
-        const cleanName = fullName.trim() || 'Founder';
+        const cleanName = fullName.trim() || (role === 'Employee' ? 'Team Member' : 'Founder');
         const res = await signup(email.trim(), password, cleanName, role);
         if (!res.success) {
           setAuthError(res.error || 'Registration failed. An account with this email may already exist.');
@@ -127,14 +127,18 @@ export default function AuthForm({ onBackToLanding }: AuthFormProps) {
     }
   };
 
-  const handleForgotPassword = (e: React.FormEvent) => {
+  const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!forgotEmail.trim()) return;
     setForgotLoading(true);
-    setTimeout(() => {
-      setForgotLoading(false);
+    try {
+      await forgotPassword(forgotEmail.trim());
       setForgotSent(true);
-    }, 800);
+    } catch {
+      setForgotSent(true);
+    } finally {
+      setForgotLoading(false);
+    }
   };
 
   // Reusable input and label styling
@@ -300,8 +304,8 @@ export default function AuthForm({ onBackToLanding }: AuthFormProps) {
                 <label className={labelCls} htmlFor="role">
                   Platform Role
                 </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {(['Founder', 'Executive', 'Investor'] as UserRole[]).map((r) => (
+                <div className="grid grid-cols-2 gap-2">
+                  {(['Founder', 'Employee'] as UserRole[]).map((r) => (
                     <button
                       key={r}
                       type="button"

@@ -1610,6 +1610,28 @@ export async function updateTaskForUser(params: {
           }
         });
       } catch {}
+
+      // Dynamic RAG synchronization: index submitted task deliverable into operational knowledge
+      try {
+        const { ingestionPipelineService } = await import('./ingestionPipelineService');
+        await ingestionPipelineService.enqueueJob({
+          startupId: membership.startupId,
+          sourceType: 'TASK',
+          sourceRecordId: row.id,
+          action: 'UPSERT',
+          payload: {
+            documentId: `doc_task_${row.id}`,
+            name: `[Task] ${decoded.title}`,
+            type: 'task',
+            content: `TASK DELIVERABLE: ${decoded.title}\nDepartment: ${decoded.department}\nAgent: ${decoded.agent}\nStatus: ${data.status}\nDetails:\n${params.result || updated.result || ''}`,
+            accessScope: decoded.department || 'ALL',
+            summary: `Deliverable for task: ${decoded.title}`
+          },
+          immediate: true
+        });
+      } catch (ragErr: any) {
+        console.warn('[TaskDelegationService] Dynamic task RAG sync warning:', ragErr.message);
+      }
     }
   }
 

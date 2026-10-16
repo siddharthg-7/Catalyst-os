@@ -90,6 +90,39 @@ export class CompanyPolicyService {
       }
     });
 
+    // Dynamic RAG outbox update: synchronize policy updates into knowledge architecture
+    try {
+      const { ingestionPipelineService } = await import('./ingestionPipelineService');
+      const policyContent = `COMPANY POLICY & OPERATIONAL BOUNDARIES:
+Minimum Runway Months: ${updated.minimumRunwayMonths} (Hard CFO veto if breached)
+Critical Cautionary Runway: ${updated.criticalRunwayMonths} months
+Benefits & Payroll Multiplier: ${updated.benefitsMultiplier}x
+Founder Approval Threshold: $${updated.approvalThresholdAmount.toLocaleString()}
+Maximum Monthly Campaign Budget: $${updated.maxCampaignBudgetMonthly.toLocaleString()}
+Base Salary Benchmarks:
+${Object.entries(updated.baseSalaryBenchmarks || {})
+  .map(([role, sal]) => ` - ${role}: $${sal.toLocaleString()}`)
+  .join('\n')}`;
+
+      await ingestionPipelineService.enqueueJob({
+        startupId,
+        sourceType: 'POLICY',
+        sourceRecordId: `policy_${startupId}`,
+        action: 'UPSERT',
+        payload: {
+          documentId: `doc_policy_${startupId}`,
+          name: `[Company Policy] Institutional Operational Rules`,
+          type: 'policy',
+          content: policyContent,
+          accessScope: 'FOUNDER_ONLY',
+          summary: `Authoritative company financial thresholds and salary benchmarks.`
+        },
+        immediate: true
+      });
+    } catch (ragErr: any) {
+      console.warn('[CompanyPolicyService] Dynamic policy RAG sync warning:', ragErr.message);
+    }
+
     return updated;
   }
 

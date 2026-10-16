@@ -55,10 +55,26 @@ export async function resolveMembership(
 ): Promise<ResolvedMembership | null> {
   if (!userId) return null;
 
-  // Graceful offline/demo fallback when database is unconfigured or user is demo
-  if (!dbReady() || isDemoUserId(userId)) {
+  // Graceful demo/offline fallback: Demo identity is strictly bound to startup_novatech_demo
+  if (isDemoUserId(userId)) {
+    if (startupId && startupId !== 'startup_novatech_demo') {
+      return null;
+    }
     return {
-      startupId: startupId || 'startup_novatech_demo',
+      startupId: 'startup_novatech_demo',
+      role: 'FOUNDER',
+      status: 'ACTIVE',
+      viaOwnership: true,
+      isOwner: true
+    };
+  }
+
+  if (!dbReady()) {
+    if (startupId && startupId !== 'startup_novatech_demo') {
+      return null;
+    }
+    return {
+      startupId: 'startup_novatech_demo',
       role: 'FOUNDER',
       status: 'ACTIVE',
       viaOwnership: true,

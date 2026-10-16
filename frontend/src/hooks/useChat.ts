@@ -42,6 +42,14 @@ export interface ChatMessage {
 }
 
 export const INITIAL_SUGGESTED_QUESTIONS = [
+  'What tasks are overdue?',
+  'What was our marketing strategy?',
+  'What is our current burn rate and runway?',
+  'Who owns our current initiatives?',
+  'What did the team previously decide?'
+];
+
+export const ORCHESTRATE_SUGGESTED_QUESTIONS = [
   'What is our current runway?',
   'Can we afford to hire three engineers?',
   'What are the biggest risks to the company right now?',
@@ -49,12 +57,23 @@ export const INITIAL_SUGGESTED_QUESTIONS = [
   'What contracts should I review?'
 ];
 
-export function useChat(apiFetch?: (url: string, options?: RequestInit) => Promise<Response>, userId?: string) {
+export function useChat(
+  apiFetch?: (url: string, options?: RequestInit) => Promise<Response>,
+  userId?: string,
+  mode: 'rag' | 'orchestrate' = 'rag'
+) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isTyping, setIsTyping] = useState(false);
-  const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>(INITIAL_SUGGESTED_QUESTIONS);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>(() =>
+    mode === 'rag' ? INITIAL_SUGGESTED_QUESTIONS : ORCHESTRATE_SUGGESTED_QUESTIONS
+  );
   const [language, setLanguageState] = useState(() => localStorage.getItem('catalystos_chat_language') || 'auto');
+  const [error, setError] = useState<string | null>(null);
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+  const clearError = useCallback(() => setError(null), []);
 
   const setLanguage = useCallback((value: string) => {
     setLanguageState(value);
@@ -67,8 +86,21 @@ export function useChat(apiFetch?: (url: string, options?: RequestInit) => Promi
   const clearChat = useCallback(() => {
     setMessages([]);
     setIsTyping(false);
-    setSuggestedQuestions(INITIAL_SUGGESTED_QUESTIONS);
-  }, []);
+    setError(null);
+    setActiveConversationId(null);
+    setSuggestedQuestions(mode === 'rag' ? INITIAL_SUGGESTED_QUESTIONS : ORCHESTRATE_SUGGESTED_QUESTIONS);
+  }, [mode]);
+
+  // Reset chat and error when user session changes
+  useEffect(() => {
+    if (!userId) {
+      setMessages([]);
+      setIsTyping(false);
+      setIsOpen(false);
+      setError(null);
+      setSessionExpired(false);
+    }
+  }, [userId]);
 
   // Listen to onboarding context to trigger automated welcome greeting
   useEffect(() => {
@@ -107,6 +139,17 @@ Your AI Executive Team (CFO, Talent, Growth, Operations, Legal, Auditor) is onli
   const sendMessage = useCallback(async (text: string, isVoice: boolean = false) => {
     if (!text.trim() || isTyping) return;
 
+    if (sessionExpired) {
+      setError('Your session has expired. Please sign in again.');
+      return;
+    }
+
+    if (!userId) {
+      setError('Active session required. Please sign in to consult the knowledge assistant.');
+      return;
+    }
+
+    setError(null);
     const trimmedText = text.trim();
     const userMsg: ChatMessage = {
       id: `msg_user_${Date.now()}`,
@@ -135,6 +178,181 @@ Your AI Executive Team (CFO, Talent, Growth, Operations, Legal, Auditor) is onli
 
     const fetchImpl = apiFetch || fetch;
 
+    if (mode === 'rag') {
+      try {
+        let streamSucceeded = false;
+        try {
+          const streamRes = await fetchImpl('/api/chat/stream', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              messages: [{ role: 'user', content: trimmedText }],
+              conversationId: activeConversationId || undefined
+            })
+          });
+
+          if (!streamRes.ok) {
+            if (streamRes.status === 401) {
+              setSessionExpired(true);
+              setIsTyping(false);
+              setError('Your session has expired. Please sign in again.');
+              window.dispatchEvent(new CustomEvent('CATALYST_AUTH_EXPIRED'));
+              setMessages(prev => prev.map(m => m.id === assistantMsgId ? {
+                ...m,
+                content: '⚠️ **Session Expired**: Your session has expired or been revoked. Please sign in again to access the knowledge assistant.',
+                isStreaming: false,
+                status: 'failed'
+              } : m));
+              return;
+            }
+            if (streamRes.status === 403) {
+              setIsTyping(false);
+              setError('Access denied: Unauthorized company tenant.');
+              setMessages(prev => prev.map(m => m.id === assistantMsgId ? {
+                ...m,
+                content: '🔒 **Access Denied**: You do not have authorization to query records for this company tenant.',
+                isStreaming: false,
+                status: 'failed'
+              } : m));
+              return;
+            }
+            const errData = await streamRes.json().catch(() => ({}));
+            throw new Error(errData.error || errData.details || `Server returned status ${streamRes.status}`);
+          }
+
+          if (streamRes.body) {
+            const reader = streamRes.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+            let buffer = '';
+
+            while (true) {
+              const { value, done } = await reader.read();
+              if (done) break;
+
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split('\n\n');
+              buffer = lines.pop() || '';
+
+              for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed.startsWith('data: ')) continue;
+                const dataStr = trimmed.slice(6).trim();
+                if (dataStr === '[DONE]') {
+                  streamSucceeded = true;
+                  break;
+                }
+
+                try {
+                  const event = JSON.parse(dataStr);
+                  if (event.text) {
+                    setMessages(prev => prev.map(m => m.id === assistantMsgId ? {
+                      ...m,
+                      content: m.content + event.text
+                    } : m));
+                  }
+                  if (event.done) {
+                    if (event.conversationId) setActiveConversationId(event.conversationId);
+                    setMessages(prev => prev.map(m => m.id === assistantMsgId ? {
+                      ...m,
+                      citations: event.citations || m.citations,
+                      sources: event.sources || m.sources,
+                      intent: event.intent,
+                      isStreaming: false
+                    } : m));
+                    if (isVoice && event.reply) {
+                      voiceService.synthesizeAndPlay(event.reply);
+                    }
+                    streamSucceeded = true;
+                  }
+                } catch {
+                  // Ignore partial json parse error
+                }
+              }
+            }
+          }
+        } catch (streamErr: any) {
+          if (streamErr.message && streamErr.message.includes('Server returned status')) {
+            throw streamErr;
+          }
+          console.warn('[useChat RAG] Stream unavailable, falling back to POST /api/chat:', streamErr);
+        }
+
+        if (!streamSucceeded && !sessionExpired) {
+          const response = await fetchImpl('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              messages: [{ role: 'user', content: trimmedText }],
+              conversationId: activeConversationId || undefined
+            })
+          });
+
+          if (!response.ok) {
+            if (response.status === 401) {
+              setSessionExpired(true);
+              setIsTyping(false);
+              setError('Your session has expired. Please sign in again.');
+              window.dispatchEvent(new CustomEvent('CATALYST_AUTH_EXPIRED'));
+              setMessages(prev => prev.map(m => m.id === assistantMsgId ? {
+                ...m,
+                content: '⚠️ **Session Expired**: Your session has expired or been revoked. Please sign in again to access the knowledge assistant.',
+                isStreaming: false,
+                status: 'failed'
+              } : m));
+              return;
+            }
+            if (response.status === 403) {
+              setIsTyping(false);
+              setError('Access denied: Unauthorized company tenant.');
+              setMessages(prev => prev.map(m => m.id === assistantMsgId ? {
+                ...m,
+                content: '🔒 **Access Denied**: You do not have authorization to query records for this company tenant.',
+                isStreaming: false,
+                status: 'failed'
+              } : m));
+              return;
+            }
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.error || errData.details || `Server returned status ${response.status}`);
+          }
+
+          const resData: any = await response.json();
+          if (resData.conversationId) setActiveConversationId(resData.conversationId);
+          setMessages(prev => prev.map(m => m.id === assistantMsgId ? {
+            ...m,
+            content: resData.reply || 'No response generated.',
+            citations: resData.citations || [],
+            sources: resData.sources || [],
+            intent: resData.intent,
+            isStreaming: false
+          } : m));
+
+          if (isVoice && resData.reply) {
+            voiceService.synthesizeAndPlay(resData.reply);
+          }
+        }
+      } catch (err: any) {
+        console.error('[useChat RAG Error]:', err);
+        const isAuthErr = err.message && (err.message.includes('401') || err.message.toLowerCase().includes('unauthorized'));
+        if (isAuthErr) {
+          setSessionExpired(true);
+          window.dispatchEvent(new CustomEvent('CATALYST_AUTH_EXPIRED'));
+        }
+        setError(err.message || 'AI knowledge pipeline temporarily unavailable.');
+        setMessages(prev => prev.map(m => m.id === assistantMsgId ? {
+          ...m,
+          content: isAuthErr
+            ? '⚠️ **Session Expired**: Please sign in again to access the Catalyst OS knowledge assistant.'
+            : `I couldn't retrieve the knowledge answer right now. Reason: ${err.message || 'AI pipeline unavailable'}. Please try again.`,
+          isStreaming: false,
+          status: 'failed'
+        } : m));
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
+
     try {
       const commandId = `cmd_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       let streamSucceeded = false;
@@ -151,6 +369,30 @@ Your AI Executive Team (CFO, Talent, Growth, Operations, Legal, Auditor) is onli
         });
 
         if (!streamRes.ok) {
+          if (streamRes.status === 401) {
+            setSessionExpired(true);
+            setIsTyping(false);
+            setError('Your session has expired. Please sign in again.');
+            window.dispatchEvent(new CustomEvent('CATALYST_AUTH_EXPIRED'));
+            setMessages(prev => prev.map(m => m.id === assistantMsgId ? {
+              ...m,
+              content: '⚠️ **Session Expired**: Your session has expired or been revoked. Please sign in again to access the knowledge assistant.',
+              isStreaming: false,
+              status: 'failed'
+            } : m));
+            return;
+          }
+          if (streamRes.status === 403) {
+            setIsTyping(false);
+            setError('Access denied: Unauthorized company tenant.');
+            setMessages(prev => prev.map(m => m.id === assistantMsgId ? {
+              ...m,
+              content: '🔒 **Access Denied**: You do not have authorization to query records for this company tenant.',
+              isStreaming: false,
+              status: 'failed'
+            } : m));
+            return;
+          }
           const errData = await streamRes.json().catch(() => ({}));
           throw new Error(errData.error || errData.details || `Server returned status ${streamRes.status}`);
         }
@@ -276,7 +518,7 @@ Your AI Executive Team (CFO, Talent, Growth, Operations, Legal, Auditor) is onli
           }
         }
       } catch (streamErr: any) {
-        // If it was an explicit HTTP error from the server (e.g. 400, 429, 500), do not retry
+        // If it was an explicit HTTP error from the server (e.g. 400, 401, 403, 429, 500), do not retry
         if (streamErr.message && streamErr.message.includes('Server returned status')) {
           throw streamErr;
         }
@@ -284,7 +526,7 @@ Your AI Executive Team (CFO, Talent, Growth, Operations, Legal, Auditor) is onli
       }
 
       // If SSE streaming endpoint was not available (e.g. 404 or network protocol), use standard POST
-      if (!streamSucceeded) {
+      if (!streamSucceeded && !sessionExpired) {
         const response = await fetchImpl('/api/orchestrate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -292,6 +534,30 @@ Your AI Executive Team (CFO, Talent, Growth, Operations, Legal, Auditor) is onli
         });
 
         if (!response.ok) {
+          if (response.status === 401) {
+            setSessionExpired(true);
+            setIsTyping(false);
+            setError('Your session has expired. Please sign in again.');
+            window.dispatchEvent(new CustomEvent('CATALYST_AUTH_EXPIRED'));
+            setMessages(prev => prev.map(m => m.id === assistantMsgId ? {
+              ...m,
+              content: '⚠️ **Session Expired**: Your session has expired or been revoked. Please sign in again to access the knowledge assistant.',
+              isStreaming: false,
+              status: 'failed'
+            } : m));
+            return;
+          }
+          if (response.status === 403) {
+            setIsTyping(false);
+            setError('Access denied: Unauthorized company tenant.');
+            setMessages(prev => prev.map(m => m.id === assistantMsgId ? {
+              ...m,
+              content: '🔒 **Access Denied**: You do not have authorization to query records for this company tenant.',
+              isStreaming: false,
+              status: 'failed'
+            } : m));
+            return;
+          }
           const errData = await response.json().catch(() => ({}));
           throw new Error(errData.error || errData.details || `Server returned status ${response.status}`);
         }
@@ -328,23 +594,32 @@ Your AI Executive Team (CFO, Talent, Growth, Operations, Legal, Auditor) is onli
       }
     } catch (err: any) {
       console.error('[useChat Error]:', err);
+      const isAuthErr = err.message && (err.message.includes('401') || err.message.toLowerCase().includes('unauthorized'));
+      if (isAuthErr) {
+        setSessionExpired(true);
+        window.dispatchEvent(new CustomEvent('CATALYST_AUTH_EXPIRED'));
+      }
+      setError(err.message || 'AI knowledge pipeline temporarily unavailable.');
       setMessages(prev => prev.map(m => m.id === assistantMsgId ? {
         ...m,
-        content: `I couldn't complete the executive analysis right now. Reason: ${err.message || 'AI orchestration pipeline unavailable'}. Please try again.`,
+        content: isAuthErr
+          ? '⚠️ **Session Expired**: Please sign in again to access the Catalyst OS knowledge assistant.'
+          : `I couldn't complete the executive analysis right now. Reason: ${err.message || 'AI orchestration pipeline unavailable'}. Please try again.`,
         isStreaming: false,
         status: 'failed'
       } : m));
     } finally {
       setIsTyping(false);
     }
-  }, [isTyping, apiFetch]);
+  }, [isTyping, apiFetch, userId, sessionExpired]);
 
   const regenerateLastMessage = useCallback(() => {
     const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
     if (lastUserMsg) {
+      clearError();
       sendMessage(lastUserMsg.content);
     }
-  }, [messages, sendMessage]);
+  }, [messages, sendMessage, clearError]);
 
   const cancelRun = useCallback(async (runId: string) => {
     const fetchImpl = apiFetch || fetch;
@@ -375,5 +650,8 @@ Your AI Executive Team (CFO, Talent, Growth, Operations, Legal, Auditor) is onli
     sendMessage,
     regenerateLastMessage,
     cancelRun,
+    error,
+    clearError,
+    sessionExpired,
   };
 }

@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import HackathonLandingPage from './HackathonLandingPage';
-import CatalystOsChatbot from './chatbot/CatalystOsChatbot';
 import FounderOnboardingWizard from './FounderOnboardingWizard';
 import InteractiveBrandPanel from './reactbits/InteractiveBrandPanel';
 import AuthForm from './reactbits/AuthForm';
@@ -173,9 +172,6 @@ export default function AuthScreen({ initialView = 'landing', onOnboardingComple
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Global Catalyst OS AI Chatbot Widget */}
-      <CatalystOsChatbot />
     </div>
   );
 }

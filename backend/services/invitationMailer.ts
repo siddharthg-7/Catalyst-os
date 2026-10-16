@@ -32,6 +32,20 @@ export interface TeamWelcomeEmail {
   workspaceUrl: string;
 }
 
+export interface VerificationEmail {
+  to: string;
+  name: string;
+  verificationUrl: string;
+  expiresAt: Date;
+}
+
+export interface PasswordResetEmail {
+  to: string;
+  name: string;
+  resetUrl: string;
+  expiresAt: Date;
+}
+
 export interface DirectEmailPayload {
   to: string;
   subject: string;
@@ -432,3 +446,134 @@ export async function verifySmtpConnection(): Promise<{ ok: boolean; message: st
     };
   }
 }
+
+/**
+ * Dispatches an email address verification link to a user.
+ */
+export async function sendVerificationEmail(payload: VerificationEmail): Promise<DeliveryResult> {
+  const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER || '';
+  const fromAddress = `"CatalystOS Security" <${fromEmail}>`;
+  const subject = 'Verify your email address for CatalystOS';
+  const text = [
+    `Hello ${payload.name},`,
+    '',
+    'Thank you for signing up for CatalystOS.',
+    'Please verify your email address by clicking the link below:',
+    payload.verificationUrl,
+    '',
+    `This verification link expires on ${payload.expiresAt.toUTCString()}.`,
+    'If you did not sign up for CatalystOS, you can safely ignore this email.',
+    '',
+    '— CatalystOS Security Team'
+  ].join('\n');
+
+  const html = `<!DOCTYPE html>
+<html>
+<body style="margin: 0; padding: 20px; background-color: #0b0f17; font-family: sans-serif; color: #f1f5f9;">
+  <div style="max-width: 560px; margin: 0 auto; background-color: #111827; border: 1px solid #1e293b; border-radius: 14px; padding: 32px;">
+    <h2 style="color: #ffffff; margin-top: 0;">Verify Your CatalystOS Account</h2>
+    <p style="color: #cbd5e1; font-size: 15px; line-height: 22px;">
+      Hello <strong>${payload.name}</strong>, please confirm your email address to activate your autonomous venture workspace.
+    </p>
+    <div style="margin: 28px 0;">
+      <a href="${payload.verificationUrl}" style="display: inline-block; padding: 12px 24px; background-color: #4f46e5; color: #ffffff; text-decoration: none; font-weight: 600; border-radius: 8px;">
+        Verify Email Address →
+      </a>
+    </div>
+    <p style="color: #64748b; font-size: 12px;">This single-use link expires on ${payload.expiresAt.toUTCString()}.</p>
+  </div>
+</body>
+</html>`;
+
+  if (!smtpConfigured()) {
+    console.log(`\n[invitationMailer] (Console delivery) Email verification link for ${payload.to}:\n  URL: ${payload.verificationUrl}\n`);
+    return { delivered: false, channel: 'console' };
+  }
+
+  try {
+    const moduleName = 'nodemailer';
+    const nodemailer: any = await import(/* @vite-ignore */ moduleName).catch(() => null);
+    if (!nodemailer) {
+      return { delivered: false, channel: 'console', error: 'nodemailer not installed' };
+    }
+    const transport = createSmtpTransport(nodemailer);
+    await transport.sendMail({
+      from: fromAddress,
+      to: payload.to,
+      subject,
+      text,
+      html
+    });
+    console.log(`[invitationMailer] ✅ Verification email dispatched via Gmail SMTP to ${payload.to}`);
+    return { delivered: true, channel: 'smtp' };
+  } catch (err: any) {
+    console.error('[invitationMailer] ❌ Verification email delivery failed:', err.message);
+    return { delivered: false, channel: 'smtp', error: err.message };
+  }
+}
+
+/**
+ * Dispatches a password reset link to a user.
+ */
+export async function sendPasswordResetEmail(payload: PasswordResetEmail): Promise<DeliveryResult> {
+  const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER || '';
+  const fromAddress = `"CatalystOS Security" <${fromEmail}>`;
+  const subject = 'Reset your CatalystOS account password';
+  const text = [
+    `Hello ${payload.name},`,
+    '',
+    'We received a request to reset your password for your CatalystOS account.',
+    'Click the link below to set a new password:',
+    payload.resetUrl,
+    '',
+    `This link is single-use and will expire on ${payload.expiresAt.toUTCString()}.`,
+    'If you did not request a password reset, you can safely ignore this email.',
+    '',
+    '— CatalystOS Security Team'
+  ].join('\n');
+
+  const html = `<!DOCTYPE html>
+<html>
+<body style="margin: 0; padding: 20px; background-color: #0b0f17; font-family: sans-serif; color: #f1f5f9;">
+  <div style="max-width: 560px; margin: 0 auto; background-color: #111827; border: 1px solid #1e293b; border-radius: 14px; padding: 32px;">
+    <h2 style="color: #ffffff; margin-top: 0;">Password Reset Request</h2>
+    <p style="color: #cbd5e1; font-size: 15px; line-height: 22px;">
+      Hello <strong>${payload.name}</strong>, click the button below to securely configure a new password for your account.
+    </p>
+    <div style="margin: 28px 0;">
+      <a href="${payload.resetUrl}" style="display: inline-block; padding: 12px 24px; background-color: #4f46e5; color: #ffffff; text-decoration: none; font-weight: 600; border-radius: 8px;">
+        Reset Password →
+      </a>
+    </div>
+    <p style="color: #64748b; font-size: 12px;">This single-use link expires on ${payload.expiresAt.toUTCString()}.</p>
+  </div>
+</body>
+</html>`;
+
+  if (!smtpConfigured()) {
+    console.log(`\n[invitationMailer] (Console delivery) Password reset link for ${payload.to}:\n  URL: ${payload.resetUrl}\n`);
+    return { delivered: false, channel: 'console' };
+  }
+
+  try {
+    const moduleName = 'nodemailer';
+    const nodemailer: any = await import(/* @vite-ignore */ moduleName).catch(() => null);
+    if (!nodemailer) {
+      return { delivered: false, channel: 'console', error: 'nodemailer not installed' };
+    }
+    const transport = createSmtpTransport(nodemailer);
+    await transport.sendMail({
+      from: fromAddress,
+      to: payload.to,
+      subject,
+      text,
+      html
+    });
+    console.log(`[invitationMailer] ✅ Password reset email dispatched via Gmail SMTP to ${payload.to}`);
+    return { delivered: true, channel: 'smtp' };
+  } catch (err: any) {
+    console.error('[invitationMailer] ❌ Password reset email delivery failed:', err.message);
+    return { delivered: false, channel: 'smtp', error: err.message };
+  }
+}
+

@@ -243,8 +243,7 @@ export default function ApprovalQueue({
           style={{ 
             backgroundColor: 'var(--c-surface)', 
             border: '1px solid var(--c-border)',
-            borderColor: 'var(--c-border)',
-            divideColor: 'var(--c-border)'
+            borderColor: 'var(--c-border)'
           }}
         >
           {/* Table Header */}

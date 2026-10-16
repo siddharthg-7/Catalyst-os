@@ -1,21 +1,21 @@
 {
   "startupProfile": {
-    "name": "BioGen Systems",
-    "industry": "Biotechnology",
-    "description": "AI genomic analysis platform",
-    "fundingStage": "Pre-Seed",
-    "cashBalance": 450000,
-    "burnRate": 26000,
-    "runwayMonths": 17.3,
-    "healthScore": 86,
+    "name": "T10 Co B 1792141597545",
+    "industry": "Logistics",
+    "description": "Test logistics startup B",
+    "fundingStage": "pre-seed",
+    "cashBalance": 500000,
+    "burnRate": 25000,
+    "runwayMonths": 20,
+    "healthScore": 78,
     "metrics": {
       "velocity": 85,
-      "financialHealth": 88,
+      "financialHealth": 95,
       "legalCompliance": 90,
       "growthRate": 60,
       "operationsEfficiency": 82
     },
-    "teamSize": 57
+    "teamSize": 61
   },
   "initiatives": [
     {
@@ -112,6 +112,60 @@
     }
   ],
   "approvals": [
+    {
+      "id": "appr_1792143471857_09gm",
+      "initiativeId": "init_executive",
+      "title": "Approve Contractor SOW",
+      "description": "Contractor engagement",
+      "type": "contract",
+      "content": "Contractor engagement",
+      "impact": "Requires founder verification.",
+      "financialChange": -40000,
+      "status": "pending_review",
+      "metricChanges": {
+        "velocity": 0,
+        "financialHealth": 0,
+        "legalCompliance": 0,
+        "growthRate": 0,
+        "operationsEfficiency": 0
+      }
+    },
+    {
+      "id": "appr_1792143456017_quoo",
+      "initiativeId": "init_executive",
+      "title": "Hire Senior Engineer for Tenant A",
+      "description": "Engineering expansion",
+      "type": "contract",
+      "content": "Engineering expansion",
+      "impact": "Requires founder verification.",
+      "financialChange": -120000,
+      "status": "pending_review",
+      "metricChanges": {
+        "velocity": 0,
+        "financialHealth": 0,
+        "legalCompliance": 0,
+        "growthRate": 0,
+        "operationsEfficiency": 0
+      }
+    },
+    {
+      "id": "appr_1792142019790_9dke",
+      "initiativeId": "init_executive",
+      "title": "Migrate Core Cluster to Bare-Metal Data Center",
+      "description": "Infrastructure relocation commitment.",
+      "type": "contract",
+      "content": "Infrastructure relocation commitment.",
+      "impact": "Requires founder verification.",
+      "financialChange": -50000,
+      "status": "pending_review",
+      "metricChanges": {
+        "velocity": 0,
+        "financialHealth": 0,
+        "legalCompliance": 0,
+        "growthRate": 0,
+        "operationsEfficiency": 0
+      }
+    },
     {
       "id": "appr_1791737176163_0n1s",
       "initiativeId": "init_executive",
@@ -454,6 +508,86 @@
     }
   ],
   "decisionLog": [
+    {
+      "id": "dec_1792143476750",
+      "title": "Approve: Procure SaaS Analytics Tool",
+      "description": "Annual analytics license",
+      "category": "FINANCIALS",
+      "timestamp": "2026-10-16T09:37:56.750Z",
+      "impactText": "Requires founder verification.",
+      "financialImpact": -18000,
+      "status": "approved"
+    },
+    {
+      "id": "dec_1792143471839",
+      "title": "Approve: Procure Enterprise Database Cluster",
+      "description": "Infrastructure commit",
+      "category": "FINANCIALS",
+      "timestamp": "2026-10-16T09:37:51.839Z",
+      "impactText": "Requires founder verification.",
+      "financialImpact": -25000,
+      "status": "approved"
+    },
+    {
+      "id": "dec_1792143469263",
+      "title": "Approve: Hire 2x Backend Engineers",
+      "description": "Engineering expansion for beta launch",
+      "category": "CONTRACT",
+      "timestamp": "2026-10-16T09:37:49.263Z",
+      "impactText": "Requires founder verification.",
+      "financialImpact": -312000,
+      "status": "approved"
+    },
+    {
+      "id": "dec_1792143465893",
+      "title": "Approve: Procure Cloud Infrastructure",
+      "description": "Hardware commit",
+      "category": "FINANCIALS",
+      "timestamp": "2026-10-16T09:37:45.893Z",
+      "impactText": "Requires founder verification.",
+      "financialImpact": -15000,
+      "status": "approved"
+    },
+    {
+      "id": "dec_1792142101647",
+      "title": "Approve: Strategic Angel Seed Extension Tranche",
+      "description": "Closing $250,000 strategic angel extension from robotics syndicate.",
+      "category": "FINANCIALS",
+      "timestamp": "2026-10-16T09:15:01.647Z",
+      "impactText": "Requires founder verification.",
+      "financialImpact": 250000,
+      "status": "approved"
+    },
+    {
+      "id": "dec_1792142072737",
+      "title": "Approve: Approve Enterprise Sales One-Pager & Pitch Deck",
+      "description": "Marketing and customer collateral review for upcoming industry summit.",
+      "category": "DOCUMENT",
+      "timestamp": "2026-10-16T09:14:32.737Z",
+      "impactText": "Requires founder verification.",
+      "financialImpact": 0,
+      "status": "approved"
+    },
+    {
+      "id": "dec_1792142016823",
+      "title": "Reject: Procure 10x Industrial Edge GPU Nodes",
+      "description": "Rejected by founder with feedback: \"Postpone capital expenditure until Series A financing.\"",
+      "category": "FINANCIALS",
+      "timestamp": "2026-10-16T09:13:36.823Z",
+      "impactText": "No operational metrics modified.",
+      "financialImpact": 0,
+      "status": "rejected"
+    },
+    {
+      "id": "dec_1792141989344",
+      "title": "Approve: Hire 2x Senior Robotics Systems Engineer",
+      "description": "Expands core perception stack and automated navigation throughput.",
+      "category": "CONTRACT",
+      "timestamp": "2026-10-16T09:13:09.344Z",
+      "impactText": "Increases monthly burn by $16,000/mo. Projected runway: 12.2 months.",
+      "financialImpact": -16000,
+      "status": "approved"
+    },
     {
       "id": "dec_1791737261676",
       "title": "Approve: Strategic Angel Seed Extension Tranche",
@@ -1376,6 +1510,36 @@
     }
   ],
   "knowledgeFiles": [
+    {
+      "id": "doc_profile_68df53ee-696b-4604-9b20-160a587bee80",
+      "name": "[Company Profile] BioGen Systems",
+      "type": "business_plan",
+      "size": "3.3 KB",
+      "uploadDate": "2026-10-16T09:12:22.264Z",
+      "summary": "BioGen Systems is a promising pre-seed biotechnology startup developing an AI genomic analysis platform to address slow clinical turnaround times. With a robust 20-month runway, the immediate strategic focus must be on accelerating MVP delivery within the 120-day timeline and initiating targeted market customer acquisition efforts within the Genomics Diagnostic Labs ICP.",
+      "insights": [
+        "Growth & ICP: The target ICP of Genomics Diagnostic Labs is well-defined, but the key challenge of market customer acquisition requires a clear go-to-market strategy and early validation to ensure product-market fit.",
+        "Financial & Runway: With a $200,000 cash balance and a $10,000 monthly burn, BioGen Systems boasts an excellent 20-month runway, providing ample time to achieve critical pre-seed milestones without immediate financial pressure.",
+        "Product & Challenge: The AI genomic analysis platform directly addresses a significant pain point (slow clinical turnaround). The MVP delivery challenge within 120 days is critical for early validation and investor confidence.",
+        "Operations & Milestone: The 120-day milestone timeline for MVP delivery is aggressive but achievable, demanding highly efficient operations and focused execution to meet this crucial target and de-risk the product development."
+      ],
+      "startupId": "68df53ee-696b-4604-9b20-160a587bee80"
+    },
+    {
+      "id": "doc_profile_36f6c0bd-6f6b-4284-b42a-c0b6637590e6",
+      "name": "[Company Profile] Apex Robotics Inc",
+      "type": "business_plan",
+      "size": "1.5 KB",
+      "uploadDate": "2026-10-16T09:11:48.176Z",
+      "summary": "Apex Robotics Inc is an emerging Seed venture in the Robotics & Automation space addressing \"Inefficient manual forklift routing in high-throughput fulfillment hubs\". With $5,00,000 in capital and a 20 month runway, the company is positioned to scale execution toward its 90 Days milestone.",
+      "insights": [
+        "ICP Precision: Focus sales and marketing specifically on 3PL Logistics Operations to optimize initial CAC.",
+        "Runway Management: Maintain strict governance over the $25,000/mo burn rate to secure 20 months of operational runway.",
+        "Core Challenge Mitigation: Deploy dedicated sprints toward resolving: \"Market customer acquisition and MVP delivery\".",
+        "Milestone Velocity: Align executive agents to deliver initial deliverables within the 90 Days window."
+      ],
+      "startupId": "36f6c0bd-6f6b-4284-b42a-c0b6637590e6"
+    },
     {
       "id": "doc_profile_37e0b364-d879-4e20-927b-a0a86561fc44",
       "name": "[Company Profile] BioGen Systems",

@@ -488,16 +488,6 @@ export default function HackathonLandingPage({ onStartBuilding, onDemoLogin }: H
         </div>
       </section>
 
-      {/* Floating Bottom Right CatalystOS Quick Action Widget */}
-      <div className="fixed bottom-6 right-6 z-40 hidden sm:block">
-        <button
-          onClick={() => onDemoLogin ? onDemoLogin() : onStartBuilding()}
-          title="Open CatalystOS Demo"
-          className="p-3.5 bg-white text-[#141413] rounded-2xl border border-[#141413]/10 shadow-[rgba(0,0,0,0.12)_0px_10px_30px_0px] hover:scale-105 transition-transform flex items-center justify-center cursor-pointer group"
-        >
-          <CatalystLogo className="w-5 h-5 text-[#141413] group-hover:rotate-12 transition-transform" />
-        </button>
-      </div>
 
       {/* 3. TRUST BAR (REMOVED) */}
 

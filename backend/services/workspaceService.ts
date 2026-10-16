@@ -3,6 +3,7 @@ import { ai } from './geminiService';
 import { ingestDocument } from './ragEngine';
 import { knowledgeFiles, startupProfile } from '../state';
 import { companyContextService, CompanyContext } from './companyContextService';
+import { ensureMembership } from './membershipService';
 
 export type CanonicalStartupContext = CompanyContext;
 
@@ -126,12 +127,13 @@ ${fallbackSummary}
 - **Estimated Runway**: ${runway} months
 - **Financial Status**: ${runway >= 12 ? 'Healthy capital runway (>12 months)' : runway >= 6 ? 'Adequate runway (6-12 months), requires milestone discipline' : 'Critical runway (<6 months), immediate revenue or funding required'}
 
-## Key Strategic Directives for AI Executive Agents
-1. **Atlas (CEO)**: Align cross-functional roadmap and strategic focus around target customers (${icp}).
-2. **Aura (Finance)**: Ensure monthly cash outlays stay strictly within $${burn.toLocaleString()}/mo ceiling.
-3. **Vector (Growth)**: Design customer acquisition and pilot outreach tailored to ${icp}.
-4. **Nexus (Legal)**: Verify compliance safeguards, intellectual property protection, and customer agreement templates.
-5. **Helix (Operations)**: Track delivery milestones to hit the ${timeline} delivery goal.
+## Key Strategic Directives for Catalyst OS AI Executive Agents
+*(Note: These refer to your automated Catalyst OS AI agent copilots supporting the venture, not human employees.)*
+1. **Atlas (Autonomous CEO Agent)**: Align cross-functional roadmap and strategic focus around target customers (${icp}).
+2. **Aura (Autonomous Finance Agent)**: Ensure monthly cash outlays stay strictly within $${burn.toLocaleString()}/mo ceiling.
+3. **Vector (Autonomous Growth Agent)**: Design customer acquisition and pilot outreach tailored to ${icp}.
+4. **Nexus (Autonomous Legal Agent)**: Verify compliance safeguards, intellectual property protection, and customer agreement templates.
+5. **Helix (Autonomous Operations Agent)**: Track delivery milestones to hit the ${timeline} delivery goal.
 `;
 
     if (ai) {
@@ -336,6 +338,12 @@ Return ONLY valid JSON without markdown code blocks.`;
     }
 
     const startupId = startup.id;
+    // Explicitly guarantee the founder holds an authoritative ACTIVE FOUNDER membership
+    try {
+      await ensureMembership(userId, startupId, 'FOUNDER');
+    } catch (mErr: any) {
+      console.warn('[WorkspaceService] Founder membership sync note:', mErr?.message);
+    }
 
     // Synchronize startup_contexts table if available
     try {

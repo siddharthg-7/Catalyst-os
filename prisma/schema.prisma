@@ -10,16 +10,23 @@ datasource db {
 }
 
 model User {
-  id           String       @id @default(uuid())
-  email        String       @unique
-  name         String?
-  role         String       @default("founder")
-  passwordHash String?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  startups     Startup[]
-  memberships  Membership[]
-  sentInvites  Invitation[] @relation("InvitationInvitedBy")
+  id                   String       @id @default(uuid())
+  email                String       @unique
+  name                 String?
+  role                 String       @default("founder")
+  passwordHash         String?
+  emailVerified        Boolean      @default(false)
+  verificationToken    String?
+  verificationExpires  DateTime?
+  resetPasswordToken   String?
+  resetPasswordExpires DateTime?
+  mustChangePassword   Boolean      @default(false)
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  startups             Startup[]
+  memberships          Membership[]
+  sentInvites          Invitation[] @relation("InvitationInvitedBy")
+  conversations        Conversation[]
 }
 
 model Startup {
@@ -46,6 +53,7 @@ model Startup {
   timeline      TimelineItem[]
   memberships   Membership[]
   invitations   Invitation[]
+  conversations Conversation[]
 }
 
 /// P1 Task 8 — authoritative relationship between a User and a Startup/Company.
@@ -97,26 +105,80 @@ model Invitation {
 }
 
 model StartupDocument {
-  id        String           @id @default(uuid())
-  name      String
-  type      String
-  size      String
-  summary   String
-  insights  String[]
-  startupId String
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
-  chunks    KnowledgeChunk[]
-  startup   Startup          @relation(fields: [startupId], references: [id], onDelete: Cascade)
+  id                  String           @id @default(uuid())
+  name                String
+  type                String           @default("general")
+  sourceType          String           @default("DOCUMENT")
+  sourceRecordId      String?
+  version             Int              @default(1)
+  accessScope         String           @default("ALL")
+  size                String           @default("0 KB")
+  summary             String           @default("")
+  insights            String[]         @default([])
+  startupId           String
+  indexingStatus      String           @default("COMPLETED")
+  errorMessage        String?
+  embeddingModel      String           @default("gemini-embedding-2-preview")
+  embeddingDimensions Int              @default(768)
+  chunkingStrategy    String           @default("fixed_tokens_500_overlap_50")
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  chunks              KnowledgeChunk[]
+  startup             Startup          @relation(fields: [startupId], references: [id], onDelete: Cascade)
+
+  @@index([startupId, sourceType])
+  @@index([startupId, accessScope])
+  @@index([startupId, indexingStatus])
+  @@index([sourceRecordId])
 }
 
 model KnowledgeChunk {
-  id         String          @id @default(uuid())
-  content    String
-  documentId String
-  createdAt  DateTime        @default(now())
-  embedding  Embedding?
-  document   StartupDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  id               String          @id @default(uuid())
+  chunkIndex       Int             @default(0)
+  content          String
+  documentId       String
+  startupId        String          @default("default_startup")
+  sourceType       String          @default("DOCUMENT")
+  sourceRecordId   String?
+  accessScope      String          @default("ALL")
+  tokenCount       Int?
+  embeddingModel   String          @default("gemini-embedding-2-preview")
+  chunkingStrategy String          @default("fixed_tokens_500_overlap_50")
+  isActive         Boolean         @default(true)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @default(now()) @updatedAt
+  embedding        Embedding?
+  document         StartupDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId, chunkIndex])
+  @@index([startupId, accessScope])
+  @@index([startupId, sourceRecordId])
+  @@index([startupId, sourceType])
+  @@index([startupId, isActive])
+  @@index([embeddingModel])
+}
+
+model KnowledgeJob {
+  id               String    @id @default(uuid())
+  startupId        String
+  sourceType       String    @default("DOCUMENT")
+  sourceRecordId   String
+  action           String    @default("UPSERT")
+  status           String    @default("PENDING")
+  payload          Json?
+  idempotencyKey   String    @unique
+  attempts         Int       @default(0)
+  maxAttempts      Int       @default(3)
+  lastError        String?
+  embeddingModel   String    @default("gemini-embedding-2-preview")
+  chunkingStrategy String    @default("fixed_tokens_500_overlap_50")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  processedAt      DateTime?
+
+  @@index([startupId, status])
+  @@index([status, createdAt])
+  @@index([sourceType, sourceRecordId])
 }
 
 model Embedding {
@@ -125,6 +187,8 @@ model Embedding {
   chunkId   String         @unique
   createdAt DateTime       @default(now())
   chunk     KnowledgeChunk @relation(fields: [chunkId], references: [id], onDelete: Cascade)
+
+  @@index([chunkId])
 }
 
 model ExecutiveAgent {
@@ -315,3 +379,37 @@ model ActivityLog {
   @@index([startupId, userId])
   @@index([startupId, action])
 }
+
+model Conversation {
+  id         String                @id @default(uuid())
+  title      String                @default("New Conversation")
+  userId     String
+  startupId  String
+  isArchived Boolean               @default(false)
+  createdAt  DateTime              @default(now())
+  updatedAt  DateTime              @default(now()) @updatedAt
+  user       User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startup    Startup               @relation(fields: [startupId], references: [id], onDelete: Cascade)
+  messages   ConversationMessage[]
+
+  @@index([userId, startupId])
+  @@index([startupId])
+}
+
+model ConversationMessage {
+  id                String       @id @default(uuid())
+  conversationId    String
+  role              String
+  content           String
+  citations         Json?
+  metadata          Json?
+  isDecision        Boolean      @default(false)
+  isSharedKnowledge Boolean      @default(false)
+  createdAt         DateTime     @default(now())
+  conversation      Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([isSharedKnowledge])
+  @@index([isDecision])
+}
+

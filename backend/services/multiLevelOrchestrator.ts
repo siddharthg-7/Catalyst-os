@@ -372,8 +372,11 @@ export class MultiLevelOrchestrator {
       };
     }
 
-    // Greetings
-    if (lower === 'hi' || lower === 'hello' || lower === 'hey' || lower.startsWith('hello ') || lower.startsWith('good morning')) {
+    // Greetings & Casual Salutations
+    if (
+      /^(hi+|hello+|hey+|heya|howdy|greetings|good\s+(morning|afternoon|evening)|sup|yo)[!.,\s]*$/i.test(lower) ||
+      /^(hi+|hello+|hey+)\s+(sophia|catalyst|atlas|there|team)[!.,\s]*$/i.test(lower)
+    ) {
       return {
         intent: 'greeting',
         objective: 'Founder greeting & operational telemetry status',

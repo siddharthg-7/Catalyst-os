@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { AlertCircle, X } from 'lucide-react';
 import ChatHeader from './ChatHeader';
 import MessageBubble from './MessageBubble';
 import ChatInput from './ChatInput';
@@ -19,6 +20,12 @@ interface ChatWindowProps {
   onRegenerate?: () => void;
   language: string;
   onLanguageChange: (language: string) => void;
+  error?: string | null;
+  onClearError?: () => void;
+  sessionExpired?: boolean;
+  companyName?: string;
+  userRole?: string;
+  userName?: string;
 }
 
 export default function ChatWindow({
@@ -32,6 +39,12 @@ export default function ChatWindow({
   onRegenerate,
   language,
   onLanguageChange,
+  error,
+  onClearError,
+  sessionExpired,
+  companyName,
+  userRole,
+  userName,
 }: ChatWindowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -49,7 +62,7 @@ export default function ChatWindow({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Catalyst OS_Chat_Export_${Date.now()}.md`;
+    a.download = `Catalyst_OS_Chat_Export_${Date.now()}.md`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -74,6 +87,35 @@ export default function ChatWindow({
             onLanguageChange={onLanguageChange}
           />
 
+          {/* Operational Error Banner with Retry & Dismiss */}
+          {error && (
+            <div className="mx-3 mt-2.5 mb-1 p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center justify-between gap-2 shadow-xs shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span className="font-medium truncate">{error}</span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {onRegenerate && !sessionExpired && (
+                  <button
+                    onClick={onRegenerate}
+                    className="px-2 py-0.5 bg-white border border-rose-200 hover:bg-rose-100 text-rose-700 rounded-md font-semibold text-[11px] transition-colors cursor-pointer"
+                  >
+                    Retry
+                  </button>
+                )}
+                {onClearError && (
+                  <button
+                    onClick={onClearError}
+                    className="p-1 text-rose-500 hover:text-rose-700 rounded-md transition-colors cursor-pointer"
+                    title="Dismiss"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Messages & Content Area */}
           <div 
             ref={scrollRef} 
@@ -81,7 +123,11 @@ export default function ChatWindow({
           >
             {messages.length === 0 ? (
               <div className="h-full flex flex-col justify-between">
-                <EmptyState />
+                <EmptyState 
+                  companyName={companyName}
+                  userRole={userRole}
+                  userName={userName}
+                />
                 <SuggestedQuestions
                   questions={suggestedQuestions}
                   onSelect={onSendMessage}
@@ -119,7 +165,11 @@ export default function ChatWindow({
           </div>
 
           {/* Input Box */}
-          <ChatInput onSend={onSendMessage} disabled={isTyping} language={language} />
+          <ChatInput 
+            onSend={onSendMessage} 
+            disabled={isTyping || sessionExpired} 
+            language={language} 
+          />
         </motion.div>
       )}
     </AnimatePresence>

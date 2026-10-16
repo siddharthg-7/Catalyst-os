@@ -68,7 +68,7 @@ export default function SaaSDashboard({
   onNavigate,
 }: SaaSDashboardProps) {
   const { user, apiFetch } = useAuth();
-  const { sendMessage, messages, isTyping, cancelRun } = useChat(apiFetch, user?.id);
+  const { sendMessage, messages, isTyping, cancelRun } = useChat(apiFetch, user?.id, 'orchestrate');
 
   // Modals state
   const [isCalibratingTreasury, setIsCalibratingTreasury] = useState(false);

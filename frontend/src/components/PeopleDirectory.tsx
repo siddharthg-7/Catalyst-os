@@ -361,10 +361,10 @@ export default function PeopleDirectory({
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: 'var(--c-fg)' }}>
-            People & Executives
+            People & Employees
           </h1>
           <p className="text-sm mt-1 max-w-2xl" style={{ color: 'var(--c-muted)' }}>
-            Venture ownership, human team members, sign-in accounts, and autonomous AI executive roster.
+            Venture ownership, employee team members, sign-in accounts, and autonomous AI executive roster.
           </p>
         </div>
 
@@ -603,7 +603,7 @@ export default function PeopleDirectory({
 
               {onAddMember && (
                 <button
-                  onClick={handleOpenModal}
+                  onClick={() => handleOpenModal()}
                   className="px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
                   style={{
                     backgroundColor: 'var(--c-surface-2)',

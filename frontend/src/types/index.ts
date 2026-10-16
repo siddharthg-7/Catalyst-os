@@ -4,6 +4,7 @@
  */
 
 export interface StartupProfile {
+  id?: string;
   name: string;
   industry: string;
   description: string;
@@ -15,6 +16,7 @@ export interface StartupProfile {
   primaryProduct?: string;
   goals?: string[];
   priorities?: string[];
+  stage?: string;
   cashBalance: number;
   burnRate: number;
   runwayMonths: number;
@@ -263,11 +265,20 @@ export interface KnowledgeFile {
   uploadDate: string;
   summary: string;
   insights: string[];
+  keyInsights?: string[];
   startupId?: string;
+  sourceType?: string;
+  sourceRecordId?: string | null;
+  version?: number;
+  accessScope?: string;
+  indexingStatus?: string;
+  errorMessage?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type UserRole =
-  | 'Founder' | 'Executive' | 'Investor' | 'Admin'
+  | 'Founder' | 'Employee' | 'Executive' | 'Investor' | 'Admin'
   | 'FOUNDER' | 'ADMIN' | 'FINANCE' | 'HR' | 'OPERATIONS' | 'GROWTH';
 
 /** P1 Task 7 — effective permission set returned by GET /api/permissions/me. */
@@ -299,6 +310,8 @@ export interface User {
   name: string;
   role: UserRole;
   createdAt?: string;
+  emailVerified?: boolean;
+  mustChangePassword?: boolean;
 }
 
 export interface AuthState {
@@ -323,6 +336,9 @@ export interface DecisionRecord {
   riskLevel?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   reversibility?: 'REVERSIBLE' | 'IRREVERSIBLE';
   modifications?: string;
+  approver?: string;
+  recommendationBy?: string;
+  rawCouncilDeliberation?: any;
 }
 
 export interface OrchestrationAgentActivity {
@@ -508,6 +524,7 @@ export interface OrgMemberNode {
   title: string;
   department: string;
   level: 1 | 2 | 3;
+  reportsTo?: string;
   reportsToId?: string | null;
   reportsToName?: string | null;
   directReportsCount?: number;

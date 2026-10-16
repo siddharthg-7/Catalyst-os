@@ -6,6 +6,29 @@
 
 const CHAT_API = '/api/chat';
 
+let activeConversationId: string | null = null;
+
+export function setChatConversationId(id: string | null): void {
+  activeConversationId = id;
+}
+
+export function getChatConversationId(): string | null {
+  return activeConversationId;
+}
+
+export function clearChatConversationId(): void {
+  activeConversationId = null;
+}
+
+function getAuthHeaders(): Record<string, string> {
+  const token = localStorage.getItem('token') || localStorage.getItem('catalyst_auth_token');
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
 export interface ChatApiMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
@@ -13,7 +36,13 @@ export interface ChatApiMessage {
 
 export interface ChatApiResponse {
   reply: string;
-  sources?: Array<{ title: string; score: number; snippet?: string }>;
+  sources?: Array<{ title: string; score: number; snippet?: string; file?: string; category?: string }>;
+  citations?: Array<{ id: string; title: string; source: string; relevance: string }>;
+  conversationId?: string;
+  intent?: string;
+  isAmbiguous?: boolean;
+  isInsufficient?: boolean;
+  hasContradictionResolution?: boolean;
 }
 
 /**
@@ -22,20 +51,33 @@ export interface ChatApiResponse {
 export async function sendChatMessage(
   messages: ChatApiMessage[],
   language = 'auto',
-  _apiFetch?: unknown  // kept for API compatibility, ignored
+  _apiFetch?: unknown
 ): Promise<ChatApiResponse> {
   try {
     const res = await fetch(CHAT_API, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages, language }),
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        messages,
+        language,
+        conversationId: activeConversationId || undefined
+      }),
     });
 
     if (res.ok) {
       const data = await res.json();
+      if (data.conversationId) {
+        activeConversationId = data.conversationId;
+      }
       return {
         reply: data.reply || data.message || "I require more information to answer this query. Please upload relevant documents to the Knowledge Center.",
         sources: data.sources || [],
+        citations: data.citations || [],
+        conversationId: data.conversationId,
+        intent: data.intent,
+        isAmbiguous: data.isAmbiguous,
+        isInsufficient: data.isInsufficient,
+        hasContradictionResolution: data.hasContradictionResolution
       };
     }
 
@@ -58,13 +100,17 @@ export async function streamChatMessage(
   onChunk: (chunk: string) => void,
   onSources: (sources: Array<{ title: string; score: number; snippet?: string }>) => void,
   language = 'auto',
-  _apiFetch?: unknown  // kept for API compatibility, ignored
+  _apiFetch?: unknown
 ): Promise<void> {
   try {
     const res = await fetch(`${CHAT_API}/stream`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages, language }),
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        messages,
+        language,
+        conversationId: activeConversationId || undefined
+      }),
     });
 
     if (!res.ok || !res.body) {
@@ -102,6 +148,9 @@ export async function streamChatMessage(
           const parsed = JSON.parse(dataStr);
           if (parsed.text) onChunk(parsed.text);
           if (parsed.sources) onSources(parsed.sources);
+          if (parsed.conversationId) {
+            activeConversationId = parsed.conversationId;
+          }
         } catch {
           // Non-JSON SSE line — skip silently
         }

@@ -5,11 +5,17 @@ export interface AuthContextType {
   user: User | null;
   token: string | null;
   loading: boolean;
-  signin: (email: string, password: string) => Promise<{ success: boolean; error?: string; onboarded?: boolean; startup?: any }>;
-  signup: (email: string, password: string, name?: string, role?: UserRole) => Promise<{ success: boolean; error?: string; onboarded?: boolean; startup?: any }>;
+  signin: (email: string, password: string) => Promise<{ success: boolean; error?: string; onboarded?: boolean; startup?: any; user?: User }>;
+  signup: (email: string, password: string, name?: string, role?: UserRole) => Promise<{ success: boolean; error?: string; onboarded?: boolean; startup?: any; user?: User }>;
   logout: () => Promise<void>;
   loginAsDemo: () => void;
   apiFetch: (url: string, options?: RequestInit) => Promise<Response>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string; message?: string }>;
+  forgotPassword: (email: string) => Promise<{ success: boolean; error?: string; message?: string }>;
+  resetPassword: (token: string, newPassword: string) => Promise<{ success: boolean; error?: string; message?: string; user?: User }>;
+  verifyEmail: (token: string) => Promise<{ success: boolean; error?: string; message?: string; user?: User }>;
+  resendVerification: (email?: string) => Promise<{ success: boolean; error?: string; message?: string }>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -128,7 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const signin = async (email: string, password: string): Promise<{ success: boolean; error?: string; onboarded?: boolean; startup?: any }> => {
+  const signin = async (email: string, password: string): Promise<{ success: boolean; error?: string; onboarded?: boolean; startup?: any; user?: User }> => {
     try {
       const res = await fetch('/api/auth/signin', {
         method: 'POST',
@@ -153,7 +159,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setToken(data.token);
       setUser(data.user);
-      return { success: true, onboarded: data.onboarded, startup: data.startup };
+      return { success: true, onboarded: data.onboarded, startup: data.startup, user: data.user };
     } catch (err: any) {
       return { success: false, error: err.message || 'Network error during sign in.' };
     }
@@ -164,7 +170,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     password: string,
     name: string = 'Founder',
     role: UserRole = 'Founder'
-  ): Promise<{ success: boolean; error?: string; onboarded?: boolean; startup?: any }> => {
+  ): Promise<{ success: boolean; error?: string; onboarded?: boolean; startup?: any; user?: User }> => {
     try {
       const res = await fetch('/api/auth/signup', {
         method: 'POST',
@@ -189,7 +195,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setToken(data.token);
       setUser(data.user);
-      return { success: true, onboarded: data.onboarded, startup: data.startup };
+      return { success: true, onboarded: data.onboarded, startup: data.startup, user: data.user };
     } catch (err: any) {
       return { success: false, error: err.message || 'Network error during sign up.' };
     }
@@ -276,9 +282,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       headers['Authorization'] = `Bearer ${activeToken}`;
     }
 
-    // Route RAG-specific endpoints to the Python FastAPI backend if running
-    const isPythonEndpoint = url.startsWith('/api/chat') || url.startsWith('/api/rag');
-    const finalUrl = isPythonEndpoint ? `http://127.0.0.1:8000${url}` : url;
+    // Route requests to FastAPI only if explicitly configured; otherwise route to primary authenticated server
+    const fastApiUrl = (import.meta as any).env?.VITE_FASTAPI_URL;
+    const isPythonEndpoint = Boolean(fastApiUrl) && (url.startsWith('/api/chat') || url.startsWith('/api/rag'));
+    const finalUrl = isPythonEndpoint ? `${fastApiUrl}${url}` : url;
 
     const res = await fetch(finalUrl, { ...options, headers });
 
@@ -301,8 +308,157 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return res;
   };
 
+  const refreshUser = useCallback(async () => {
+    const activeToken = token || localStorage.getItem('catalystos_token');
+    if (!activeToken) return;
+    try {
+      const res = await fetch('/api/auth/me', {
+        headers: {
+          'Authorization': `Bearer ${activeToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user) {
+          setUser(data.user);
+          localStorage.setItem('catalystos_user', JSON.stringify(data.user));
+        }
+      }
+    } catch (e) {
+      console.warn('[AuthContext] refreshUser failed:', e);
+    }
+  }, [token]);
+
+  const changePassword = async (currentPassword: string, newPassword: string): Promise<{ success: boolean; error?: string; message?: string }> => {
+    try {
+      const res = await apiFetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        return { success: false, error: data.error || 'Failed to change password.' };
+      }
+      if (user) {
+        const updatedUser = { ...user, mustChangePassword: false };
+        setUser(updatedUser);
+        localStorage.setItem('catalystos_user', JSON.stringify(updatedUser));
+      }
+      return { success: true, message: data.message };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Network error changing password.' };
+    }
+  };
+
+  const forgotPassword = async (email: string): Promise<{ success: boolean; error?: string; message?: string }> => {
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        return { success: false, error: data.error || 'Failed to send password reset email.' };
+      }
+      return { success: true, message: data.message };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Network error requesting password reset.' };
+    }
+  };
+
+  const resetPassword = async (resetToken: string, newPassword: string): Promise<{ success: boolean; error?: string; message?: string; user?: User }> => {
+    try {
+      const res = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: resetToken, newPassword })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        return { success: false, error: data.error || 'Failed to reset password.' };
+      }
+      if (data.token && data.user) {
+        localStorage.removeItem('catalystos_demo_user');
+        localStorage.setItem('catalystos_token', data.token);
+        localStorage.setItem('catalystos_user', JSON.stringify(data.user));
+        setToken(data.token);
+        setUser(data.user);
+      }
+      return { success: true, message: data.message, user: data.user };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Network error resetting password.' };
+    }
+  };
+
+  const verifyEmail = async (verificationToken: string): Promise<{ success: boolean; error?: string; message?: string; user?: User }> => {
+    try {
+      const res = await fetch('/api/auth/verify-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: verificationToken })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        return { success: false, error: data.error || 'Failed to verify email.' };
+      }
+      if (data.token && data.user) {
+        localStorage.removeItem('catalystos_demo_user');
+        localStorage.setItem('catalystos_token', data.token);
+        localStorage.setItem('catalystos_user', JSON.stringify(data.user));
+        setToken(data.token);
+        setUser(data.user);
+      } else if (user) {
+        const updated = { ...user, emailVerified: true };
+        setUser(updated);
+        localStorage.setItem('catalystos_user', JSON.stringify(updated));
+      }
+      return { success: true, message: data.message, user: data.user };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Network error verifying email.' };
+    }
+  };
+
+  const resendVerification = async (targetEmail?: string): Promise<{ success: boolean; error?: string; message?: string }> => {
+    try {
+      const emailToSend = targetEmail || user?.email;
+      if (!emailToSend) {
+        return { success: false, error: 'No email address available to send verification.' };
+      }
+      const res = await fetch('/api/auth/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailToSend })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        return { success: false, error: data.error || 'Failed to resend verification email.' };
+      }
+      return { success: true, message: data.message };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Network error resending verification.' };
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, signin, signup, logout, loginAsDemo, apiFetch }}>
+    <AuthContext.Provider value={{
+      user,
+      token,
+      loading,
+      signin,
+      signup,
+      logout,
+      loginAsDemo,
+      apiFetch,
+      changePassword,
+      forgotPassword,
+      resetPassword,
+      verifyEmail,
+      resendVerification,
+      refreshUser
+    }}>
       {children}
     </AuthContext.Provider>
   );

@@ -67,6 +67,9 @@ import AuroraBackground from './components/AuroraBackground';
 import Footer from './components/Footer';
 import VoiceStudioPanel from './components/voice/VoiceStudioPanel';
 import SettingsModal from './components/SettingsModal';
+import ForcedPasswordChangeModal from './components/ForcedPasswordChangeModal';
+import VerifyEmailScreen from './components/VerifyEmailScreen';
+import ResetPasswordScreen from './components/ResetPasswordScreen';
 
 export default function App() {
   const navigate = useNavigate();
@@ -1524,8 +1527,6 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Catalyst OS AI Chatbot */}
-      <CatalystOsChatbot />
 
       {/* Real-time Operational Notifications Drawer */}
       <NotificationPanel 
@@ -1554,42 +1555,50 @@ export default function App() {
   };
 
   return (
-    <Routes>
-      {/* Landing Phase Route - Guarded: If authenticated, redirect to workspace or onboarding */}
-      <Route
-        path="/"
-        element={
-          loading || isCheckingStartup ? (
-            <div className="flex h-screen w-screen items-center justify-center transition-colors duration-300" style={{ backgroundColor: 'var(--c-bg)', color: 'var(--c-fg)' }}>
-              <div className="text-center space-y-4">
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto shadow-md border" style={{ backgroundColor: 'var(--c-surface)', borderColor: 'var(--c-border)' }}>
-                  <RefreshCw className="w-6 h-6 animate-spin text-indigo-600" />
+    <>
+      {user?.mustChangePassword && <ForcedPasswordChangeModal />}
+      <Routes>
+        {/* Landing Phase Route - Guarded: If authenticated, redirect to workspace or onboarding */}
+        <Route
+          path="/"
+          element={
+            loading || isCheckingStartup ? (
+              <div className="flex h-screen w-screen items-center justify-center transition-colors duration-300" style={{ backgroundColor: 'var(--c-bg)', color: 'var(--c-fg)' }}>
+                <div className="text-center space-y-4">
+                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto shadow-md border" style={{ backgroundColor: 'var(--c-surface)', borderColor: 'var(--c-border)' }}>
+                    <RefreshCw className="w-6 h-6 animate-spin text-indigo-600" />
+                  </div>
+                  <p className="text-xs font-mono uppercase tracking-widest text-slate-500">Checking Workspace Status...</p>
                 </div>
-                <p className="text-xs font-mono uppercase tracking-widest text-slate-500">Checking Workspace Status...</p>
               </div>
-            </div>
-          ) : user ? (
-            isEmployeeRole(user?.role || permissions.role) ? (
-              <Navigate to="/employee" replace />
-            ) : onboardingCompleted ? (
-              <Navigate to="/dashboard" replace />
+            ) : user ? (
+              isEmployeeRole(user?.role || permissions.role) ? (
+                <Navigate to="/employee" replace />
+              ) : onboardingCompleted ? (
+                <Navigate to="/dashboard" replace />
+              ) : (
+                <Navigate to="/onboarding" replace />
+              )
             ) : (
-              <Navigate to="/onboarding" replace />
+              <AuthScreen key="landing" initialView="landing" />
             )
-          ) : (
-            <AuthScreen key="landing" initialView="landing" />
-          )
-        }
-      />
+          }
+        />
 
-      {/* Aliases for login and signup routes */}
-      <Route path="/login" element={<Navigate to="/auth" replace />} />
-      <Route path="/signup" element={<Navigate to="/auth" replace />} />
+        {/* Aliases for login and signup routes */}
+        <Route path="/login" element={<Navigate to="/auth" replace />} />
+        <Route path="/signup" element={<Navigate to="/auth" replace />} />
 
-      {/* Authentication Phase Route */}
-      {/* P1 Task 8: public invitation acceptance. The raw token is the credential,
-          so this route must not sit behind the authentication guard. */}
-      <Route path="/accept-invitation" element={<AcceptInvitation />} />
+        {/* Email verification route */}
+        <Route path="/verify-email" element={<VerifyEmailScreen />} />
+
+        {/* Password reset route */}
+        <Route path="/reset-password" element={<ResetPasswordScreen />} />
+
+        {/* Authentication Phase Route */}
+        {/* P1 Task 8: public invitation acceptance. The raw token is the credential,
+            so this route must not sit behind the authentication guard. */}
+        <Route path="/accept-invitation" element={<AcceptInvitation />} />
 
       <Route
         path="/auth"
@@ -1715,5 +1724,16 @@ export default function App() {
       {/* Fallback Catch-all Route */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+
+    {/* RAG Knowledge Assistant Widget — available to authorized founders & employees after membership resolution */}
+    {user && !loading && !isCheckingStartup && !['/', '/auth', '/login', '/signup', '/verify-email', '/reset-password', '/accept-invitation', '/onboarding'].includes(location.pathname) && (
+      <CatalystOsChatbot
+        startupName={startup?.name}
+        userRole={user.role || permissions.role}
+        userName={user.name}
+        isMembershipResolved={!isCheckingStartup && (Boolean(startup?.id) || isEmployeeRole(user?.role || permissions.role) || onboardingCompleted)}
+      />
+    )}
+    </>
   );
 }

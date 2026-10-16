@@ -184,7 +184,8 @@ test('RAG Security - Malicious prompt injection is neutralized by passive XML bo
     documentType: 'contract',
     similarityScore: 0.85,
     keywordScore: 0.90,
-    hybridScore: 0.88
+    hybridScore: 0.88,
+    startupId: 'stp_default'
   };
 
   const { contextText, citations } = buildContext([maliciousChunk]);

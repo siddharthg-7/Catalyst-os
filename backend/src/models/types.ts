@@ -264,10 +264,18 @@ export interface KnowledgeFile {
   summary: string;
   insights: string[];
   startupId?: string;
+  sourceType?: string;
+  sourceRecordId?: string | null;
+  version?: number;
+  accessScope?: string;
+  indexingStatus?: string;
+  errorMessage?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type UserRole =
-  | 'Founder' | 'Executive' | 'Investor' | 'Admin'
+  | 'Founder' | 'Employee' | 'Executive' | 'Investor' | 'Admin'
   | 'FOUNDER' | 'ADMIN' | 'FINANCE' | 'HR' | 'OPERATIONS' | 'GROWTH';
 
 /** P1 Task 7 — effective permission set returned by GET /api/permissions/me. */
@@ -299,6 +307,8 @@ export interface User {
   name: string;
   role: UserRole;
   createdAt?: string;
+  emailVerified?: boolean;
+  mustChangePassword?: boolean;
 }
 
 export interface AuthState {

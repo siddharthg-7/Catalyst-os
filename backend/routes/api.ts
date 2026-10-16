@@ -1,9 +1,12 @@
 import { Router } from 'express';
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { prisma, safeDbQuery } from '../services/dbService';
+import { sendVerificationEmail, sendPasswordResetEmail } from '../services/invitationMailer';
 import vaultService from '../services/vaultService';
 import { extractTextFromFile } from '../services/documentParser';
-import { ingestDocument, performHybridSearch, buildContext, Citation, RetrievedChunk } from '../services/ragEngine';
+import { ingestDocument, performHybridSearch, retrieveHybridKnowledge, buildContext, Citation, RetrievedChunk } from '../services/ragEngine';
+import { classifyQuery, executeStructuredQuery } from '../services/structuredQueryEngine';
 import { 
   startupProfile, 
   updateStartupProfile, 
@@ -31,6 +34,7 @@ import {
   getActiveStartupId,
   isDemoUserId,
   resolveMembership,
+  isMemberOf,
   listMemberships,
   getEffectivePermissions,
   attachMembershipRole,
@@ -91,6 +95,22 @@ import { companyPolicyService } from '../services/companyPolicyService';
 import { agentRuleService } from '../services/agentRuleService';
 import { activityLogService } from '../services/activityLogService';
 import { multiAgentOrchestratorService } from '../services/multiAgentOrchestratorService';
+import { ingestionPipelineService } from '../services/ingestionPipelineService';
+import {
+  createConversation,
+  getConversation,
+  listConversationsForUser,
+  deleteConversation,
+  appendMessage,
+  getConversationMessages,
+  buildConversationMemoryContext,
+  promoteMessageToCompanyKnowledge
+} from '../services/conversationMemoryService';
+import {
+  isQueryAmbiguous,
+  synthesizeGroundedResponse,
+  formatGroundedSystemPrompt
+} from '../services/groundedResponseEngine';
 
 const router = Router();
 const idempotencyCache = new Map<string, { status: number; body: any; timestamp: number }>();
@@ -116,45 +136,318 @@ router.get('/ready', (req, res) => {
   });
 });
 
-// Public chatbot endpoint. It is grounded exclusively in local knowledge.md files.
-router.post('/chat', chatRateLimiter, async (req, res) => {
+// Authenticated RAG knowledge assistant endpoints with tenant resolution, conversation memory, and grounded responses
+router.post('/chat', authenticateJWT, chatRateLimiter, async (req: AuthenticatedRequest, res) => {
   const messages = Array.isArray(req.body?.messages) ? req.body.messages : [];
   const query = [...messages].reverse().find(message => message?.role === 'user')?.content;
   if (typeof query !== 'string' || !query.trim()) {
     res.status(400).json({ error: 'A non-empty user message is required.' });
     return;
   }
+
+  const callerId = req.user!.id;
+  const requestedStartupId = req.body?.startupId;
+  const resolved = await resolveMembership(callerId, requestedStartupId);
+  if (!resolved) {
+    res.status(403).json({ error: 'Access denied: You are not an authorized member of this company tenant.' });
+    return;
+  }
+
   try {
-    res.json(await markdownRagService.answer(query.trim(), req.body?.language || 'auto'));
+    const startupId = resolved.startupId;
+    const userRole = resolved.role;
+
+    // Phase 6: Establish Conversation and User Ownership
+    let conversationId = req.body?.conversationId;
+    let existingConv = null;
+    if (conversationId) {
+      existingConv = await getConversation({ conversationId, userId: callerId, startupId });
+    }
+    if (!existingConv) {
+      const newConv = await createConversation({
+        userId: callerId,
+        startupId,
+        title: query.trim().slice(0, 40) || 'New Conversation',
+        conversationId: conversationId || undefined
+      });
+      conversationId = newConv.id;
+    }
+
+    // Persist user message to conversation memory
+    await appendMessage({
+      conversationId,
+      role: 'user',
+      content: query.trim()
+    });
+
+    // Phase 6: Build sliding-window conversation memory context (recent turns + older relevant messages)
+    const memoryContext = await buildConversationMemoryContext({
+      conversationId,
+      userId: callerId,
+      startupId,
+      query: query.trim(),
+      maxRecentTurns: 4,
+      maxHistoricalRecall: 2
+    });
+
+    // Phase 5: Hybrid retrieval (authoritative structured DB + semantic vector search)
+    const hybridResult = await retrieveHybridKnowledge({
+      query: query.trim(),
+      startupId,
+      userId: callerId,
+      userRole,
+      limit: 4
+    });
+
+    // Phase 7: Grounded Response synthesis with ambiguity checks, sufficiency checks, and conflict resolution
+    const grounded = await synthesizeGroundedResponse({
+      query: query.trim(),
+      hybridResult,
+      memoryContext,
+      userRole
+    });
+
+    // Persist assistant message with citations and metadata
+    await appendMessage({
+      conversationId,
+      role: 'assistant',
+      content: grounded.reply,
+      citations: grounded.citations,
+      metadata: {
+        intent: grounded.intent,
+        isAmbiguous: grounded.isAmbiguous,
+        isInsufficient: grounded.isInsufficient,
+        hasContradictionResolution: grounded.hasContradictionResolution
+      }
+    });
+
+    return res.json({
+      conversationId,
+      reply: grounded.reply,
+      sources: grounded.sources,
+      citations: grounded.citations,
+      intent: grounded.intent,
+      operationalData: hybridResult.structuredData,
+      isAmbiguous: grounded.isAmbiguous,
+      isInsufficient: grounded.isInsufficient,
+      hasContradictionResolution: grounded.hasContradictionResolution,
+      debug: null
+    });
   } catch (error) {
-    console.error('[Markdown RAG] Chat request failed:', error);
+    console.error('[Grounded RAG] Chat request failed:', error);
     res.status(500).json({ error: 'The knowledge base could not be queried.' });
   }
 });
 
-router.post('/chat/stream', chatRateLimiter, async (req, res) => {
+router.post('/chat/stream', authenticateJWT, chatRateLimiter, async (req: AuthenticatedRequest, res) => {
   const messages = Array.isArray(req.body?.messages) ? req.body.messages : [];
   const query = [...messages].reverse().find(message => message?.role === 'user')?.content;
   if (typeof query !== 'string' || !query.trim()) {
     res.status(400).json({ error: 'A non-empty user message is required.' });
     return;
   }
+
+  const callerId = req.user!.id;
+  const requestedStartupId = req.body?.startupId;
+  const resolved = await resolveMembership(callerId, requestedStartupId);
+  if (!resolved) {
+    res.status(403).json({ error: 'Access denied: You are not an authorized member of this company tenant.' });
+    return;
+  }
+
   res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
   try {
-    const result = await markdownRagService.answer(query.trim(), req.body?.language || 'auto');
-    for (const token of result.reply.match(/\S+\s*/g) || []) {
+    const startupId = resolved.startupId;
+    const userRole = resolved.role;
+
+    // Phase 6: Establish Conversation and User Ownership
+    let conversationId = req.body?.conversationId;
+    let existingConv = null;
+    if (conversationId) {
+      existingConv = await getConversation({ conversationId, userId: callerId, startupId });
+    }
+    if (!existingConv) {
+      const newConv = await createConversation({
+        userId: callerId,
+        startupId,
+        title: query.trim().slice(0, 40) || 'New Conversation',
+        conversationId: conversationId || undefined
+      });
+      conversationId = newConv.id;
+    }
+
+    // Persist user message to conversation memory
+    await appendMessage({
+      conversationId,
+      role: 'user',
+      content: query.trim()
+    });
+
+    // Phase 6: Build sliding-window conversation memory context
+    const memoryContext = await buildConversationMemoryContext({
+      conversationId,
+      userId: callerId,
+      startupId,
+      query: query.trim(),
+      maxRecentTurns: 4,
+      maxHistoricalRecall: 2
+    });
+
+    // Phase 5: Hybrid retrieval
+    const hybridResult = await retrieveHybridKnowledge({
+      query: query.trim(),
+      startupId,
+      userId: callerId,
+      userRole,
+      limit: 4
+    });
+
+    // Phase 7: Grounded Response synthesis
+    const grounded = await synthesizeGroundedResponse({
+      query: query.trim(),
+      hybridResult,
+      memoryContext,
+      userRole
+    });
+
+    // Stream tokens
+    for (const token of grounded.reply.match(/\S+\s*/g) || []) {
       res.write(`data: ${JSON.stringify({ text: token })}\n\n`);
     }
-    res.write(`data: ${JSON.stringify({ sources: result.sources, debug: result.debug })}\n\n`);
+
+    // Persist assistant message
+    await appendMessage({
+      conversationId,
+      role: 'assistant',
+      content: grounded.reply,
+      citations: grounded.citations,
+      metadata: {
+        intent: grounded.intent,
+        isAmbiguous: grounded.isAmbiguous,
+        isInsufficient: grounded.isInsufficient,
+        hasContradictionResolution: grounded.hasContradictionResolution
+      }
+    });
+
+    res.write(`data: ${JSON.stringify({
+      conversationId,
+      sources: grounded.sources,
+      citations: grounded.citations,
+      intent: grounded.intent,
+      operationalData: hybridResult.structuredData,
+      isAmbiguous: grounded.isAmbiguous,
+      isInsufficient: grounded.isInsufficient,
+      hasContradictionResolution: grounded.hasContradictionResolution,
+      debug: null
+    })}\n\n`);
     res.write('data: [DONE]\n\n');
   } catch (error) {
-    console.error('[Markdown RAG] Streaming request failed:', error);
+    console.error('[Grounded RAG Stream] Streaming request failed:', error);
     res.write(`data: ${JSON.stringify({ text: 'The knowledge base could not be queried.' })}\n\n`);
     res.write('data: [DONE]\n\n');
   } finally {
     res.end();
+  }
+});
+
+// Phase 6: Conversation Management Endpoints
+router.get('/conversations', authenticateJWT, async (req: AuthenticatedRequest, res) => {
+  const callerId = req.user!.id;
+  const requestedStartupId = req.query?.startupId as string | undefined;
+  const resolved = await resolveMembership(callerId, requestedStartupId);
+  if (!resolved) {
+    res.status(403).json({ error: 'Access denied: You are not an authorized member of this company tenant.' });
+    return;
+  }
+
+  try {
+    const conversations = await listConversationsForUser(callerId, resolved.startupId);
+    res.json({ conversations });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/conversations/:id', authenticateJWT, async (req: AuthenticatedRequest, res) => {
+  const callerId = req.user!.id;
+  const requestedStartupId = req.query?.startupId as string | undefined;
+  const resolved = await resolveMembership(callerId, requestedStartupId);
+  if (!resolved) {
+    res.status(403).json({ error: 'Access denied: You are not an authorized member of this company tenant.' });
+    return;
+  }
+
+  try {
+    const conversation = await getConversation({
+      conversationId: req.params.id,
+      userId: callerId,
+      startupId: resolved.startupId
+    });
+    if (!conversation) {
+      res.status(404).json({ error: 'Conversation not found or access denied.' });
+      return;
+    }
+    const messages = await getConversationMessages(req.params.id);
+    res.json({ conversation, messages });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/conversations/:id', authenticateJWT, async (req: AuthenticatedRequest, res) => {
+  const callerId = req.user!.id;
+  const requestedStartupId = (req.body?.startupId || req.query?.startupId) as string | undefined;
+  const resolved = await resolveMembership(callerId, requestedStartupId);
+  if (!resolved) {
+    res.status(403).json({ error: 'Access denied: You are not an authorized member of this company tenant.' });
+    return;
+  }
+
+  try {
+    await deleteConversation({
+      conversationId: req.params.id,
+      userId: callerId,
+      startupId: resolved.startupId,
+      userRole: resolved.role
+    });
+    res.json({ success: true, message: 'Conversation deleted successfully.' });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/conversations/:id/promote', authenticateJWT, async (req: AuthenticatedRequest, res) => {
+  const callerId = req.user!.id;
+  const requestedStartupId = req.body?.startupId as string | undefined;
+  const messageId = req.body?.messageId as string;
+  if (!messageId) {
+    res.status(400).json({ error: 'messageId is required to promote a message.' });
+    return;
+  }
+
+  const resolved = await resolveMembership(callerId, requestedStartupId);
+  if (!resolved) {
+    res.status(403).json({ error: 'Access denied: You are not an authorized member of this company tenant.' });
+    return;
+  }
+
+  try {
+    const result = await promoteMessageToCompanyKnowledge({
+      messageId,
+      conversationId: req.params.id,
+      userId: callerId,
+      startupId: resolved.startupId,
+      callerRole: resolved.role
+    });
+    res.json(result);
+  } catch (err: any) {
+    if (err.message.includes('Unauthorized')) {
+      res.status(403).json({ error: err.message });
+    } else {
+      res.status(400).json({ error: err.message });
+    }
   }
 });
 
@@ -177,13 +470,20 @@ router.post('/auth/signup', authRateLimiter, async (req, res) => {
 
   const cleanEmail = email.trim().toLowerCase();
   const cleanName = (name || cleanEmail.split('@')[0] || 'Founder').trim();
-  const allowedRoles: UserRole[] = ['Founder', 'Executive', 'Investor', 'Admin'];
-  const userRole: UserRole = (role && allowedRoles.includes(role)) ? role : 'Founder';
+  const allowedRoles: string[] = ['Founder', 'Employee', 'Employees', 'Executive', 'Investor', 'Admin'];
+  const userRole: UserRole = (role && allowedRoles.includes(role))
+    ? (role === 'Employees' ? 'Employee' : role as UserRole)
+    : 'Founder';
 
   try {
     let existing: any = null;
     let newUser: any = null;
     const passwordHash = await bcrypt.hash(password, 10);
+
+    // Cryptographic email verification token
+    const rawVerificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationTokenHash = crypto.createHash('sha256').update(rawVerificationToken).digest('hex');
+    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
     if (isDbAvailable && prisma) {
       try {
@@ -194,14 +494,31 @@ router.post('/auth/signup', authRateLimiter, async (req, res) => {
           res.status(409).json({ error: 'An account with this email address already exists. Please sign in.' });
           return;
         }
-        newUser = await safeDbQuery(() => (prisma as any).user.create({
+        const createdUser: any = await safeDbQuery(() => prisma.user.create({
           data: {
             email: cleanEmail,
             name: cleanName,
             role: userRole,
             passwordHash
-          } as any
+          }
         }));
+        if (createdUser?.id) {
+          await safeDbQuery(() => prisma.$executeRawUnsafe(
+            'UPDATE "User" SET "emailVerified" = $1, "verificationToken" = $2, "verificationExpires" = $3, "mustChangePassword" = $4 WHERE id = $5',
+            false,
+            verificationTokenHash,
+            verificationExpires,
+            false,
+            createdUser.id
+          )).catch(err => console.warn('[Auth API] Raw SQL column update notice:', err?.message));
+          newUser = {
+            ...createdUser,
+            emailVerified: false,
+            verificationToken: verificationTokenHash,
+            verificationExpires,
+            mustChangePassword: false
+          };
+        }
       } catch (dbErr: any) {
         console.warn('[Auth API] Database unavailable during signup, using local state:', dbErr.message);
       }
@@ -218,11 +535,25 @@ router.post('/auth/signup', authRateLimiter, async (req, res) => {
         email: cleanEmail,
         name: cleanName,
         role: userRole,
-        passwordHash
+        passwordHash,
+        emailVerified: false,
+        mustChangePassword: false
       };
+      (memUser as any).verificationToken = verificationTokenHash;
+      (memUser as any).verificationExpires = verificationExpires;
       users.push(memUser);
       newUser = memUser;
     }
+
+    // Dispatch verification email via Gmail SMTP / EmailJS
+    const appUrl = (process.env.APP_URL || process.env.APP_BASE_URL || 'http://localhost:3000').replace(/\/+$/, '');
+    const verificationUrl = `${appUrl}/verify-email?token=${rawVerificationToken}`;
+    sendVerificationEmail({
+      to: cleanEmail,
+      name: cleanName,
+      verificationUrl,
+      expiresAt: verificationExpires
+    }).catch(err => console.warn('[Auth API] Verification email delivery notice:', err?.message));
 
     // Fresh user is not onboarded until they complete the founder onboarding wizard
     const token = jwt.sign(
@@ -238,10 +569,14 @@ router.post('/auth/signup', authRateLimiter, async (req, res) => {
         id: newUser.id,
         email: newUser.email,
         name: newUser.name || 'Founder',
-        role: newUser.role as UserRole
+        role: newUser.role as UserRole,
+        emailVerified: false,
+        mustChangePassword: false
       },
       onboarded: false,
-      startup: null
+      startup: null,
+      emailVerified: false,
+      verificationUrl: process.env.NODE_ENV !== 'production' ? verificationUrl : undefined
     });
   } catch (err: any) {
     console.error('[Auth API] Signup error:', err.message);
@@ -263,9 +598,17 @@ router.post('/auth/signin', authRateLimiter, async (req, res) => {
     let user: any = null;
     if (isDbAvailable && prisma) {
       try {
-        user = await safeDbQuery(() => prisma.user.findUnique({
-          where: { email: cleanEmail }
-        }));
+        const rows: any[] = await safeDbQuery(() => prisma.$queryRawUnsafe(
+          'SELECT id, email, name, role, "passwordHash", "emailVerified", "mustChangePassword" FROM "User" WHERE email = $1 LIMIT 1',
+          cleanEmail
+        ));
+        if (rows && rows.length > 0) {
+          user = rows[0];
+        } else {
+          user = await safeDbQuery(() => prisma.user.findUnique({
+            where: { email: cleanEmail }
+          }));
+        }
       } catch (dbErr: any) {
         console.warn('[Auth API] Database query failed, checking memory:', dbErr.message);
       }
@@ -357,14 +700,343 @@ router.post('/auth/signin', authRateLimiter, async (req, res) => {
         id: user.id,
         email: user.email,
         name: user.name || 'Founder',
-        role: user.role as UserRole
+        role: user.role as UserRole,
+        emailVerified: Boolean(user.emailVerified),
+        mustChangePassword: Boolean(user.mustChangePassword)
       },
       onboarded: isOnboarded,
-      startup: userStartup
+      startup: userStartup,
+      emailVerified: Boolean(user.emailVerified),
+      mustChangePassword: Boolean(user.mustChangePassword)
     });
   } catch (err: any) {
     console.error('[Auth API] Signin error:', err.message);
     res.status(500).json({ error: `Authentication failed: ${err.message}` });
+  }
+});
+
+// ALL /api/auth/verify-email (Supports both GET token from link and POST JSON body)
+router.all('/auth/verify-email', authRateLimiter, async (req, res) => {
+  const token = (req.query?.token as string) || (req.body?.token as string);
+  if (!token || typeof token !== 'string') {
+    res.status(400).json({ error: 'A valid verification token is required.' });
+    return;
+  }
+
+  const tokenHash = crypto.createHash('sha256').update(token.trim()).digest('hex');
+
+  try {
+    let user: any = null;
+    if (isDbAvailable && prisma) {
+      try {
+        const rows: any[] = await safeDbQuery(() => prisma.$queryRawUnsafe(
+          'SELECT id, email, name, role, "emailVerified", "mustChangePassword" FROM "User" WHERE "verificationToken" = $1 AND "verificationExpires" >= NOW() LIMIT 1',
+          tokenHash
+        ));
+        if (rows && rows.length > 0) {
+          user = rows[0];
+        }
+      } catch (err: any) {
+        console.warn('[Auth API] verify-email raw query warning:', err.message);
+      }
+    }
+
+    if (!user) {
+      user = users.find(u => (u as any).verificationToken === tokenHash && (u as any).verificationExpires >= new Date());
+    }
+
+    if (!user) {
+      res.status(400).json({ error: 'Invalid or expired verification token. Please request a new verification email.' });
+      return;
+    }
+
+    if (isDbAvailable && prisma) {
+      await safeDbQuery(() => prisma.$executeRawUnsafe(
+        'UPDATE "User" SET "emailVerified" = true, "verificationToken" = NULL, "verificationExpires" = NULL WHERE id = $1',
+        user.id
+      )).catch(() => {});
+    }
+    user.emailVerified = true;
+    (user as any).verificationToken = null;
+    (user as any).verificationExpires = null;
+
+    const sessionToken = jwt.sign(
+      { sub: user.id, email: user.email, name: user.name, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      success: true,
+      message: 'Email address successfully verified.',
+      token: sessionToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        emailVerified: true,
+        mustChangePassword: Boolean(user.mustChangePassword)
+      }
+    });
+  } catch (err: any) {
+    console.error('[Auth API] Email verification error:', err.message);
+    res.status(500).json({ error: 'Email verification failed: ' + err.message });
+  }
+});
+
+// POST /api/auth/resend-verification
+router.post('/auth/resend-verification', authRateLimiter, async (req, res) => {
+  const { email } = req.body || {};
+  if (!email || typeof email !== 'string') {
+    res.status(400).json({ error: 'Email address is required.' });
+    return;
+  }
+  const cleanEmail = email.trim().toLowerCase();
+
+  try {
+    let user: any = null;
+    if (isDbAvailable && prisma) {
+      user = await safeDbQuery(() => prisma.user.findUnique({ where: { email: cleanEmail } }));
+    }
+    if (!user) {
+      user = users.find(u => u.email.toLowerCase() === cleanEmail);
+    }
+
+    if (user && !user.emailVerified) {
+      const rawVerificationToken = crypto.randomBytes(32).toString('hex');
+      const verificationTokenHash = crypto.createHash('sha256').update(rawVerificationToken).digest('hex');
+      const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+      if (isDbAvailable && prisma) {
+        await safeDbQuery(() => prisma.$executeRawUnsafe(
+          'UPDATE "User" SET "verificationToken" = $1, "verificationExpires" = $2 WHERE id = $3',
+          verificationTokenHash,
+          verificationExpires,
+          user.id
+        )).catch(() => {});
+      }
+      (user as any).verificationToken = verificationTokenHash;
+      (user as any).verificationExpires = verificationExpires;
+
+      const appUrl = (process.env.APP_URL || process.env.APP_BASE_URL || 'http://localhost:3000').replace(/\/+$/, '');
+      const verificationUrl = `${appUrl}/verify-email?token=${rawVerificationToken}`;
+      sendVerificationEmail({
+        to: cleanEmail,
+        name: user.name || 'Founder',
+        verificationUrl,
+        expiresAt: verificationExpires
+      }).catch(() => {});
+    }
+
+    res.json({
+      success: true,
+      message: 'If an unverified account exists for this address, a verification email has been dispatched.'
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to resend verification email: ' + err.message });
+  }
+});
+
+// POST /api/auth/forgot-password
+router.post('/auth/forgot-password', authRateLimiter, async (req, res) => {
+  const { email } = req.body || {};
+  if (!email || typeof email !== 'string') {
+    res.status(400).json({ error: 'A valid email address is required.' });
+    return;
+  }
+  const cleanEmail = email.trim().toLowerCase();
+
+  try {
+    let user: any = null;
+    if (isDbAvailable && prisma) {
+      user = await safeDbQuery(() => prisma.user.findUnique({ where: { email: cleanEmail } }));
+    }
+    if (!user) {
+      user = users.find(u => u.email.toLowerCase() === cleanEmail);
+    }
+
+    if (user) {
+      const rawResetToken = crypto.randomBytes(32).toString('hex');
+      const resetTokenHash = crypto.createHash('sha256').update(rawResetToken).digest('hex');
+      const resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+      if (isDbAvailable && prisma) {
+        await safeDbQuery(() => prisma.$executeRawUnsafe(
+          'UPDATE "User" SET "resetPasswordToken" = $1, "resetPasswordExpires" = $2 WHERE id = $3',
+          resetTokenHash,
+          resetPasswordExpires,
+          user.id
+        )).catch(() => {});
+      }
+      (user as any).resetPasswordToken = resetTokenHash;
+      (user as any).resetPasswordExpires = resetPasswordExpires;
+
+      const appUrl = (process.env.APP_URL || process.env.APP_BASE_URL || 'http://localhost:3000').replace(/\/+$/, '');
+      const resetUrl = `${appUrl}/reset-password?token=${rawResetToken}`;
+      sendPasswordResetEmail({
+        to: cleanEmail,
+        name: user.name || 'User',
+        resetUrl,
+        expiresAt: resetPasswordExpires
+      }).catch(err => console.warn('[Auth API] Password reset email warning:', err?.message));
+    }
+
+    res.json({
+      success: true,
+      message: 'If an account exists for this email address, password recovery instructions have been sent.'
+    });
+  } catch (err: any) {
+    console.error('[Auth API] Forgot password error:', err.message);
+    res.status(500).json({ error: 'Failed to initiate password reset: ' + err.message });
+  }
+});
+
+// POST /api/auth/reset-password
+router.post('/auth/reset-password', authRateLimiter, async (req, res) => {
+  const { token, newPassword } = req.body || {};
+  if (!token || typeof token !== 'string') {
+    res.status(400).json({ error: 'Reset token is required.' });
+    return;
+  }
+  if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
+    res.status(400).json({ error: 'Password must be at least 6 characters long.' });
+    return;
+  }
+
+  const tokenHash = crypto.createHash('sha256').update(token.trim()).digest('hex');
+
+  try {
+    let user: any = null;
+    if (isDbAvailable && prisma) {
+      try {
+        const rows: any[] = await safeDbQuery(() => prisma.$queryRawUnsafe(
+          'SELECT id, email, name, role, "emailVerified", "mustChangePassword" FROM "User" WHERE "resetPasswordToken" = $1 AND "resetPasswordExpires" >= NOW() LIMIT 1',
+          tokenHash
+        ));
+        if (rows && rows.length > 0) {
+          user = rows[0];
+        }
+      } catch (err: any) {
+        console.warn('[Auth API] reset-password raw query warning:', err.message);
+      }
+    }
+    if (!user) {
+      user = users.find(u => (u as any).resetPasswordToken === tokenHash && (u as any).resetPasswordExpires >= new Date());
+    }
+
+    if (!user) {
+      res.status(400).json({ error: 'Invalid or expired password reset link. Please request a new one.' });
+      return;
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    if (isDbAvailable && prisma) {
+      await safeDbQuery(() => prisma.$executeRawUnsafe(
+        'UPDATE "User" SET "passwordHash" = $1, "resetPasswordToken" = NULL, "resetPasswordExpires" = NULL, "mustChangePassword" = false WHERE id = $2',
+        passwordHash,
+        user.id
+      )).catch(() => {});
+    }
+    user.passwordHash = passwordHash;
+    (user as any).resetPasswordToken = null;
+    (user as any).resetPasswordExpires = null;
+    user.mustChangePassword = false;
+
+    const sessionToken = jwt.sign(
+      { sub: user.id, email: user.email, name: user.name, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      success: true,
+      message: 'Password has been reset successfully. You are now signed in.',
+      token: sessionToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        emailVerified: Boolean(user.emailVerified),
+        mustChangePassword: false
+      }
+    });
+  } catch (err: any) {
+    console.error('[Auth API] Reset password error:', err.message);
+    res.status(500).json({ error: 'Failed to reset password: ' + err.message });
+  }
+});
+
+// POST /api/auth/change-password (Authenticated: for forced password change or voluntary update)
+router.post('/auth/change-password', authenticateJWT, async (req: AuthenticatedRequest, res) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    res.status(401).json({ error: 'Authentication required.' });
+    return;
+  }
+
+  const { currentPassword, newPassword } = req.body || {};
+  if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
+    res.status(400).json({ error: 'New password must be at least 6 characters long.' });
+    return;
+  }
+
+  try {
+    let user: any = null;
+    if (isDbAvailable && prisma) {
+      user = await safeDbQuery(() => prisma.user.findUnique({ where: { id: userId } }));
+    }
+    if (!user) {
+      user = users.find(u => u.id === userId);
+    }
+    if (!user) {
+      res.status(404).json({ error: 'User account not found.' });
+      return;
+    }
+
+    // If current user already has a password hash and currentPassword was provided, verify it
+    if (user.passwordHash && currentPassword) {
+      const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
+      if (!isValid) {
+        res.status(400).json({ error: 'Current password is incorrect.' });
+        return;
+      }
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    if (isDbAvailable && prisma) {
+      await safeDbQuery(() => prisma.$executeRawUnsafe(
+        'UPDATE "User" SET "passwordHash" = $1, "mustChangePassword" = false WHERE id = $2',
+        passwordHash,
+        user.id
+      )).catch(() => {});
+    }
+    user.passwordHash = passwordHash;
+    user.mustChangePassword = false;
+
+    const token = jwt.sign(
+      { sub: user.id, email: user.email, name: user.name, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      success: true,
+      message: 'Password changed successfully.',
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        emailVerified: Boolean(user.emailVerified),
+        mustChangePassword: false
+      }
+    });
+  } catch (err: any) {
+    console.error('[Auth API] Change password error:', err.message);
+    res.status(500).json({ error: 'Failed to change password: ' + err.message });
   }
 });
 
@@ -452,8 +1124,43 @@ router.all('/auth/demo', async (req, res) => {
 // GET current authenticated user profile
 router.get('/auth/me', authenticateJWT, async (req: AuthenticatedRequest, res) => {
   const user = req.user;
+  let fullUser: any = user;
   let userStartup: any = null;
   let isOnboarded = false;
+
+  if (user?.id) {
+    if (isDbAvailable && prisma) {
+      try {
+        const rows: any[] = await safeDbQuery(() => prisma.$queryRawUnsafe(
+          'SELECT id, email, name, role, "emailVerified", "mustChangePassword" FROM "User" WHERE id = $1 LIMIT 1',
+          user.id
+        ));
+        const dbUser: any = (rows && rows.length > 0) ? rows[0] : null;
+        if (dbUser) {
+          fullUser = {
+            id: dbUser.id,
+            email: dbUser.email,
+            name: dbUser.name || user.name,
+            role: (dbUser.role as UserRole) || user.role,
+            emailVerified: Boolean(dbUser.emailVerified),
+            mustChangePassword: Boolean(dbUser.mustChangePassword)
+          };
+        }
+      } catch (err: any) {
+        console.warn('[Auth API] Error fetching user in /auth/me:', err.message);
+      }
+    } else {
+      const memUser = users.find(u => u.id === user.id);
+      if (memUser) {
+        fullUser = {
+          ...user,
+          emailVerified: Boolean(memUser.emailVerified),
+          mustChangePassword: Boolean(memUser.mustChangePassword)
+        };
+      }
+    }
+  }
+
   if (user?.id && isDbAvailable && prisma) {
     try {
       let startup = await safeDbQuery(() => prisma.startup.findFirst({
@@ -496,7 +1203,7 @@ router.get('/auth/me', authenticateJWT, async (req: AuthenticatedRequest, res) =
       console.warn('[Auth API] Error checking startup in /auth/me:', err.message);
     }
   }
-  res.json({ user, onboarded: isOnboarded, startup: userStartup });
+  res.json({ user: fullUser, onboarded: isOnboarded, startup: userStartup });
 });
 
 // POST logout
@@ -1190,10 +1897,10 @@ router.post('/invitations', authenticateJWT, requireActiveMembership, requirePer
 
     res.status(201).json({
       ...created.invitation,
+      token: created.rawToken,
+      invitationUrl: created.invitationUrl,
       emailDelivered: created.delivery.delivered,
-      deliveryChannel: created.delivery.channel,
-      // Development only: lets a founder copy the link when SMTP is absent.
-      ...(exposeInvitationUrl ? { invitationUrl: created.invitationUrl } : {})
+      deliveryChannel: created.delivery.channel
     });
   } catch (err) {
     sendInvitationError(res, err);
@@ -1288,7 +1995,9 @@ router.post('/invitations/accept', authRateLimiter, async (req: AuthenticatedReq
         id: result.userId,
         email: user?.email,
         name: user?.name || 'Team Member',
-        role: result.role
+        role: result.role,
+        emailVerified: Boolean((user as any)?.emailVerified),
+        mustChangePassword: Boolean((user as any)?.mustChangePassword)
       },
       membership: {
         startupId: result.startupId,
@@ -2360,36 +3069,49 @@ router.get('/knowledge', authenticateJWT, async (req: AuthenticatedRequest, res)
       return;
     }
 
+    const requestedStartupId = req.query?.startupId as string | undefined;
+    const resolved = await resolveMembership(userId, requestedStartupId);
+    if (!resolved) {
+      res.status(403).json({ error: 'Access denied: You are not an authorized member of this company tenant.' });
+      return;
+    }
+
+    const startupId = resolved.startupId;
+    const callerRole = (resolved.role || 'EMPLOYEE').toUpperCase();
+    const isFounderOrAdmin = callerRole === 'FOUNDER' || callerRole === 'ADMIN';
+
     if (!isDbAvailable || !prisma) {
       const userContext = await companyContextService.getContextForUser(userId);
-      return res.json(userContext?.documents || []);
-    }
-
-    let activeStartup: any = null;
-    try {
-      activeStartup = await prisma.startup.findFirst({
-        where: { ownerId: userId },
-        orderBy: { createdAt: 'desc' }
+      const docs = (userContext?.documents || []).filter((d: any) => {
+        if (d.startupId && d.startupId !== startupId) return false;
+        if (isFounderOrAdmin) return true;
+        const scope = (d.accessScope || 'ALL').toUpperCase();
+        return scope === 'ALL' || scope === callerRole;
       });
-      if (!activeStartup) {
-        const userContext = await companyContextService.getContextForUser(userId);
-        if (userContext?.startupId) {
-          activeStartup = await prisma.startup.findUnique({
-            where: { id: userContext.startupId }
-          });
-        }
-      }
-    } catch (e: any) {
-      console.warn('[Knowledge API] DB startup find failed:', e.message);
+      return res.json(docs);
     }
 
-    if (!activeStartup) {
-      const userContext = await companyContextService.getContextForUser(userId);
-      return res.json(userContext?.documents || []);
+    const whereClause: any = {
+      startupId: startupId
+    };
+
+    if (!isFounderOrAdmin) {
+      whereClause.OR = [
+        { accessScope: 'ALL' },
+        { accessScope: callerRole },
+        { accessScope: callerRole.toLowerCase() }
+      ];
     }
 
-    const dbDocs = await prisma.startupDocument.findMany({
-      where: { startupId: activeStartup.id },
+    if (req.query?.sourceType) {
+      whereClause.sourceType = String(req.query.sourceType);
+    }
+    if (req.query?.sourceRecordId) {
+      whereClause.sourceRecordId = String(req.query.sourceRecordId);
+    }
+
+    const dbDocs: any[] = await prisma.startupDocument.findMany({
+      where: whereClause,
       orderBy: { createdAt: 'desc' }
     });
 
@@ -2400,142 +3122,117 @@ router.get('/knowledge', authenticateJWT, async (req: AuthenticatedRequest, res)
       size: d.size,
       uploadDate: d.createdAt.toISOString(),
       summary: d.summary,
-      insights: d.insights
+      insights: d.insights,
+      startupId: d.startupId,
+      sourceType: d.sourceType || 'DOCUMENT',
+      sourceRecordId: d.sourceRecordId || null,
+      version: d.version ?? 1,
+      accessScope: d.accessScope || 'ALL',
+      indexingStatus: d.indexingStatus || 'COMPLETED',
+      errorMessage: d.errorMessage || null,
+      createdAt: d.createdAt.toISOString(),
+      updatedAt: d.updatedAt.toISOString()
     }));
-
-    if (docs.length === 0) {
-      const userContext = await companyContextService.getContextForUser(userId);
-      if (userContext?.documents && userContext.documents.length > 0) {
-        return res.json(userContext.documents);
-      }
-    }
 
     res.json(docs);
   } catch (err: any) {
     console.error('[Knowledge API] Error fetching documents from DB:', err.message);
-    const userId = req.user?.id;
-    if (userId) {
-      const userContext = await companyContextService.getContextForUser(userId);
-      return res.json(userContext?.documents || []);
-    }
-    res.json([]);
+    res.status(500).json({ error: `Failed to fetch documents: ${err.message}` });
   }
 });
 
 // POST upload/ingest new knowledge document with multiple formats support
 router.post('/knowledge', authenticateJWT, requirePermission('knowledge:write'), async (req: AuthenticatedRequest, res) => {
-  const { name, content, type, fileData, mimeType } = req.body;
+  const {
+    name,
+    content,
+    type,
+    fileData,
+    mimeType,
+    sourceType = 'DOCUMENT',
+    sourceRecordId = null,
+    version = 1,
+    accessScope = 'ALL'
+  } = req.body;
+
   if (!name || !type) {
     res.status(400).json({ error: 'Missing required document name or type.' });
     return;
   }
 
   const userId = req.user?.id;
-  const sizeStr = fileData ? `${(Buffer.from(fileData, 'base64').length / 1024).toFixed(1)} KB` : `${((content || '').length / 1024).toFixed(1)} KB`;
-  const fallbackDoc = {
-    id: `doc_${Date.now()}`,
-    name,
-    type: type as any,
-    size: sizeStr,
-    uploadDate: new Date().toISOString(),
-    summary: `Vetted ${type} document details.`,
-    insights: [
-      'Validated strategic growth models against pre-seed boundaries.',
-      'Offline resilience mode activated.',
-    ],
-  };
-
-  const saveToContextFallback = async (doc: any) => {
-    if (userId) {
-      const userContext = await companyContextService.getContextForUser(userId);
-      if (userContext) {
-        if (!userContext.documents) userContext.documents = [];
-        userContext.documents.unshift(doc);
-        companyContextService.setContext(userId, userContext);
-        if (userContext.startupId) {
-          companyContextService.setContext(userContext.startupId, userContext);
-        }
-      }
-    }
-  };
-
-  if (!isDbAvailable || !prisma) {
-    await saveToContextFallback(fallbackDoc);
-    res.status(201).json(fallbackDoc);
+  if (!userId) {
+    res.status(401).json({ error: 'Authentication required' });
     return;
   }
 
-  try {
-    const prismaClient = prisma;
-    let activeStartup: any = null;
-    try {
-      activeStartup = req.user?.id
-        ? await prismaClient.startup.findFirst({ where: { ownerId: req.user.id } })
-        : null;
-      if (!activeStartup && req.user?.id) {
-        const userContext = await companyContextService.getContextForUser(req.user.id);
-        if (userContext?.startupId) {
-          activeStartup = await prismaClient.startup.findUnique({ where: { id: userContext.startupId } });
-        }
-      }
-    } catch (e: any) {
-      console.warn('[Knowledge API] Active startup lookup warning:', e.message);
-    }
+  const requestedStartupId = req.body?.startupId;
+  const resolved = await resolveMembership(userId, requestedStartupId);
+  if (!resolved) {
+    res.status(403).json({ error: 'Access denied: You are not an authorized member of this company tenant.' });
+    return;
+  }
 
-    if (!activeStartup) {
-      await saveToContextFallback(fallbackDoc);
-      return res.status(201).json(fallbackDoc);
-    }
-    const startupId = activeStartup.id;
+  const startupId = resolved.startupId;
+  const callerRole = (resolved.role || 'EMPLOYEE').toUpperCase();
+  const isFounderOrAdmin = callerRole === 'FOUNDER' || callerRole === 'ADMIN';
 
-    let textContent = content || '';
-    let sizeStr = '';
+  const normScope = (accessScope || 'ALL').toUpperCase();
+  if (normScope === 'FOUNDER_ONLY' && !isFounderOrAdmin) {
+    res.status(403).json({ error: 'Access denied: Only founders or admins can assign FOUNDER_ONLY access scope.' });
+    return;
+  }
 
-    // Handle base64 encoded file uploads
-    if (fileData) {
-      const buffer = Buffer.from(fileData, 'base64');
-      sizeStr = `${(buffer.length / 1024).toFixed(1)} KB`;
-      console.log(`[Knowledge API] Processing file upload: ${name} (${sizeStr}) with mimeType: ${mimeType}`);
-      
-      // Upload raw file to S3-compatible storage if configured
-      if (isS3Configured()) {
-        try {
-          const sanitized = name.replace(/[^a-zA-Z0-9._-]/g, '_');
-          const s3Key = `documents/${Date.now()}_${sanitized}`;
-          await uploadToS3({
-            key: s3Key,
-            body: buffer,
-            contentType: mimeType || 'application/octet-stream',
-            metadata: { originalName: name, documentType: type },
-          });
-          console.log(`[Knowledge API] Document persisted to Neon S3 Object Storage: ${s3Key}`);
-        } catch (s3Err: any) {
-          console.warn('[Knowledge API] S3 upload warning (non-fatal):', s3Err.message);
-        }
-      }
+  const parsedVersion = typeof version === 'number' ? version : parseInt(version, 10) || 1;
+  let sizeStr = fileData ? `${(Buffer.from(fileData, 'base64').length / 1024).toFixed(1)} KB` : `${((content || '').length / 1024).toFixed(1)} KB`;
+  const documentId = `doc_${Date.now()}`;
 
-      textContent = await extractTextFromFile(buffer, name, mimeType || '');
-    } else {
-      sizeStr = `${((content || '').length / 1024).toFixed(1)} KB`;
-    }
+  let textContent = content || '';
 
+  // Handle base64 encoded file uploads
+  if (fileData) {
+    const buffer = Buffer.from(fileData, 'base64');
+    sizeStr = `${(buffer.length / 1024).toFixed(1)} KB`;
+    console.log(`[Knowledge API] Processing file upload: ${name} (${sizeStr}) with mimeType: ${mimeType}`);
 
-    if (!textContent || textContent.trim().length === 0) {
-      res.status(400).json({ error: 'Extracted text content from the file is empty.' });
-      return;
-    }
-
-    let summary = 'Summarizing document context...';
-    let insights = ['Extracting document insights...'];
-
-    // AI-powered analysis of uploaded startup documents!
-    if (ai) {
+    if (isS3Configured()) {
       try {
-        const analysisPrompt = `Analyze the following uploaded startup document:
+        const sanitized = name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const s3Key = `documents/${Date.now()}_${sanitized}`;
+        await uploadToS3({
+          key: s3Key,
+          body: buffer,
+          contentType: mimeType || 'application/octet-stream',
+          metadata: { originalName: name, documentType: type, startupId },
+        });
+        console.log(`[Knowledge API] Document persisted to Neon S3 Object Storage: ${s3Key}`);
+      } catch (s3Err: any) {
+        console.warn('[Knowledge API] S3 upload warning (non-fatal):', s3Err.message);
+      }
+    }
+
+    textContent = await extractTextFromFile(buffer, name, mimeType || '');
+  }
+
+  if (!textContent || textContent.trim().length === 0) {
+    res.status(400).json({ error: 'Extracted text content from the file is empty.' });
+    return;
+  }
+
+  let summary = `Vetted ${type} document detailing startup operational profiles.`;
+  let insights = [
+    'Validated strategic growth models against pre-seed boundaries.',
+    'Constructed customer pilot roadmap containing mid-market criteria.',
+    'Identified 2 legal safeguards concerning vendor data policies.'
+  ];
+
+  if (ai) {
+    try {
+      const analysisPrompt = `Analyze the following uploaded startup document:
 Document Name: ${name}
 Document Type: ${type}
 Content:
-${textContent.slice(0, 10000)} // Analyze first 10k chars for efficiency
+${textContent.slice(0, 10000)}
 
 Provide a structured analysis containing:
 1. A concise 1-sentence summary of what this document covers.
@@ -2543,38 +3240,46 @@ Provide a structured analysis containing:
 
 Format your output exactly as valid JSON with "summary" (string) and "insights" (array of strings). Do NOT include backticks or markdown fences.`;
 
-        const analysisResponse = await ai.models.generateContent({
-          model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
-          contents: analysisPrompt,
-          config: {
-            responseMimeType: 'application/json',
-            temperature: 0.2,
-          },
-        });
+      const analysisResponse = await ai.models.generateContent({
+        model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+        contents: analysisPrompt,
+        config: {
+          responseMimeType: 'application/json',
+          temperature: 0.2,
+        },
+      });
 
-        const parsed = JSON.parse(analysisResponse.text?.trim() || '{}');
-        summary = parsed.summary || 'Summary generated.';
-        insights = parsed.insights || [];
-      } catch (err: any) {
-        console.error('Gemini document parsing error, falling back to simulated parser:', err.message);
-        summary = `Vetted ${type} document containing startup objectives and specifications.`;
-        insights = [
-          'Validated operational requirements against pre-seed milestones.',
-          'Identified 2 core cost optimization thresholds.',
-          'Structured regulatory compliance checklists for next quarter reviews.'
-        ];
-      }
-    } else {
-      summary = `Vetted ${type} document detailing startup operational profiles.`;
-      insights = [
-        'Validated strategic growth models against pre-seed boundaries.',
-        'Constructed customer pilot roadmap containing mid-market criteria.',
-        'Identified 2 legal safeguards concerning vendor data policies.'
-      ];
+      const parsed = JSON.parse(analysisResponse.text?.trim() || '{}');
+      if (parsed.summary) summary = parsed.summary;
+      if (Array.isArray(parsed.insights) && parsed.insights.length > 0) insights = parsed.insights;
+    } catch (err: any) {
+      console.warn('[Knowledge API] AI parsing warning, falling back to deterministic profile:', err.message);
     }
+  }
 
-    const documentId = `doc_${Date.now()}`;
-    const createdDoc = await safeDbQuery(() => prisma.startupDocument.create({
+  if (!isDbAvailable || !prisma) {
+    const fallbackDoc = {
+      id: documentId,
+      name,
+      type: type as any,
+      size: sizeStr,
+      uploadDate: new Date().toISOString(),
+      summary,
+      insights,
+      startupId,
+      sourceType,
+      sourceRecordId,
+      version: parsedVersion,
+      accessScope: normScope,
+      indexingStatus: 'COMPLETED',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    return res.status(201).json(fallbackDoc);
+  }
+
+  try {
+    const createdDoc: any = await safeDbQuery(() => (prisma.startupDocument as any).create({
       data: {
         id: documentId,
         name,
@@ -2582,24 +3287,35 @@ Format your output exactly as valid JSON with "summary" (string) and "insights" 
         size: sizeStr,
         summary,
         insights,
-        startupId
+        startupId,
+        sourceType,
+        sourceRecordId,
+        version: parsedVersion,
+        accessScope: normScope,
+        indexingStatus: 'PENDING'
       }
     }));
 
-    // Delegate overlapping chunking & high-fidelity embeddings generation to the production RAG Engine
-    await ingestDocument(documentId, textContent, name, type);
+    // Ingest chunks with stable IDs and vector embeddings
+    await ingestDocument(documentId, textContent, name, type, {
+      startupId,
+      sourceType,
+      sourceRecordId,
+      version: parsedVersion,
+      accessScope: normScope
+    });
 
     // Invalidate company context cache so all AI agents immediately see the fresh document
     companyContextService.invalidate(startupId);
 
-    // Create real operational notification
+    // Create operational notification
     try {
       await prisma.notification.create({
         data: {
-          startupId: activeStartup.id,
+          startupId,
           type: 'DOCUMENT',
           title: 'Document Ready',
-          message: `"${name}" (${type}) was parsed, embedded, and indexed into the knowledge base.`,
+          message: `"${name}" (${type}) was parsed, embedded, and indexed into the company knowledge base.`,
           read: false
         }
       });
@@ -2615,7 +3331,14 @@ Format your output exactly as valid JSON with "summary" (string) and "insights" 
       uploadDate: createdDoc.createdAt.toISOString(),
       summary: createdDoc.summary,
       insights: createdDoc.insights,
-      startupId
+      startupId: createdDoc.startupId,
+      sourceType: createdDoc.sourceType,
+      sourceRecordId: createdDoc.sourceRecordId,
+      version: createdDoc.version,
+      accessScope: createdDoc.accessScope,
+      indexingStatus: 'COMPLETED',
+      createdAt: createdDoc.createdAt.toISOString(),
+      updatedAt: createdDoc.updatedAt.toISOString()
     };
 
     // Synchronize in-memory knowledgeFiles for instant company-wide access
@@ -2626,10 +3349,287 @@ Format your output exactly as valid JSON with "summary" (string) and "insights" 
       knowledgeFiles.unshift(newFile as any);
     }
 
+    // Record durable outbox job for tracking and auditability
+    try {
+      await ingestionPipelineService.enqueueJob({
+        startupId,
+        sourceType,
+        sourceRecordId: createdDoc.id,
+        action: 'UPSERT',
+        payload: {
+          documentId: createdDoc.id,
+          name: createdDoc.name,
+          type: createdDoc.type,
+          version: parsedVersion,
+          accessScope: normScope,
+          summary: createdDoc.summary
+        },
+        immediate: false
+      });
+    } catch (jobErr: any) {
+      console.warn('[Knowledge API] Outbox record warning:', jobErr.message);
+    }
+
     res.status(201).json(newFile);
   } catch (error: any) {
     console.error('[Knowledge API] Critical ingestion error:', error.message);
     res.status(500).json({ error: `File ingestion failed: ${error.message}` });
+  }
+});
+
+// PUT update/reprocess existing knowledge document with version increment and stale chunk purging
+router.put('/knowledge/:id', authenticateJWT, requirePermission('knowledge:write'), async (req: AuthenticatedRequest, res) => {
+  const { id } = req.params;
+  const { name, content, type, accessScope } = req.body;
+  const userId = req.user?.id;
+  if (!userId) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
+  }
+
+  const requestedStartupId = req.body?.startupId;
+  const resolved = await resolveMembership(userId, requestedStartupId);
+  if (!resolved) {
+    res.status(403).json({ error: 'Access denied: You are not an authorized member of this company tenant.' });
+    return;
+  }
+
+  const startupId = resolved.startupId;
+  const callerRole = (resolved.role || 'EMPLOYEE').toUpperCase();
+  const isFounderOrAdmin = callerRole === 'FOUNDER' || callerRole === 'ADMIN';
+
+  try {
+    let existingDoc: any = null;
+    if (isDbAvailable && prisma) {
+      existingDoc = await safeDbQuery(() => prisma.startupDocument.findFirst({
+        where: { id, startupId }
+      }));
+    } else {
+      existingDoc = knowledgeFiles.find(k => k.id === id && (!k.startupId || k.startupId === startupId));
+    }
+
+    if (!existingDoc) {
+      res.status(404).json({ error: 'Document not found.' });
+      return;
+    }
+
+    const newVersion = (existingDoc.version || 1) + 1;
+    const docName = name || existingDoc.name;
+    const docType = type || existingDoc.type || 'general';
+    const docContent = content !== undefined ? content : existingDoc.summary;
+    let docScope = existingDoc.accessScope || 'ALL';
+    if (accessScope) {
+      const normScope = accessScope.toUpperCase();
+      if (normScope === 'FOUNDER_ONLY' && !isFounderOrAdmin) {
+        res.status(403).json({ error: 'Access denied: Only founders or admins can assign FOUNDER_ONLY access scope.' });
+        return;
+      }
+      docScope = normScope;
+    }
+
+    // Process update through ingestionPipelineService (removes stale chunks, creates new chunks with new embeddings)
+    const job = await ingestionPipelineService.enqueueJob({
+      startupId,
+      sourceType: existingDoc.sourceType || 'DOCUMENT',
+      sourceRecordId: id,
+      action: 'UPSERT',
+      payload: {
+        documentId: id,
+        name: docName,
+        type: docType,
+        content: docContent,
+        version: newVersion,
+        accessScope: docScope,
+        summary: `Updated: ${docName} (version ${newVersion})`
+      },
+      immediate: true
+    });
+
+    res.json({
+      id,
+      name: docName,
+      type: docType,
+      version: newVersion,
+      accessScope: docScope,
+      indexingStatus: 'COMPLETED',
+      updatedAt: new Date().toISOString(),
+      jobId: job.id
+    });
+  } catch (err: any) {
+    console.error('[Knowledge API] Document update failed:', err.message);
+    res.status(500).json({ error: `Update failed: ${err.message}` });
+  }
+});
+
+// DELETE remove knowledge document and deactivate/purge all associated chunks and embeddings
+router.delete('/knowledge/:id', authenticateJWT, requirePermission('knowledge:write'), async (req: AuthenticatedRequest, res) => {
+  const { id } = req.params;
+  const userId = req.user?.id;
+  if (!userId) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
+  }
+
+  const requestedStartupId = req.query?.startupId as string | undefined;
+  const resolved = await resolveMembership(userId, requestedStartupId);
+  if (!resolved) {
+    res.status(403).json({ error: 'Access denied: You are not an authorized member of this company tenant.' });
+    return;
+  }
+
+  const startupId = resolved.startupId;
+
+  try {
+    const job = await ingestionPipelineService.enqueueJob({
+      startupId,
+      sourceType: 'DOCUMENT',
+      sourceRecordId: id,
+      action: 'DELETE',
+      payload: { documentId: id },
+      immediate: true
+    });
+
+    res.json({
+      success: true,
+      message: `Document ${id} and all associated knowledge chunks removed.`,
+      jobId: job.id
+    });
+  } catch (err: any) {
+    console.error('[Knowledge API] Document deletion failed:', err.message);
+    res.status(500).json({ error: `Deletion failed: ${err.message}` });
+  }
+});
+
+// POST initial ingestion of existing company data (Profile, Policies, Documents, Decisions, Tasks)
+router.post('/knowledge/sync', authenticateJWT, requirePermission('knowledge:write'), async (req: AuthenticatedRequest, res) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
+  }
+
+  const requestedStartupId = req.body?.startupId;
+  const resolved = await resolveMembership(userId, requestedStartupId);
+  if (!resolved) {
+    res.status(403).json({ error: 'Access denied: You are not an authorized member of this company tenant.' });
+    return;
+  }
+
+  try {
+    const result = await ingestionPipelineService.initialIngestCompanyData(resolved.startupId);
+    res.json({
+      success: true,
+      message: `Synchronized ${result.ingestedCount} company operational records into RAG knowledge base.`,
+      ingestedCount: result.ingestedCount,
+      jobs: result.jobs.map(j => ({ id: j.id, action: j.action, status: j.status, sourceType: j.sourceType }))
+    });
+  } catch (err: any) {
+    console.error('[Knowledge API] Initial sync failed:', err.message);
+    res.status(500).json({ error: `Sync failed: ${err.message}` });
+  }
+});
+
+// POST reindex outdated documents when embedding model or chunking strategy changes
+router.post('/knowledge/reindex', authenticateJWT, requirePermission('knowledge:write'), async (req: AuthenticatedRequest, res) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
+  }
+
+  const requestedStartupId = req.body?.startupId;
+  const resolved = await resolveMembership(userId, requestedStartupId);
+  if (!resolved) {
+    res.status(403).json({ error: 'Access denied: You are not an authorized member of this company tenant.' });
+    return;
+  }
+
+  const { targetModel, targetStrategy } = req.body || {};
+
+  try {
+    const result = await ingestionPipelineService.reindexOutdatedDocuments(
+      resolved.startupId,
+      targetModel,
+      targetStrategy
+    );
+    res.json({
+      success: true,
+      message: `Reindexed ${result.reindexedCount} outdated documents.`,
+      reindexedCount: result.reindexedCount,
+      jobs: result.jobs.map(j => ({ id: j.id, action: j.action, status: j.status }))
+    });
+  } catch (err: any) {
+    console.error('[Knowledge API] Reindex failed:', err.message);
+    res.status(500).json({ error: `Reindexing failed: ${err.message}` });
+  }
+});
+
+// GET durable ingestion jobs for the company tenant
+router.get('/knowledge/jobs', authenticateJWT, async (req: AuthenticatedRequest, res) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
+  }
+
+  const requestedStartupId = req.query?.startupId as string | undefined;
+  const resolved = await resolveMembership(userId, requestedStartupId);
+  if (!resolved) {
+    res.status(403).json({ error: 'Access denied: You are not an authorized member of this company tenant.' });
+    return;
+  }
+
+  const status = req.query?.status as string | undefined;
+
+  try {
+    const jobs = await ingestionPipelineService.listJobs(resolved.startupId, status);
+    res.json(jobs);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST retry an individual failed job
+router.post('/knowledge/jobs/:jobId/retry', authenticateJWT, requirePermission('knowledge:write'), async (req: AuthenticatedRequest, res) => {
+  const { jobId } = req.params;
+  const userId = req.user?.id;
+  if (!userId) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
+  }
+
+  try {
+    const result = await ingestionPipelineService.retryJob(jobId);
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST retry all failed jobs for tenant
+router.post('/knowledge/retry-failed', authenticateJWT, requirePermission('knowledge:write'), async (req: AuthenticatedRequest, res) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
+  }
+
+  const requestedStartupId = req.body?.startupId;
+  const resolved = await resolveMembership(userId, requestedStartupId);
+  if (!resolved) {
+    res.status(403).json({ error: 'Access denied: You are not an authorized member of this company tenant.' });
+    return;
+  }
+
+  try {
+    const results = await ingestionPipelineService.retryFailedJobs(resolved.startupId);
+    res.json({
+      success: true,
+      retriedCount: results.length,
+      results
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -2700,35 +3700,29 @@ router.post('/knowledge/query', authenticateJWT, async (req: AuthenticatedReques
     return;
   }
 
+  const callerId = req.user!.id;
+  const requestedStartupId = req.body?.startupId;
+  const resolved = await resolveMembership(callerId, requestedStartupId);
+  if (!resolved) {
+    res.status(403).json({ error: 'Access denied: You are not an authorized member of this company tenant.' });
+    return;
+  }
+  const startupId = resolved.startupId;
+
   try {
     let activeStartup: any = null;
-    if (isDbAvailable && prisma && req.user?.id) {
-      activeStartup = await safeDbQuery(() => prisma.startup.findFirst({ where: { ownerId: req.user.id } }));
+    if (isDbAvailable && prisma) {
+      activeStartup = await safeDbQuery(() => prisma.startup.findUnique({ where: { id: startupId } }));
     }
-    if (!activeStartup && req.user?.id) {
-      const userContext = await companyContextService.getContextForUser(req.user.id);
-      if (userContext?.startupId) {
-        if (isDbAvailable && prisma) {
-          activeStartup = await safeDbQuery(() => prisma.startup.findUnique({ where: { id: userContext.startupId } }));
-        }
-        if (!activeStartup) {
-          activeStartup = {
-            id: userContext.startupId,
-            name: userContext.startup?.name || startupProfile.name || 'Company',
-            industry: userContext.startup?.industry || startupProfile.industry || 'Technology',
-            description: userContext.startup?.description || startupProfile.description || '',
-            fundingStage: userContext.startup?.stage || startupProfile.fundingStage || 'Early Stage',
-            cashBalance: userContext.financials?.cashBalance || startupProfile.cashBalance || 250000,
-            burnRate: userContext.financials?.monthlyBurn || startupProfile.burnRate || 15000,
-            healthScore: (userContext.financial as any)?.healthScore || (userContext.startup as any)?.healthScore || startupProfile.healthScore || 85
-          };
-        }
+    if (!activeStartup) {
+      const userContext = await companyContextService.getContextForUser(callerId);
+      if (userContext?.startupId === startupId) {
+        activeStartup = userContext.startup;
       }
     }
-
     if (!activeStartup) {
       activeStartup = {
-        id: 'stp_default',
+        id: startupId,
         name: startupProfile.name || 'Company',
         industry: startupProfile.industry || 'Technology',
         description: startupProfile.description || '',
@@ -2738,27 +3732,51 @@ router.post('/knowledge/query', authenticateJWT, async (req: AuthenticatedReques
         healthScore: startupProfile.healthScore || 85
       };
     }
-    const startupId = activeStartup.id;
+    const effectiveStartupId = activeStartup?.id || startupId;
 
-    // 1. Perform Hybrid Search across all document chunks (Postgres or in-memory company files)
-    const limit = 5;
-    const retrievedChunks = await performHybridSearch(query, startupId, limit);
+    // 1. Separate structured queries from semantic retrieval using retrieveHybridKnowledge
+    const parsedLimit = typeof req.body?.limit === 'number' ? req.body.limit : 5;
+    const hybridResult = await retrieveHybridKnowledge({
+      query: query.trim(),
+      startupId: effectiveStartupId,
+      userId: callerId,
+      userRole: resolved.role,
+      limit: parsedLimit
+    });
 
-    if (retrievedChunks.length === 0) {
+    // Pure Structured Operational Query: return authoritative real-time facts directly without vector search overhead
+    if (hybridResult.intent === 'STRUCTURED') {
+      return res.json({
+        answer: hybridResult.directAnswer || hybridResult.structuredSummary || hybridResult.contextText,
+        citations: hybridResult.citations,
+        intent: 'STRUCTURED',
+        operationalData: hybridResult.structuredData
+      });
+    }
+
+    if (hybridResult.retrievedChunks.length === 0 && hybridResult.intent !== 'HYBRID') {
       res.json({
-        answer: `No corporate files matching your query have been indexed yet for **${activeStartup.name}**. Please upload relevant strategic documents (PDF, DOCX, PPTX, CSV) or complete founder onboarding to feed the knowledge base!`,
+        answer: `No corporate records matching your query have been indexed yet for **${activeStartup.name}** within your access scope. Please upload relevant strategic documents (PDF, DOCX, PPTX, CSV) or complete founder onboarding to feed the knowledge base!`,
         citations: []
       });
       return;
     }
 
     // 2. Build structured prompt context and citation objects
-    const { contextText, citations } = buildContext(retrievedChunks);
+    const contextText = hybridResult.contextText;
+    const citations = hybridResult.citations;
 
     // 3. Attempt Gemini Model Synthesis with graceful fallback
     if (ai) {
       try {
-        const queryPrompt = `You are the CatalystOS Knowledge Agent. Solve this user query using the attached document context:
+        const queryPrompt = hybridResult.intent === 'HYBRID'
+          ? `You are the CatalystOS Knowledge Agent. Solve this user query using both the authoritative operational records and corporate document context:
+Query: "${query}"
+
+${contextText}
+
+Provide a brilliant, detailed tactical answer combining exact operational facts and strategic context, citing specific documents or operational records where possible using the citation IDs (like [OP-TASK-1], [CIT-1]) provided in the context. Use clean Markdown styling.`
+          : `You are the CatalystOS Knowledge Agent. Solve this user query using the attached document context:
 Query: "${query}"
 
 Corporate Document Base Context:
@@ -2774,7 +3792,8 @@ Provide a brilliant, detailed tactical answer citing specific documents where po
         if (response.text?.trim()) {
           res.json({ 
             answer: response.text,
-            citations: citations
+            citations: citations,
+            intent: hybridResult.intent
           });
           return;
         }
@@ -2784,10 +3803,21 @@ Provide a brilliant, detailed tactical answer citing specific documents where po
     }
 
     // 4. Grounded deterministic synthesis fallback (for offline or Gemini 429 quota exhaustion)
-    const fallbackAnswer = generateGroundedRagFallback(query, retrievedChunks, citations, activeStartup);
+    if (hybridResult.intent === 'HYBRID' && hybridResult.structuredSummary) {
+      const fallbackDocAnswer = generateGroundedRagFallback(query, hybridResult.retrievedChunks, citations, activeStartup);
+      res.json({
+        answer: `${hybridResult.structuredSummary}\n\n### Document Analysis & Strategy\n${fallbackDocAnswer}`,
+        citations: citations,
+        intent: 'HYBRID'
+      });
+      return;
+    }
+
+    const fallbackAnswer = generateGroundedRagFallback(query, hybridResult.retrievedChunks, citations, activeStartup);
     res.json({
       answer: fallbackAnswer,
-      citations: citations
+      citations: citations,
+      intent: hybridResult.intent
     });
   } catch (error: any) {
     console.error('[Knowledge API] RAG query failed:', error.message);
@@ -2975,11 +4005,20 @@ router.post(['/orchestrate', '/orchestration/command'], authenticateJWT, orchest
     return;
   }
 
+  const callerId = req.user!.id;
+  const requestedStartupId = req.body?.startupId || context?.startupId;
+  const resolved = await resolveMembership(callerId, requestedStartupId);
+  if (!resolved) {
+    res.status(403).json({ error: 'Access denied: You are not an authorized member of this company tenant.' });
+    return;
+  }
+  const verifiedStartupId = resolved.startupId;
+
   try {
     const run = await multiLevelOrchestrator.dispatchDirective({
       directive: inputCmd,
-      userId: req.user!.id,
-      startupId: context?.startupId,
+      userId: callerId,
+      startupId: verifiedStartupId,
       commandId
     });
 
@@ -2988,8 +4027,8 @@ router.post(['/orchestrate', '/orchestration/command'], authenticateJWT, orchest
     try {
       multiAgentAssessment = await multiAgentOrchestratorService.orchestrateTask({
         userRequirement: inputCmd,
-        startupId: context?.startupId || run.startupId,
-        userId: req.user!.id
+        startupId: verifiedStartupId,
+        userId: callerId
       });
     } catch (e: any) {
       console.warn('[Orchestrate API] 5-Step assessment notice:', e.message);
@@ -3074,11 +4113,16 @@ router.post('/orchestrate/assess', authenticateJWT, orchestrateRateLimiter, asyn
   }
 
   try {
-    const callerStartupId = startupId || (await resolveCallerStartupId(req, res)) || 'default_startup';
+    const callerId = req.user!.id;
+    const resolved = await resolveMembership(callerId, startupId);
+    if (!resolved) {
+      return res.status(403).json({ error: 'Access denied: You are not an authorized member of this company tenant.' });
+    }
+    const callerStartupId = resolved.startupId;
     const assessment = await multiAgentOrchestratorService.orchestrateTask({
       userRequirement: inputPrompt,
       startupId: callerStartupId,
-      userId: req.user?.id
+      userId: callerId
     });
 
     return res.json(assessment);
@@ -3096,10 +4140,14 @@ router.get('/orchestrate/assessments/latest', authenticateJWT, async (req: Authe
       return res.json(latest);
     }
 
+    const callerId = req.user!.id;
+    const resolved = await resolveMembership(callerId);
+    const callerStartupId = resolved?.startupId || 'default_startup';
+
     const defaultAssessment = await multiAgentOrchestratorService.orchestrateTask({
       userRequirement: 'We need an email marketing system with a React dashboard and a secure Python SMTP background processing worker.',
-      startupId: req.user?.id || 'default_startup',
-      userId: req.user?.id
+      startupId: callerStartupId,
+      userId: callerId
     });
 
     return res.json(defaultAssessment);
@@ -3117,7 +4165,12 @@ router.post('/orchestrate/slot/assign', authenticateJWT, requireActiveMembership
   }
 
   try {
-    const callerStartupId = startupId || (await resolveCallerStartupId(req, res)) || 'default_startup';
+    const callerId = req.user!.id;
+    const resolved = await resolveMembership(callerId, startupId);
+    if (!resolved) {
+      return res.status(403).json({ error: 'Access denied: You are not an authorized member of this company tenant.' });
+    }
+    const callerStartupId = resolved.startupId;
     const updated = await multiAgentOrchestratorService.assignWorkerToSlot({
       assessmentId,
       domain,
@@ -3164,6 +4217,15 @@ router.post('/orchestrate/stream', authenticateJWT, orchestrateRateLimiter, asyn
     return;
   }
 
+  const callerId = req.user!.id;
+  const requestedStartupId = req.body?.startupId || context?.startupId;
+  const resolved = await resolveMembership(callerId, requestedStartupId);
+  if (!resolved) {
+    res.status(403).json({ error: 'Access denied: You are not an authorized member of this company tenant.' });
+    return;
+  }
+  const verifiedStartupId = resolved.startupId;
+
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
@@ -3172,8 +4234,8 @@ router.post('/orchestrate/stream', authenticateJWT, orchestrateRateLimiter, asyn
   try {
     const run = await multiLevelOrchestrator.dispatchDirective({
       directive: inputCmd,
-      userId: req.user!.id,
-      startupId: context?.startupId,
+      userId: callerId,
+      startupId: verifiedStartupId,
       commandId,
       onEvent: (event) => {
         res.write(`data: ${JSON.stringify(event)}\n\n`);

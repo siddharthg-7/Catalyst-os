@@ -144,6 +144,29 @@ export class DecisionLedgerService {
     history.push(event);
     decisionEventLog.set(decisionId, history);
 
+    // Dynamic RAG synchronization: index completed decisions into institutional memory
+    if (['FOUNDER_APPROVED', 'BOARD_VOTED', 'DECISION_CREATED'].includes(eventType)) {
+      import('./ingestionPipelineService').then(({ ingestionPipelineService }) => {
+        const title = payload.title || payload.action || `${eventType} Decision`;
+        const desc = payload.description || payload.reason || JSON.stringify(payload);
+        ingestionPipelineService.enqueueJob({
+          startupId,
+          sourceType: 'DECISION_LOG',
+          sourceRecordId: decisionId,
+          action: 'UPSERT',
+          payload: {
+            documentId: `doc_dec_${decisionId}`,
+            name: `[Decision] ${title}`,
+            type: 'decision',
+            content: `DECISION: ${title}\nEvent: ${eventType}\nActor: ${actor}\nDetails: ${desc}\nTimestamp: ${timestamp}`,
+            accessScope: 'ALL',
+            summary: desc
+          },
+          immediate: true
+        }).catch(err => console.warn('[DecisionLedgerService] Dynamic RAG sync warning:', err.message));
+      }).catch(() => {});
+    }
+
     return event;
   }
 
