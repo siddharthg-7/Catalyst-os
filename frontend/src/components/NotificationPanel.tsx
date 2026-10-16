@@ -104,7 +104,7 @@ export default function NotificationPanel({ isOpen, onClose, onNavigate }: Notif
       case 'SUCCESS':
         return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
       default:
-        return <Info className="w-4 h-4 text-indigo-400" />;
+        return <Info className="w-4 h-4 text-[#141413]" />;
     }
   };
 

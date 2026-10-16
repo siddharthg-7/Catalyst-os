@@ -272,10 +272,10 @@ export default function SaaSDashboard({
       {/* ── 1. Page Header ──────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
         <div>
-          <h1 className="text-2xl sm:text-[28px] font-bold tracking-tight text-[#141413] font-sans">
+          <h1 className="text-2xl lg:text-[30px] font-semibold tracking-tight text-[#141413] leading-tight font-sans">
             Overview
           </h1>
-          <p className="text-xs sm:text-[13px] text-[#666562] mt-0.5 font-sans leading-relaxed">
+          <p className="text-[14px] lg:text-[15px] font-normal leading-relaxed text-[#666562] mt-1 font-sans">
             Real-time operating telemetry, capital runway, and governance execution for <span className="font-semibold text-[#141413]">{startup.name}</span>.
           </p>
         </div>
@@ -283,7 +283,7 @@ export default function SaaSDashboard({
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setIsCalibratingTreasury(true)}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#141413]/10 bg-white hover:bg-[#FDFCFA] hover:border-[#141413]/25 text-[#141413] text-xs font-medium transition-all shadow-[rgba(20,20,19,0.02)_0px_1px_3px_0px] cursor-pointer"
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg border border-[#141413]/10 bg-white hover:bg-[#FDFCFA] hover:border-[#141413]/25 text-[#141413] text-xs font-medium transition-all shadow-[rgba(20,20,19,0.02)_0px_1px_3px_0px] cursor-pointer"
           >
             <SlidersHorizontal className="w-3.5 h-3.5 text-[#666562]" />
             <span>Calibrate Treasury</span>
@@ -291,7 +291,7 @@ export default function SaaSDashboard({
 
           <button
             onClick={() => setIsDirectiveOpen(true)}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#141413]/10 bg-white hover:bg-[#FDFCFA] hover:border-[#141413]/25 text-[#141413] text-xs font-medium transition-all shadow-[rgba(20,20,19,0.02)_0px_1px_3px_0px] cursor-pointer"
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg border border-[#141413]/10 bg-white hover:bg-[#FDFCFA] hover:border-[#141413]/25 text-[#141413] text-xs font-medium transition-all shadow-[rgba(20,20,19,0.02)_0px_1px_3px_0px] cursor-pointer"
           >
             <Sparkles className="w-3.5 h-3.5 text-[#141413]" />
             <span>Issue Directive</span>
@@ -307,27 +307,27 @@ export default function SaaSDashboard({
         </div>
       </div>
 
-      {/* ── 2. Compact Telemetry Strip (~52-56px Desktop Height) ─────────── */}
-      <div className="bg-white rounded-xl border border-[#141413]/10 shadow-[rgba(20,20,19,0.02)_0px_1px_4px_0px] overflow-hidden">
-        <div className="grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-[#141413]/08">
+      {/* ── 2. Unified Top Telemetry Strip ───────────────────────────────── */}
+      <div className="bg-[#FDFCFA] rounded-2xl border border-[#141413]/10 shadow-[rgba(20,20,19,0.02)_0px_1px_4px_0px] overflow-hidden">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#141413]/10">
           
           {/* Treasury Reserve */}
           <div 
             onClick={() => setIsCalibratingTreasury(true)}
-            className="px-4 py-3 hover:bg-[#FDFCFA] transition-colors cursor-pointer group flex flex-col justify-center"
+            className="px-6 py-3.5 hover:bg-white transition-colors cursor-pointer group flex flex-col justify-between"
           >
-            <div className="flex items-center justify-between gap-1">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#666562]">Treasury Reserve</span>
-              <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200/80 flex items-center gap-0.5">
-                <TrendingUp className="w-2.5 h-2.5 text-emerald-700" />
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[12px] font-medium text-[#666562]">Treasury Reserve</span>
+              <span className="text-emerald-700 bg-emerald-50 border border-emerald-200/40 px-2 py-0.5 rounded-md font-mono text-xs flex items-center gap-1 font-medium">
+                <TrendingUp className="w-3 h-3 text-emerald-600" />
                 <span>+12.4% MoM</span>
               </span>
             </div>
-            <div className="mt-1 flex items-baseline justify-between gap-2">
-              <span className="text-lg font-bold font-mono tracking-tight text-[#141413]">
+            <div className="mt-2 flex items-baseline justify-between gap-2">
+              <span className="text-2xl lg:text-[24px] font-semibold font-mono tracking-tight text-[#141413]">
                 {formatCurrency(cashBalance)}
               </span>
-              <span className="text-[10px] font-mono text-[#666562] group-hover:text-[#141413] transition-colors">
+              <span className="text-[11px] font-mono text-[#666562] group-hover:text-[#141413] transition-colors">
                 Edit ⚙
               </span>
             </div>
@@ -336,57 +336,57 @@ export default function SaaSDashboard({
           {/* Net Monthly Burn */}
           <div 
             onClick={() => setIsCalibratingTreasury(true)}
-            className="px-4 py-3 hover:bg-[#FDFCFA] transition-colors cursor-pointer group flex flex-col justify-center"
+            className="px-6 py-3.5 hover:bg-white transition-colors cursor-pointer group flex flex-col justify-between"
           >
-            <div className="flex items-center justify-between gap-1">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#666562]">Net Monthly Burn</span>
-              <span className="text-[10px] font-mono text-[#666562] bg-[#F3F0EE] px-1.5 py-0.2 rounded border border-[#141413]/08">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[12px] font-medium text-[#666562]">Net Monthly Burn</span>
+              <span className="text-[#666562] bg-[#141413]/5 border border-[#141413]/08 px-2 py-0.5 rounded-md font-mono text-xs font-medium">
                 {monthlyBurnRatio}% / mo
               </span>
             </div>
-            <div className="mt-1 flex items-baseline justify-between gap-2">
-              <span className="text-lg font-bold font-mono tracking-tight text-[#141413]">
-                {formatCurrency(burnRate)}<span className="text-xs text-[#666562] font-normal">/mo</span>
+            <div className="mt-2 flex items-baseline justify-between gap-2">
+              <span className="text-2xl lg:text-[24px] font-semibold font-mono tracking-tight text-[#141413]">
+                {formatCurrency(burnRate)}<span className="text-sm text-[#666562] font-normal font-sans">/mo</span>
               </span>
-              <span className="text-[10px] font-mono text-[#666562]">Outflows</span>
+              <span className="text-[11px] font-mono text-[#666562]">Outflows</span>
             </div>
           </div>
 
           {/* Runway Horizon */}
-          <div className="px-4 py-3 flex flex-col justify-center">
-            <div className="flex items-center justify-between gap-1">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#666562]">Runway Horizon</span>
-              <span className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded border ${
+          <div className="px-6 py-3.5 flex flex-col justify-between">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[12px] font-medium text-[#666562]">Runway Horizon</span>
+              <span className={`px-2 py-0.5 rounded-md font-mono text-xs font-medium border ${
                 runwayMonths >= 12
-                  ? 'text-emerald-800 bg-emerald-50 border-emerald-200/80'
+                  ? 'text-emerald-700 bg-emerald-50 border-emerald-200/40'
                   : runwayMonths >= 6
-                  ? 'text-amber-800 bg-amber-50 border-amber-200/80'
-                  : 'text-rose-800 bg-rose-50 border-rose-200/80'
+                  ? 'text-amber-700 bg-amber-50 border-amber-200/60'
+                  : 'text-rose-700 bg-rose-50 border-rose-200/60'
               }`}>
                 {runwayMonths >= 12 ? 'Healthy' : runwayMonths >= 6 ? 'Buffer Zone' : 'Critical'}
               </span>
             </div>
-            <div className="mt-1 flex items-baseline justify-between gap-2">
-              <span className="text-lg font-bold font-mono tracking-tight text-[#141413]">
-                {runwayMonths.toFixed(1)} <span className="text-xs text-[#666562] font-normal">months</span>
+            <div className="mt-2 flex items-baseline justify-between gap-2">
+              <span className="text-2xl lg:text-[24px] font-semibold font-mono tracking-tight text-[#141413]">
+                {runwayMonths.toFixed(1)} <span className="text-sm text-[#666562] font-normal font-sans">months</span>
               </span>
-              <span className="text-[10px] font-mono text-[#666562]">Gate: &lt;4.0mo</span>
+              <span className="text-[11px] font-mono text-[#666562]">Gate: &lt;4.0mo</span>
             </div>
           </div>
 
           {/* Startup Health Index */}
-          <div className="px-4 py-3 flex flex-col justify-center">
-            <div className="flex items-center justify-between gap-1">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#666562]">Health Index</span>
-              <span className="text-[10px] font-mono font-bold text-[#141413] bg-[#F3F0EE] px-1.5 py-0.2 rounded border border-[#141413]/08">
+          <div className="px-6 py-3.5 flex flex-col justify-between">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[12px] font-medium text-[#666562]">Health Index</span>
+              <span className="text-[#141413] bg-[#141413]/5 border border-[#141413]/08 px-2 py-0.5 rounded-md font-mono text-xs font-medium">
                 {healthScore} / 100
               </span>
             </div>
-            <div className="mt-1.5 flex items-center justify-between gap-2">
-              <span className="text-lg font-bold font-mono tracking-tight text-[#141413]">
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <span className="text-2xl lg:text-[24px] font-semibold font-mono tracking-tight text-[#141413]">
                 {healthScore}%
               </span>
-              <div className="w-24 bg-[#F3F0EE] h-1.5 rounded-full overflow-hidden border border-[#141413]/06">
+              <div className="w-24 bg-[#141413]/08 h-2 rounded-full overflow-hidden border border-[#141413]/06">
                 <div 
                   className="bg-[#141413] h-full rounded-full transition-all duration-700" 
                   style={{ width: `${Math.min(100, Math.max(0, healthScore))}%` }}
@@ -485,12 +485,12 @@ export default function SaaSDashboard({
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-xs font-bold text-[#141413] truncate font-sans">{init.title}</span>
-                            <span className="text-[10px] uppercase font-mono font-semibold px-2 py-0.5 rounded-full bg-white border border-[#141413]/10 text-[#666562] shrink-0">
+                            <span className="text-xs font-semibold text-[#141413] truncate font-sans">{init.title}</span>
+                            <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-[#141413]/5 border border-[#141413]/08 text-[#141413]/70 shrink-0">
                               {init.category}
                             </span>
                           </div>
-                          <span className="text-xs font-mono font-bold text-[#141413] shrink-0">
+                          <span className="text-xs font-mono font-semibold text-[#141413] shrink-0">
                             {progressPct}%
                           </span>
                         </div>
@@ -541,12 +541,12 @@ export default function SaaSDashboard({
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-semibold text-xs text-[#141413] truncate font-sans">{t.title}</span>
-                          <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-white border border-[#141413]/10 text-[#666562]">
+                          <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-[#141413]/5 border border-[#141413]/08 text-[#141413]/70">
                             {t.department}
                           </span>
-                          <span className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full border ${
-                            t.priority === 'CRITICAL' ? 'bg-rose-50 text-rose-800 border-rose-200/80' :
-                            t.priority === 'HIGH' ? 'bg-amber-50 text-amber-800 border-amber-200/80' :
+                          <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md border ${
+                            t.priority === 'CRITICAL' ? 'bg-rose-50 text-rose-700 border-rose-200/60' :
+                            t.priority === 'HIGH' ? 'bg-amber-50 text-amber-700 border-amber-200/60' :
                             'bg-[#F3F0EE] text-[#666562] border-[#141413]/08'
                           }`}>
                             {t.priority}
@@ -556,9 +556,9 @@ export default function SaaSDashboard({
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${
-                          t.status === 'approved' ? 'bg-emerald-50 text-emerald-800 border-emerald-200/80' :
-                          t.status === 'in_progress' ? 'bg-blue-50 text-blue-800 border-blue-200/80' :
+                        <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md border ${
+                          t.status === 'approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-200/40' :
+                          t.status === 'in_progress' ? 'bg-[#141413]/5 text-[#141413] border-[#141413]/10' :
                           'bg-[#F3F0EE] text-[#666562] border-[#141413]/08'
                         }`}>
                           {t.status.replace('_', ' ')}
@@ -589,29 +589,29 @@ export default function SaaSDashboard({
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs font-sans">
                       <thead>
-                        <tr className="border-b border-[#141413]/10 text-[#666562] font-mono font-bold uppercase text-[10px] tracking-wider">
-                          <th className="pb-2 font-medium">Timestamp</th>
-                          <th className="pb-2 font-medium">Decision Title</th>
-                          <th className="pb-2 font-medium">Category</th>
-                          <th className="pb-2 font-medium">Financial Impact</th>
-                          <th className="pb-2 font-medium text-right">Status</th>
+                        <tr className="border-b border-[#141413]/10 text-[#666562] text-[12px] font-medium">
+                          <th className="py-2.5 px-3 font-medium">Timestamp</th>
+                          <th className="py-2.5 px-3 font-medium">Decision Title</th>
+                          <th className="py-2.5 px-3 font-medium">Category</th>
+                          <th className="py-2.5 px-3 font-medium">Financial Impact</th>
+                          <th className="py-2.5 px-3 font-medium text-right">Status</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#141413]/06">
                         {decisions.slice(0, 5).map((d) => (
                           <tr key={d.id} className="hover:bg-[#FDFCFA] transition-colors">
-                            <td className="py-2.5 text-[#666562] font-mono text-[11px]">
+                            <td className="py-3 px-3 text-[#666562] font-mono text-[11px]">
                               {new Date(d.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                             </td>
-                            <td className="py-2.5 font-semibold text-[#141413] max-w-xs truncate">
+                            <td className="py-3 px-3 font-semibold text-[#141413] max-w-xs truncate">
                               {d.title}
                             </td>
-                            <td className="py-2.5">
-                              <span className="text-[10px] uppercase font-mono font-semibold px-2 py-0.5 rounded-full bg-[#F3F0EE] text-[#141413] border border-[#141413]/10">
+                            <td className="py-3 px-3">
+                              <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-[#141413]/5 text-[#141413]/70 border border-[#141413]/08">
                                 {d.category}
                               </span>
                             </td>
-                            <td className="py-2.5 font-mono font-semibold">
+                            <td className="py-3 px-3 font-mono font-medium">
                               {d.financialImpact !== undefined && d.financialImpact !== 0 ? (
                                 <span className={d.financialImpact > 0 ? 'text-emerald-700' : 'text-[#141413]'}>
                                   {d.financialImpact > 0 ? `+${formatCurrency(d.financialImpact)}` : formatCurrency(d.financialImpact)}
@@ -620,10 +620,10 @@ export default function SaaSDashboard({
                                 <span className="text-[#666562]/50 font-normal">—</span>
                               )}
                             </td>
-                            <td className="py-2.5 text-right">
-                              <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${
+                            <td className="py-3 px-3 text-right">
+                              <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md border ${
                                 d.status === 'approved'
-                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200/80'
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200/40'
                                   : 'bg-[#F3F0EE] text-[#666562] border-[#141413]/10'
                               }`}>
                                 {d.status}
@@ -654,7 +654,7 @@ export default function SaaSDashboard({
             <div className="flex items-center justify-between pb-3 border-b border-[#141413]/08">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-[#141413]" />
-                <h2 className="text-xs font-bold text-[#141413] uppercase tracking-wider font-mono">
+                <h2 className="text-base font-semibold text-[#141413] tracking-tight font-sans">
                   Founder's Desk ({pendingApprovals.length})
                 </h2>
               </div>
@@ -677,7 +677,7 @@ export default function SaaSDashboard({
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="font-semibold text-xs text-[#141413]">{item.title}</span>
-                          <span className="text-[10px] font-mono uppercase px-1.5 py-0.2 rounded bg-[#F3F0EE] text-[#141413] border border-[#141413]/08">
+                          <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-[#141413]/5 text-[#141413]/80 border border-[#141413]/08">
                             {item.type.replace('_', ' ')}
                           </span>
                         </div>
@@ -685,10 +685,10 @@ export default function SaaSDashboard({
                       </div>
 
                       {item.financialChange !== undefined && item.financialChange !== 0 && (
-                        <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border shrink-0 ${
+                        <span className={`text-xs font-mono font-medium px-2 py-0.5 rounded-md border shrink-0 ${
                           item.financialChange > 0 
-                            ? 'text-emerald-800 bg-emerald-50 border-emerald-200/80' 
-                            : 'text-rose-800 bg-rose-50 border-rose-200/80'
+                            ? 'text-emerald-700 bg-emerald-50 border-emerald-200/40' 
+                            : 'text-rose-700 bg-rose-50 border-rose-200/60'
                         }`}>
                           {item.financialChange > 0 ? `+${formatCurrency(item.financialChange)}` : `-${formatCurrency(Math.abs(item.financialChange))}`}
                         </span>
@@ -696,7 +696,7 @@ export default function SaaSDashboard({
                     </div>
 
                     <div className="flex items-center justify-between pt-1">
-                      <span className="text-[10px] font-mono text-[#666562]">
+                      <span className="text-[11px] font-mono text-[#666562]">
                         Urgency: {item.urgency || 'NORMAL'}
                       </span>
                       <div className="flex items-center gap-2">
@@ -726,9 +726,14 @@ export default function SaaSDashboard({
                 ))}
               </div>
             ) : (
-              <div className="py-6 text-center text-xs text-[#666562] space-y-1">
-                <p className="font-medium text-[#141413]">All executive items cleared.</p>
-                <p className="text-[11px]">No pending vetoes or budget requests requiring review.</p>
+              <div className="p-4 rounded-xl bg-[#FDFCFA] border border-[#141413]/08 flex items-center gap-3">
+                <div className="w-7 h-7 rounded-full bg-emerald-50 border border-emerald-200/50 flex items-center justify-center shrink-0">
+                  <Check className="w-3.5 h-3.5 text-emerald-700" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-[#141413]">✓ All caught up</p>
+                  <p className="text-[11px] text-[#666562] mt-0.5">No pending executive authorizations or budget requests requiring review.</p>
+                </div>
               </div>
             )}
           </div>
@@ -738,14 +743,14 @@ export default function SaaSDashboard({
             <div className="flex items-center justify-between pb-3 border-b border-[#141413]/08">
               <div className="flex items-center gap-2">
                 <Shield className="w-4 h-4 text-[#141413]" />
-                <h3 className="text-xs font-bold text-[#141413] uppercase tracking-wider font-mono">
+                <h3 className="text-base font-semibold text-[#141413] tracking-tight font-sans">
                   Sentinel Risk Radar
                 </h3>
               </div>
-              <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${
+              <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full border ${
                 detectedRisks.length === 0
-                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200/80'
-                  : 'bg-amber-50 text-amber-800 border-amber-200/80'
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200/50'
+                  : 'bg-amber-50 text-amber-700 border-amber-200/60'
               }`}>
                 {detectedRisks.length === 0 ? 'All Systems Nominal' : `${detectedRisks.length} Guardrails Active`}
               </span>
@@ -760,9 +765,9 @@ export default function SaaSDashboard({
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-bold text-xs text-[#141413]">{risk.title}</span>
-                      <span className={`text-[9px] font-mono font-bold uppercase px-1.5 py-0.2 rounded border ${
-                        risk.severity === 'CRITICAL' ? 'bg-rose-50 text-rose-800 border-rose-200/80' :
-                        risk.severity === 'HIGH' ? 'bg-amber-50 text-amber-800 border-amber-200/80' :
+                      <span className={`text-[10px] font-mono font-medium px-1.5 py-0.5 rounded border ${
+                        risk.severity === 'CRITICAL' ? 'bg-rose-50 text-rose-700 border-rose-200/60' :
+                        risk.severity === 'HIGH' ? 'bg-amber-50 text-amber-700 border-amber-200/60' :
                         'bg-[#F3F0EE] text-[#141413] border-[#141413]/10'
                       }`}>
                         {risk.severity}
@@ -781,30 +786,30 @@ export default function SaaSDashboard({
                 ))}
               </div>
             ) : (
-              <div className="p-3 rounded-lg bg-[#FDFCFA] border border-emerald-200/60 text-xs text-[#666562] flex items-start gap-2.5">
-                <Check className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-semibold text-[#141413]">All systems nominal.</p>
-                  <p className="text-[11px] mt-0.5">Capital runway ({runwayMonths.toFixed(1)}mo) and governance compliance within safe bounds.</p>
+              <div className="px-3.5 py-2.5 rounded-xl bg-[#FDFCFA] border border-emerald-200/50 flex items-center gap-2.5 text-xs">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="font-medium text-[#141413]">All systems nominal</span>
+                  <span className="text-[#666562]">— Capital runway ({runwayMonths.toFixed(1)}mo) and governance compliance within safe bounds.</span>
                 </div>
               </div>
             )}
 
             {/* Checklist Telemetry */}
-            <div className="space-y-2 pt-1 border-t border-[#141413]/06 text-[11px]">
+            <div className="space-y-2 pt-2 border-t border-[#141413]/06 text-[12px]">
               <div className="flex items-center justify-between text-[#666562]">
                 <span>Treasury Runway Horizon</span>
-                <span className="font-mono font-bold text-[#141413]">{runwayMonths.toFixed(1)} mo</span>
+                <span className="font-mono font-semibold text-[#141413]">{runwayMonths.toFixed(1)} mo</span>
               </div>
               <div className="flex items-center justify-between text-[#666562]">
                 <span>Executive Task Delegation</span>
-                <span className="font-mono font-bold text-[#141413]">
+                <span className="font-mono font-semibold text-[#141413]">
                   {unassignedTasks.length > 0 ? `${unassignedTasks.length} unassigned` : 'Fully Staffed'}
                 </span>
               </div>
               <div className="flex items-center justify-between text-[#666562]">
                 <span>Ledger Security</span>
-                <span className="font-mono font-bold text-emerald-700">SOC-2 Ready</span>
+                <span className="font-mono font-semibold text-emerald-700">SOC-2 Ready</span>
               </div>
             </div>
           </div>
@@ -814,7 +819,7 @@ export default function SaaSDashboard({
             <div className="flex items-center justify-between pb-2.5 border-b border-[#141413]/08">
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-[#141413]" />
-                <h3 className="text-xs font-bold text-[#141413] uppercase tracking-wider font-mono">
+                <h3 className="text-base font-semibold text-[#141413] tracking-tight font-sans">
                   Executive Council ({agents.length})
                 </h3>
               </div>

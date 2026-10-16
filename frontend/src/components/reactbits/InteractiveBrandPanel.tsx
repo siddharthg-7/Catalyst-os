@@ -1,10 +1,8 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Bot, TrendingUp, Lock, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import CatalystLogo from '../CatalystLogo';
-import BlurText from './BlurText';
 import DecryptedText from './DecryptedText';
-import SpotlightCard from './SpotlightCard';
 
 export default function InteractiveBrandPanel() {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -74,7 +72,7 @@ export default function InteractiveBrandPanel() {
   return (
     <div
       ref={panelRef}
-      className="relative hidden lg:flex flex-col justify-between p-10 xl:p-12 bg-[#FDFCFA] border-r border-[rgba(20,20,19,0.08)] overflow-hidden select-none"
+      className="relative flex flex-col justify-between p-6 sm:p-8 lg:p-10 xl:p-12 bg-[#FDFCFA] border-b lg:border-b-0 lg:border-r border-[rgba(20,20,19,0.08)] overflow-hidden select-none min-h-[300px] lg:min-h-full"
       style={{
         boxShadow: 'inset -1px 0 0 rgba(20,20,19,0.04)',
       }}
@@ -130,146 +128,50 @@ export default function InteractiveBrandPanel() {
       </div>
 
       {/* Top Header: Brand Identity */}
-      <div className="relative z-10">
-        <div className="flex items-center justify-between mb-8">
-          <motion.div
-            initial={{ opacity: 0, x: -16 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-            className="flex items-center gap-3"
-          >
-            <div className="w-10 h-10 rounded-2xl bg-[#141413] text-[#FDFCFA] shadow-sm flex items-center justify-center">
-              <CatalystLogo className="w-5 h-5 text-[#FDFCFA]" />
-            </div>
-            <div>
-              <span className="text-base font-extrabold text-[#141413] tracking-tight block">CatalystOS</span>
-              <span className="text-[10px] font-mono text-[#666562] font-semibold tracking-wider uppercase">Executive Platform</span>
-            </div>
-          </motion.div>
-
-          {/* Elegant ambient badge */}
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[rgba(20,20,19,0.10)] shadow-2xs text-[11px] font-medium text-[#141413]">
-            <Sparkles className="w-3.5 h-3.5 text-[#141413]" />
-            <span>AI Multi-Agent OS</span>
+      <div className="relative z-10 flex items-center justify-between">
+        <motion.div
+          initial={{ opacity: 0, x: -16 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="flex items-center gap-3"
+        >
+          <div className="w-10 h-10 rounded-2xl bg-[#141413] text-[#FDFCFA] shadow-sm flex items-center justify-center">
+            <CatalystLogo className="w-5 h-5 text-[#FDFCFA]" />
           </div>
-        </div>
+          <div>
+            <span className="text-base font-extrabold text-[#141413] tracking-tight block font-sans">CatalystOS</span>
+            <span className="text-[10px] font-mono text-[#666562] font-semibold tracking-wider uppercase">Executive Platform</span>
+          </div>
+        </motion.div>
 
-        {/* Headline: Clean Executive Carbon Typography */}
-        <div className="mb-4">
-          <h1 className="text-3xl xl:text-4xl font-extrabold tracking-tight leading-[1.2] font-sans text-[#141413]">
-            The Autonomous Executive OS for Startups.
-          </h1>
+        {/* Elegant ambient badge */}
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[rgba(20,20,19,0.10)] shadow-2xs text-[11px] font-medium text-[#141413] font-sans">
+          <Sparkles className="w-3.5 h-3.5 text-[#141413]" />
+          <span>AI Multi-Agent OS</span>
         </div>
-
-        {/* Subtitle with DecryptedText */}
-        <p className="text-sm text-[#666562] leading-relaxed max-w-md font-sans mb-8">
-          <DecryptedText
-            text="Deploy 8 coordinated AI executives. From strategy to cash runway, run your company with autonomous precision."
-            speed={25}
-            maxIterations={8}
-            sequential={true}
-            animateOn="view"
-            className="text-sm text-[#666562] leading-relaxed font-normal"
-          />
-        </p>
       </div>
 
-      {/* Center: Executive AI Council Showcase Cards */}
-      <div className="relative z-10 space-y-3.5 my-2">
-        {/* Card 1: Executive AI Council */}
+      {/* Center: Cohesive Hero Content Group (Centered Horizontally & Vertically) */}
+      <div className="relative z-10 flex-1 flex flex-col justify-center items-center text-center my-auto py-10 sm:py-14 lg:py-16 px-2">
         <motion.div
-          style={{
-            transform: `translate3d(${parallax.x * 6}px, ${parallax.y * 6}px, 0)`,
-            transition: 'transform 0.25s ease-out',
-          }}
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+          className="max-w-md w-full space-y-4 sm:space-y-5"
         >
-          <SpotlightCard
-            className="p-4 bg-white border border-[rgba(20,20,19,0.08)] hover:border-[rgba(20,20,19,0.18)] shadow-sm hover:shadow-md transition-all rounded-2xl"
-            spotlightColor="rgba(20, 20, 19, 0.04)"
-            borderColor="rgba(20, 20, 19, 0.16)"
-            size={280}
-          >
-            <div className="flex items-center justify-between gap-3.5">
-              <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-xl bg-[#141413] text-[#FDFCFA] shadow-xs flex items-center justify-center flex-shrink-0">
-                  <Bot className="w-5 h-5" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-xs font-bold text-[#141413] font-sans">Atlas & Aura Intelligence</h3>
-                  <p className="text-[11px] text-[#666562] font-sans mt-0.5 leading-normal">
-                    Strategic alignment, sprint roadmaps & council consensus.
-                  </p>
-                </div>
-              </div>
-              <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-[#F3F0EE] text-[#141413] border border-[rgba(20,20,19,0.08)] shadow-2xs flex-shrink-0">
-                Co-Pilots
-              </span>
-            </div>
-          </SpotlightCard>
-        </motion.div>
-
-        {/* Card 2: Financial Engine & Governance */}
-        <motion.div
-          style={{
-            transform: `translate3d(${parallax.x * -4}px, ${parallax.y * -4}px, 0)`,
-            transition: 'transform 0.25s ease-out',
-          }}
-        >
-          <SpotlightCard
-            className="p-4 bg-white border border-[rgba(20,20,19,0.08)] hover:border-[rgba(20,20,19,0.18)] shadow-sm hover:shadow-md transition-all rounded-2xl"
-            spotlightColor="rgba(20, 20, 19, 0.04)"
-            borderColor="rgba(20, 20, 19, 0.16)"
-            size={280}
-          >
-            <div className="flex items-center justify-between gap-3.5">
-              <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-xl bg-[#141413] text-[#FDFCFA] shadow-xs flex items-center justify-center flex-shrink-0">
-                  <TrendingUp className="w-5 h-5" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-xs font-bold text-[#141413] font-sans">Nexus Financial Engine</h3>
-                  <p className="text-[11px] text-[#666562] font-sans mt-0.5 leading-normal">
-                    Deterministic runway calculations & real-time burn audits.
-                  </p>
-                </div>
-              </div>
-              <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-[#DCFCE7] text-[#15803D] border border-emerald-200/80 shadow-2xs flex-shrink-0">
-                Runway Guard
-              </span>
-            </div>
-          </SpotlightCard>
-        </motion.div>
-
-        {/* Card 3: Enterprise Trust & Governance */}
-        <motion.div
-          style={{
-            transform: `translate3d(${parallax.x * 5}px, ${parallax.y * 5}px, 0)`,
-            transition: 'transform 0.25s ease-out',
-          }}
-        >
-          <SpotlightCard
-            className="p-4 bg-white border border-[rgba(20,20,19,0.08)] hover:border-[rgba(20,20,19,0.18)] shadow-sm hover:shadow-md transition-all rounded-2xl"
-            spotlightColor="rgba(20, 20, 19, 0.04)"
-            borderColor="rgba(20, 20, 19, 0.16)"
-            size={280}
-          >
-            <div className="flex items-center justify-between gap-3.5">
-              <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-xl bg-[#141413] text-[#FDFCFA] shadow-xs flex items-center justify-center flex-shrink-0">
-                  <Lock className="w-5 h-5" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-xs font-bold text-[#141413] font-sans">Deterministic Governance</h3>
-                  <p className="text-[11px] text-[#666562] font-sans mt-0.5 leading-normal">
-                    Multi-agent human-in-the-loop gating with cryptographic audit logs.
-                  </p>
-                </div>
-              </div>
-              <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-[#F3F0EE] text-[#666562] border border-[rgba(20,20,19,0.08)] shadow-2xs flex-shrink-0">
-                Enterprise
-              </span>
-            </div>
-          </SpotlightCard>
+          <h1 className="text-3xl sm:text-4xl xl:text-[40px] font-extrabold tracking-tight leading-[1.18] font-sans text-[#141413]">
+            The Autonomous Executive OS for Startups.
+          </h1>
+          <p className="text-sm sm:text-[15px] text-[#666562] leading-relaxed font-sans max-w-sm sm:max-w-md mx-auto">
+            <DecryptedText
+              text="Deploy 8 coordinated AI executives. From strategy to cash runway, run your company with autonomous precision."
+              speed={25}
+              maxIterations={8}
+              sequential={true}
+              animateOn="view"
+              className="text-sm sm:text-[15px] text-[#666562] leading-relaxed font-normal"
+            />
+          </p>
         </motion.div>
       </div>
 

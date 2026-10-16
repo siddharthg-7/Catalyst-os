@@ -859,7 +859,7 @@ export default function App() {
         <div className="flex h-screen w-screen items-center justify-center transition-colors duration-300" style={{ backgroundColor: 'var(--c-bg)', color: 'var(--c-fg)' }}>
           <div className="text-center space-y-4">
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto shadow-md border" style={{ backgroundColor: 'var(--c-surface)', borderColor: 'var(--c-border)' }}>
-              <RefreshCw className="w-6 h-6 animate-spin text-indigo-600" />
+              <RefreshCw className="w-6 h-6 animate-spin text-[#141413]" />
             </div>
             <p className="text-xs font-mono uppercase tracking-widest text-slate-500">Initializing CatalystOS Executive Council...</p>
           </div>
@@ -902,7 +902,7 @@ export default function App() {
       {
         title: 'Intelligence',
         items: [
-          { id: 'orchestration' as const, label: 'Multi-Agent Orchestrator', Icon: Cpu, badge: '5-Step', badgeColor: 'text-indigo-600 bg-indigo-50 border-indigo-200' },
+          { id: 'orchestration' as const, label: 'Multi-Agent Orchestrator', Icon: Cpu, badge: '5-Step', badgeColor: 'text-[#141413]/70 bg-[#141413]/5 border-[#141413]/10' },
           { id: 'knowledge' as const, label: 'Company Knowledge', Icon: BookOpen },
           { id: 'workflows' as const, label: 'Workflows', Icon: GitMerge },
           { id: 'scenarios' as const, label: 'Scenario Planning', Icon: SlidersHorizontal },
@@ -1251,17 +1251,17 @@ export default function App() {
                     {/* Founder notice for dedicated separate employee workspace */}
                     <div className="bg-white border border-slate-200/90 rounded-xl p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs shrink-0">
+                        <div className="w-8 h-8 rounded-lg bg-[#141413]/5 text-[#141413] flex items-center justify-center font-bold text-xs shrink-0">
                           EW
                         </div>
                         <div>
                           <h4 className="text-xs font-semibold text-slate-900">Separate Employee Operating Environment</h4>
-                          <p className="text-[11px] text-slate-500">Employees operate in their own focused environment at <code className="bg-slate-100 text-indigo-600 px-1 py-0.5 rounded font-mono font-medium">/employee</code> with Overview, My Work, Team, and Community.</p>
+                          <p className="text-[11px] text-slate-500">Employees operate in their own focused environment at <code className="bg-slate-100 text-[#141413] px-1 py-0.5 rounded font-mono font-medium">/employee</code> with Overview, My Work, Team, and Community.</p>
                         </div>
                       </div>
                       <button
                         onClick={() => navigate('/employee')}
-                        className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 shadow-xs shrink-0 self-start sm:self-auto"
+                        className="px-3.5 py-1.5 bg-[#141413] hover:bg-[#262627] text-[#FDFCFA] rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 shadow-xs shrink-0 self-start sm:self-auto cursor-pointer"
                       >
                         <span>Open Employee Workspace</span>
                         <ArrowRight className="w-3.5 h-3.5" />
@@ -1455,8 +1455,8 @@ export default function App() {
               <div className="p-5 space-y-5 flex-1 overflow-y-auto">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-xs text-white shadow-xs">
-                      <CatalystLogo className="w-4 h-4 text-white" />
+                    <div className="w-8 h-8 rounded-lg bg-[#141413] flex items-center justify-center font-bold text-xs text-[#FDFCFA] shadow-xs">
+                      <CatalystLogo className="w-4 h-4 text-[#FDFCFA]" />
                     </div>
                     <div>
                       <span className="text-xs font-semibold text-slate-900 block">{startup?.name || 'CatalystOS'}</span>
@@ -1573,7 +1573,7 @@ export default function App() {
             <div className="flex h-screen w-screen items-center justify-center transition-colors duration-300" style={{ backgroundColor: 'var(--c-bg)', color: 'var(--c-fg)' }}>
               <div className="text-center space-y-4">
                 <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto shadow-md border" style={{ backgroundColor: 'var(--c-surface)', borderColor: 'var(--c-border)' }}>
-                  <RefreshCw className="w-6 h-6 animate-spin text-indigo-600" />
+                  <RefreshCw className="w-6 h-6 animate-spin text-[#141413]" />
                 </div>
                 <p className="text-xs font-mono uppercase tracking-widest text-slate-500">Checking Workspace Status...</p>
               </div>
@@ -1608,7 +1608,7 @@ export default function App() {
             <div className="flex h-screen w-screen items-center justify-center transition-colors duration-300" style={{ backgroundColor: 'var(--c-bg)', color: 'var(--c-fg)' }}>
               <div className="text-center space-y-4">
                 <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto shadow-md border" style={{ backgroundColor: 'var(--c-surface)', borderColor: 'var(--c-border)' }}>
-                  <RefreshCw className="w-6 h-6 animate-spin text-indigo-600" />
+                  <RefreshCw className="w-6 h-6 animate-spin text-[#141413]" />
                 </div>
                 <p className="text-xs font-mono uppercase tracking-widest text-slate-500">Checking Workspace Status...</p>
               </div>

@@ -5,8 +5,8 @@ export interface AuthContextType {
   user: User | null;
   token: string | null;
   loading: boolean;
-  signin: (email: string, password: string) => Promise<{ success: boolean; error?: string; onboarded?: boolean; startup?: any }>;
-  signup: (email: string, password: string, name?: string, role?: UserRole) => Promise<{ success: boolean; error?: string; onboarded?: boolean; startup?: any }>;
+  signin: (email: string, password: string) => Promise<{ success: boolean; error?: string; onboarded?: boolean; startup?: any; user?: User }>;
+  signup: (email: string, password: string, name?: string, role?: UserRole) => Promise<{ success: boolean; error?: string; onboarded?: boolean; startup?: any; user?: User }>;
   logout: () => Promise<void>;
   loginAsDemo: () => void;
   apiFetch: (url: string, options?: RequestInit) => Promise<Response>;
@@ -128,7 +128,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const signin = async (email: string, password: string): Promise<{ success: boolean; error?: string; onboarded?: boolean; startup?: any }> => {
+  const signin = async (email: string, password: string): Promise<{ success: boolean; error?: string; onboarded?: boolean; startup?: any; user?: User }> => {
     try {
       const res = await fetch('/api/auth/signin', {
         method: 'POST',
@@ -153,7 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setToken(data.token);
       setUser(data.user);
-      return { success: true, onboarded: data.onboarded, startup: data.startup };
+      return { success: true, onboarded: data.onboarded, startup: data.startup, user: data.user };
     } catch (err: any) {
       return { success: false, error: err.message || 'Network error during sign in.' };
     }
@@ -164,7 +164,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     password: string,
     name: string = 'Founder',
     role: UserRole = 'Founder'
-  ): Promise<{ success: boolean; error?: string; onboarded?: boolean; startup?: any }> => {
+  ): Promise<{ success: boolean; error?: string; onboarded?: boolean; startup?: any; user?: User }> => {
     try {
       const res = await fetch('/api/auth/signup', {
         method: 'POST',
@@ -189,7 +189,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setToken(data.token);
       setUser(data.user);
-      return { success: true, onboarded: data.onboarded, startup: data.startup };
+      return { success: true, onboarded: data.onboarded, startup: data.startup, user: data.user };
     } catch (err: any) {
       return { success: false, error: err.message || 'Network error during sign up.' };
     }

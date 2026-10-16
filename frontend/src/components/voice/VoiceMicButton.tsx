@@ -59,12 +59,12 @@ export default function VoiceMicButton({ onTranscript, className = '', size = 'm
         isRecording
           ? 'bg-rose-500 text-white shadow-md shadow-rose-500/30 animate-pulse'
           : isTranscribing
-          ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 border border-indigo-200 dark:border-indigo-800'
-          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-indigo-600 hover:bg-slate-200 dark:hover:bg-slate-700'
+          ? 'bg-[#141413]/5 text-[#141413] border border-[#141413]/15'
+          : 'bg-[#F3F0EE] text-[#141413]/70 hover:text-[#141413] hover:bg-[#141413]/10 border border-transparent'
       } ${className}`}
     >
       {isTranscribing ? (
-        <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
+        <Loader2 className="w-4 h-4 animate-spin text-[#141413]" />
       ) : isRecording ? (
         <Mic className="w-4 h-4 text-white" />
       ) : (

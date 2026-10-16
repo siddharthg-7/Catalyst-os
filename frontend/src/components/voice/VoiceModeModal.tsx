@@ -155,15 +155,15 @@ export default function VoiceModeModal({
           {/* Header */}
           <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-xs">
-                <Radio className="w-4 h-4 text-white animate-pulse" />
+              <div className="w-8 h-8 rounded-full bg-[#141413] flex items-center justify-center text-[#FDFCFA] shadow-xs">
+                <Radio className="w-4 h-4 text-[#FDFCFA] animate-pulse" />
               </div>
               <div>
-                <h3 className="text-sm font-extrabold tracking-tight text-slate-900 dark:text-white uppercase font-mono">
+                <h3 className="text-sm font-extrabold tracking-tight text-slate-900 uppercase font-mono">
                   Catalyst Voice Mode
                 </h3>
-                <p className="text-[11px] text-slate-400">
-                  Voice Engine: <span className="font-semibold text-indigo-600 dark:text-indigo-400">{selectedVoiceName}</span>
+                <p className="text-[11px] text-slate-500">
+                  Voice Engine: <span className="font-semibold text-[#141413]">{selectedVoiceName}</span>
                 </p>
               </div>
             </div>
@@ -202,7 +202,7 @@ export default function VoiceModeModal({
                   opacity: voiceState === 'LISTENING' ? 0.35 : voiceState === 'SPEAKING' ? 0.4 : 0.1
                 }}
                 transition={{ repeat: Infinity, duration: voiceState === 'LISTENING' ? 0.8 : 1.4, ease: 'easeInOut' }}
-                className="absolute inset-0 rounded-full bg-indigo-500 blur-lg"
+                className="absolute inset-0 rounded-full bg-[#141413]/20 blur-lg"
               />
 
               <motion.div
@@ -212,14 +212,14 @@ export default function VoiceModeModal({
                 transition={{ repeat: voiceState === 'THINKING' ? Infinity : 0, duration: 1.2 }}
                 className={`w-28 h-28 rounded-full flex items-center justify-center text-white shadow-xl transition-all duration-300 ${
                   voiceState === 'LISTENING'
-                    ? 'bg-gradient-to-tr from-rose-500 to-indigo-600 shadow-rose-500/25 ring-4 ring-rose-200 dark:ring-rose-950'
+                    ? 'bg-[#141413] shadow-[#141413]/25 ring-4 ring-[#141413]/20'
                     : voiceState === 'THINKING'
-                    ? 'bg-gradient-to-tr from-amber-500 to-indigo-600 shadow-amber-500/25 animate-pulse'
+                    ? 'bg-[#141413] shadow-[#141413]/25 animate-pulse'
                     : voiceState === 'SPEAKING'
-                    ? 'bg-gradient-to-tr from-emerald-500 to-indigo-600 shadow-emerald-500/25 ring-4 ring-emerald-200 dark:ring-emerald-950'
+                    ? 'bg-emerald-700 shadow-emerald-500/25 ring-4 ring-emerald-200'
                     : voiceState === 'PROCESSING'
-                    ? 'bg-gradient-to-tr from-purple-600 to-indigo-700 shadow-purple-500/25'
-                    : 'bg-slate-800 dark:bg-slate-700 text-slate-300'
+                    ? 'bg-[#262627] shadow-[#141413]/25'
+                    : 'bg-slate-800 text-slate-300'
                 }`}
               >
                 {voiceState === 'LISTENING' ? (
@@ -236,7 +236,7 @@ export default function VoiceModeModal({
 
             {/* State Label */}
             <div className="space-y-1">
-              <span className="text-xs font-mono font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+              <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#141413]">
                 {voiceState === 'LISTENING' && '◉ Listening to command...'}
                 {voiceState === 'PROCESSING' && 'Transcribing audio...'}
                 {voiceState === 'THINKING' && 'Executive Council Deliberating...'}
@@ -244,7 +244,7 @@ export default function VoiceModeModal({
                 {voiceState === 'IDLE' && 'Standby'}
                 {voiceState === 'ERROR' && 'Voice Engine Warning'}
               </span>
-              <p className="text-sm font-semibold text-slate-900 dark:text-white max-w-sm mx-auto">
+              <p className="text-sm font-semibold text-slate-900 max-w-sm mx-auto">
                 {voiceState === 'LISTENING' && '"Ask about runway, burn rate, engineering hiring, or strategy..."'}
                 {voiceState === 'THINKING' && 'Synthesizing verified findings & financial projections'}
                 {voiceState === 'SPEAKING' && 'Tap "Interrupt" to speak a new instruction'}
@@ -255,17 +255,17 @@ export default function VoiceModeModal({
 
             {/* Live Transcript / Response preview */}
             {(transcript || lastAssistantResponse) && (
-              <div className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800 text-left text-xs space-y-2 max-h-32 overflow-y-auto">
+              <div className="w-full p-4 rounded-2xl bg-slate-50 border border-slate-200/60 text-left text-xs space-y-2 max-h-32 overflow-y-auto">
                 {transcript && (
                   <div>
                     <span className="text-[10px] font-mono text-slate-400 uppercase block">YOU SAID:</span>
-                    <p className="text-slate-800 dark:text-slate-200 font-medium">"{transcript}"</p>
+                    <p className="text-slate-800 font-medium">"{transcript}"</p>
                   </div>
                 )}
                 {lastAssistantResponse && voiceState === 'SPEAKING' && (
-                  <div className="pt-2 border-t border-slate-200/50 dark:border-slate-800">
-                    <span className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 uppercase block">CATALYST RESPONSE:</span>
-                    <p className="text-slate-700 dark:text-slate-300 leading-relaxed line-clamp-3">
+                  <div className="pt-2 border-t border-slate-200/50">
+                    <span className="text-[10px] font-mono text-[#141413] uppercase block font-semibold">CATALYST RESPONSE:</span>
+                    <p className="text-slate-700 leading-relaxed line-clamp-3">
                       {lastAssistantResponse}
                     </p>
                   </div>
@@ -275,14 +275,14 @@ export default function VoiceModeModal({
           </div>
 
           {/* Action Bar */}
-          <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800 gap-3">
+          <div className="flex items-center justify-between pt-4 border-t border-slate-100 gap-3">
             <button
               type="button"
               onClick={handleMuteToggle}
               className={`p-2.5 rounded-2xl border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
                 isMuted
-                  ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 border-rose-200 dark:border-rose-900'
-                  : 'bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-800'
+                  ? 'bg-rose-50 text-rose-600 border-rose-200'
+                  : 'bg-slate-50 text-slate-600 border-slate-200'
               }`}
             >
               {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
@@ -294,7 +294,7 @@ export default function VoiceModeModal({
                 <button
                   type="button"
                   onClick={handleStopAndProcess}
-                  className="px-5 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-md flex items-center gap-2 transition-all hover:scale-105 cursor-pointer"
+                  className="px-5 py-2.5 rounded-2xl bg-[#141413] hover:bg-[#262627] text-[#FDFCFA] text-xs font-semibold shadow-md flex items-center gap-2 transition-all hover:scale-105 cursor-pointer"
                 >
                   <Square className="w-3.5 h-3.5 fill-current" />
                   <span>Done Speaking</span>
@@ -303,7 +303,7 @@ export default function VoiceModeModal({
                 <button
                   type="button"
                   onClick={handleBargeIn}
-                  className="px-5 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-md flex items-center gap-2 transition-all hover:scale-105 cursor-pointer"
+                  className="px-5 py-2.5 rounded-2xl bg-[#141413] hover:bg-[#262627] text-[#FDFCFA] text-xs font-semibold shadow-md flex items-center gap-2 transition-all hover:scale-105 cursor-pointer"
                 >
                   <Mic className="w-3.5 h-3.5" />
                   <span>Interrupt & Speak</span>
@@ -312,7 +312,7 @@ export default function VoiceModeModal({
                 <button
                   type="button"
                   onClick={startListening}
-                  className="px-5 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-md flex items-center gap-2 transition-all hover:scale-105 cursor-pointer"
+                  className="px-5 py-2.5 rounded-2xl bg-[#141413] hover:bg-[#262627] text-[#FDFCFA] text-xs font-semibold shadow-md flex items-center gap-2 transition-all hover:scale-105 cursor-pointer"
                 >
                   <Mic className="w-3.5 h-3.5" />
                   <span>Start Listening</span>

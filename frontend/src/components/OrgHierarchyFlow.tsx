@@ -358,7 +358,7 @@ function MemberNode({ data }: { data: any }) {
   return (
     <div 
       className={`w-[270px] rounded-xl border bg-white p-3.5 shadow-[0_2px_8px_rgba(0,0,0,0.03)] transition-all select-none hover:border-slate-300 hover:shadow-sm cursor-pointer ${
-        isSelected ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-slate-200'
+        isSelected ? 'border-[#141413] ring-2 ring-[#141413]/10' : 'border-slate-200'
       }`}
     >
       <Handle 
@@ -665,7 +665,7 @@ export default function OrgHierarchyFlow({
               placeholder="Search people or domains..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-10 pl-9 pr-8 text-xs font-medium rounded-xl border border-slate-200 bg-slate-50/60 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 outline-none transition-all"
+              className="w-full h-10 pl-9 pr-8 text-xs font-medium rounded-xl border border-slate-200 bg-slate-50/60 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-[#141413] focus:ring-1 focus:ring-[#141413]/10 outline-none transition-all"
             />
             {searchQuery && (
               <button
@@ -777,7 +777,7 @@ export default function OrgHierarchyFlow({
           >
             <div className="flex items-start justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
-                <Info className="w-4 h-4 text-indigo-600" />
+                <Info className="w-4 h-4 text-[#141413]" />
                 <span className="text-xs font-bold uppercase tracking-wider font-mono text-slate-800">
                   Hierarchy Information
                 </span>
@@ -816,7 +816,7 @@ export default function OrgHierarchyFlow({
                   <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-700">
                     <span>Founder</span>
                     <ArrowRight className="w-3 h-3 text-slate-400" />
-                    <span className="font-semibold text-indigo-600">
+                    <span className="font-semibold text-[#141413]">
                       {selectedNode.data.domain.label}
                     </span>
                     <ArrowRight className="w-3 h-3 text-slate-400" />
@@ -888,7 +888,7 @@ export default function OrgHierarchyFlow({
                     Domain Structure
                   </span>
                   <p className="text-[11px] text-slate-700">
-                    Reports directly to <strong className="text-indigo-600">{founder.name}</strong>. Manages {selectedNode.data.memberCount} operational team members.
+                    Reports directly to <strong className="text-[#141413]">{founder.name}</strong>. Manages {selectedNode.data.memberCount} operational team members.
                   </p>
                 </div>
 

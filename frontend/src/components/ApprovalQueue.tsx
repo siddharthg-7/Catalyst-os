@@ -239,7 +239,7 @@ export default function ApprovalQueue({
       {filteredApprovals.length > 0 ? (
         <div className="rounded-xl overflow-hidden divide-y divide-[#141413]/06 bg-white border border-[#141413]/10 shadow-[rgba(20,20,19,0.02)_0px_1px_4px_0px]">
           {/* Table Header */}
-          <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-3.5 text-[10px] font-mono font-bold uppercase tracking-wider bg-[#FDFCFA] text-[#666562] border-b border-[#141413]/08">
+          <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-3 text-[12px] font-medium bg-[#FDFCFA] text-[#666562] border-b border-[#141413]/08">
             <div className="col-span-4">Decision &amp; Context</div>
             <div className="col-span-2">Recommended By</div>
             <div className="col-span-2">Treasury Impact</div>
@@ -256,7 +256,7 @@ export default function ApprovalQueue({
             return (
               <div
                 key={item.id}
-                className={`grid grid-cols-1 md:grid-cols-12 gap-4 px-6 py-4 items-center transition-colors group cursor-pointer ${
+                className={`grid grid-cols-1 md:grid-cols-12 gap-4 px-6 py-3.5 items-center transition-colors group cursor-pointer ${
                   isSelected ? 'bg-[#FDFCFA] ring-1 ring-[#141413]/20' : 'hover:bg-[#FDFCFA]'
                 }`}
                 onClick={() => {
@@ -268,12 +268,12 @@ export default function ApprovalQueue({
                 {/* Decision & Context (4 cols) */}
                 <div className="md:col-span-4 space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider font-semibold bg-[#F3F0EE] text-[#141413] border border-[#141413]/10">
+                    <span className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-[#141413]/5 text-[#141413]/80 border border-[#141413]/08">
                       {item.type.replace('_', ' ')}
                     </span>
-                    <span className="text-[10px] font-mono text-[#666562]">Score: {item.impact}/10</span>
+                    <span className="text-[11px] font-mono text-[#666562]">Score: {item.impact}/10</span>
                   </div>
-                  <h4 className="text-xs font-bold leading-snug text-[#141413] group-hover:underline transition-colors">
+                  <h4 className="text-xs font-semibold leading-snug text-[#141413] group-hover:underline transition-colors">
                     {item.title}
                   </h4>
                   <p className="text-[11px] line-clamp-1 leading-normal text-[#666562]">
@@ -292,7 +292,7 @@ export default function ApprovalQueue({
                 {/* Impact (2 cols) */}
                 <div className="md:col-span-2 text-xs font-mono">
                   {cost !== 0 ? (
-                    <span className={`font-bold ${cost > 0 ? 'text-emerald-700' : 'text-[#141413]'}`}>
+                    <span className={`font-semibold ${cost > 0 ? 'text-emerald-700' : 'text-[#141413]'}`}>
                       {cost > 0 ? `+${formatINR(cost)}` : `-${formatINR(Math.abs(cost))}`}
                     </span>
                   ) : (
@@ -303,14 +303,14 @@ export default function ApprovalQueue({
 
                 {/* Risk / Reversibility (2 cols) */}
                 <div className="md:col-span-2 space-y-1">
-                  <span className={`inline-flex px-2 py-0.5 text-[9px] font-mono font-bold rounded-full border ${
-                    gov.risk === 'CRITICAL' ? 'bg-rose-50 text-rose-800 border-rose-200/80' :
-                    gov.risk === 'HIGH' ? 'bg-amber-50 text-amber-800 border-amber-200/80' :
-                    'bg-[#F3F0EE] text-[#141413] border-[#141413]/10'
+                  <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-md border ${
+                    gov.risk === 'CRITICAL' ? 'bg-rose-50 text-rose-700 border-rose-200/60' :
+                    gov.risk === 'HIGH' ? 'bg-amber-50 text-amber-700 border-amber-200/60' :
+                    'bg-[#141413]/5 text-[#141413]/80 border-[#141413]/08'
                   }`}>
                     {gov.risk} Risk
                   </span>
-                  <span className="text-[10px] block font-mono text-[#666562]">
+                  <span className="text-[11px] block font-mono text-[#666562]">
                     {gov.reversibility}
                   </span>
                 </div>

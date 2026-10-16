@@ -249,8 +249,8 @@ export default function CommandPalette({ isOpen, onClose, onNavigate, onRunActio
                 }}
               >
                 <span className="flex items-center gap-2.5 min-w-0">
-                  <Rocket className="w-4 h-4 text-indigo-500 shrink-0" />
-                  <span className="truncate">Execute Directive: <span className="text-indigo-500">"{query}"</span></span>
+                  <Rocket className="w-4 h-4 text-[#141413] shrink-0" />
+                  <span className="truncate">Execute Directive: <span className="text-[#141413] font-semibold">"{query}"</span></span>
                 </span>
                 <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--c-surface-2)] border border-[var(--c-border)] text-[var(--c-muted)] shrink-0 flex items-center gap-1">
                   <CornerDownLeft className="w-2.5 h-2.5" /> Enter
@@ -267,12 +267,12 @@ export default function CommandPalette({ isOpen, onClose, onNavigate, onRunActio
                   }}
                 >
                   <div className="flex items-center gap-2 font-semibold" style={{ color: 'var(--c-fg)' }}>
-                    <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
+                    <Loader2 className="w-4 h-4 animate-spin text-[#141413]" />
                     <span>CEO Orchestrator Coordinating Executive Specialists...</span>
                   </div>
                   <div className="space-y-1.5 pl-6 text-[11px]" style={{ color: 'var(--c-muted)' }}>
                     <div className="flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-ping" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
                       Analyzing intent, consulting company memory & RAG context
                     </div>
                   </div>
@@ -307,11 +307,11 @@ export default function CommandPalette({ isOpen, onClose, onNavigate, onRunActio
                 <div 
                   className="mt-2.5 p-3 rounded-xl border text-xs space-y-1.5"
                   style={{ 
-                    backgroundColor: 'rgba(99, 102, 241, 0.05)', 
-                    borderColor: 'rgba(99, 102, 241, 0.2)' 
+                    backgroundColor: 'rgba(20, 20, 19, 0.03)', 
+                    borderColor: 'rgba(20, 20, 19, 0.1)' 
                   }}
                 >
-                  <div className="font-semibold text-[10px] uppercase tracking-wider font-mono text-indigo-500">
+                  <div className="font-semibold text-[11px] font-sans text-[#141413]">
                     Deterministic Financial Models
                   </div>
                   <div className="grid grid-cols-2 gap-2">
@@ -328,7 +328,7 @@ export default function CommandPalette({ isOpen, onClose, onNavigate, onRunActio
                         <div className="text-xs font-bold font-mono" style={{ color: 'var(--c-fg)' }}>
                           {typeof calc.value === 'number' ? calc.value.toLocaleString() : calc.value}
                         </div>
-                        <div className="text-[9px] text-indigo-500">{calc.source}</div>
+                        <div className="text-[10px] text-[#666562] font-mono">{calc.source}</div>
                       </div>
                     ))}
                   </div>

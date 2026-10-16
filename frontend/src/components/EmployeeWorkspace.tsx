@@ -265,7 +265,7 @@ export default function EmployeeWorkspace({
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         {loading ? (
           <div className="py-20 text-center flex flex-col items-center justify-center">
-            <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mb-3"></div>
+            <div className="w-8 h-8 border-2 border-[#141413] border-t-transparent rounded-full animate-spin mb-3"></div>
             <p className="text-xs font-medium text-slate-500">Loading your workspace...</p>
           </div>
         ) : (

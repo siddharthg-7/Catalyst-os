@@ -818,14 +818,20 @@ input:focus, textarea:focus, select:focus {
   box-shadow: 0 0 30px rgba(79, 70, 229, 0.15);
 }
 
+/* Scoped scrollbar hiding utility */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
 
-/* Keep motion calm and accessible across the whole application. */
+/* Keep motion calm and accessible across internal screens */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  .internal-app, .internal-app *,
+  div:not(.landing-page *) {
     scroll-behavior: auto !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
   }
 }
 

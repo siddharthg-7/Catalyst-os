@@ -21,7 +21,6 @@ import { useAuth } from '../../context/AuthContext';
 import { UserRole } from '../../types';
 import Magnet from './Magnet';
 import ShinyText from './ShinyText';
-import CatalystLogo from '../CatalystLogo';
 
 interface AuthFormProps {
   onBackToLanding: () => void;
@@ -146,19 +145,9 @@ export default function AuthForm({ onBackToLanding }: AuthFormProps) {
   return (
     <div className="flex flex-col justify-between p-8 sm:p-10 xl:p-12 bg-white relative">
       {/* ── Top Navigation Row with "Back to Landing" ──────────────────────── */}
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-2.5 lg:hidden">
-          <div className="w-8 h-8 rounded-lg bg-[#141413] flex items-center justify-center text-[#FDFCFA] shadow-xs">
-            <CatalystLogo className="w-4 h-4 text-[#FDFCFA]" />
-          </div>
-          <div>
-            <span className="text-sm font-bold text-[#141413] tracking-tight block">CatalystOS</span>
-            <span className="text-[9px] font-mono text-[#666562] uppercase font-semibold">Executive Platform</span>
-          </div>
-        </div>
-
+      <div className="flex items-center justify-end mb-6 sm:mb-8">
         {/* Interactive "Back to Landing" with Subtle Carbon Border */}
-        <div className="ml-auto">
+        <div>
           <Magnet padding={35} magnetStrength={0.22}>
             <motion.button
               type="button"

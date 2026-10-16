@@ -603,7 +603,7 @@ export default function PeopleDirectory({
 
               {onAddMember && (
                 <button
-                  onClick={handleOpenModal}
+                  onClick={() => handleOpenModal()}
                   className="px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
                   style={{
                     backgroundColor: 'var(--c-surface-2)',
