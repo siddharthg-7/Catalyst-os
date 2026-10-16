@@ -44,6 +44,7 @@ import {
 } from '../services/membershipService';
 import {
   listTasksForUser,
+  getTaskByIdForUser,
   updateTaskForUser,
   assignTaskForUser,
   getRoleScopedContext,
@@ -54,8 +55,16 @@ import {
   ensureAiSpecialistCapability,
   getMissingCapabilitiesAndStaffing,
   retrieveDecisionMemory,
+  decomposeParentTask,
+  persistDecomposedTaskPlan,
   TaskDelegationError
 } from '../services/taskDelegationService';
+import {
+  listNotificationsForUser,
+  markNotificationRead,
+  markAllNotificationsRead,
+  checkAndDispatchDeadlineReminders
+} from '../services/notificationService';
 import {
   createInvitation,
   listInvitations,
@@ -1665,7 +1674,7 @@ router.get('/agents', authenticateJWT, async (req: AuthenticatedRequest, res) =>
 // OPERATIONAL NOTIFICATIONS (Sections 21, 22 & 23 of PROMPT.MD)
 // ============================================================================
 
-// GET notifications for authenticated startup
+// GET notifications for authenticated user (scoped by company membership & audience)
 router.get('/notifications', authenticateJWT, async (req: AuthenticatedRequest, res) => {
   const userId = req.user?.id;
   if (!userId || !prisma) {
@@ -1674,17 +1683,7 @@ router.get('/notifications', authenticateJWT, async (req: AuthenticatedRequest, 
   }
 
   try {
-    const startup = await prisma.startup.findFirst({ where: { ownerId: userId } });
-    if (!startup) {
-      return res.json([]);
-    }
-
-    const notifs = await prisma.notification.findMany({
-      where: { startupId: startup.id },
-      orderBy: { createdAt: 'desc' },
-      take: 50
-    });
-
+    const notifs = await listNotificationsForUser(userId);
     res.json(notifs);
   } catch (err: any) {
     console.error('[Notifications API] Fetch error:', err.message);
@@ -1695,37 +1694,40 @@ router.get('/notifications', authenticateJWT, async (req: AuthenticatedRequest, 
 // POST mark notification as read
 router.post('/notifications/:id/read', authenticateJWT, async (req: AuthenticatedRequest, res) => {
   const { id } = req.params;
-  if (!prisma) {
-    res.json({ success: true });
-    return;
-  }
   try {
-    await prisma.notification.update({
-      where: { id },
-      data: { read: true }
-    });
-    res.json({ success: true });
+    const success = await markNotificationRead(id);
+    res.json({ success });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// POST mark all notifications as read
+// POST mark all notifications as read for current user workspace
 router.post('/notifications/read-all', authenticateJWT, async (req: AuthenticatedRequest, res) => {
   const userId = req.user?.id;
-  if (!userId || !prisma) {
-    res.json({ success: true });
+  if (!userId) {
+    res.json({ success: true, count: 0 });
     return;
   }
   try {
-    const startup = await prisma.startup.findFirst({ where: { ownerId: userId } });
-    if (startup) {
-      await prisma.notification.updateMany({
-        where: { startupId: startup.id, read: false },
-        data: { read: true }
-      });
-    }
-    res.json({ success: true });
+    const count = await markAllNotificationsRead(userId);
+    res.json({ success: true, count });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST check deadlines and dispatch upcoming reminders
+router.post('/notifications/check-deadlines', authenticateJWT, async (req: AuthenticatedRequest, res) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    res.json({ remindedCount: 0 });
+    return;
+  }
+  try {
+    const membership = await resolveMembership(userId);
+    const result = await checkAndDispatchDeadlineReminders(membership?.startupId);
+    res.json(result);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -2127,6 +2129,42 @@ router.get('/tasks', authenticateJWT, requireActiveMembership, requirePermission
   }
 });
 
+// GET a specific authorized task by id
+router.get('/tasks/:id', authenticateJWT, requireActiveMembership, requirePermission('people:read'), async (req: AuthenticatedRequest, res) => {
+  try {
+    res.json(await getTaskByIdForUser(req.user!.id, req.params.id));
+  } catch (err) {
+    sendTaskError(res, err);
+  }
+});
+
+// POST /api/tasks/decompose — Phase 2: Multi-Agent task decomposition & employee assignment resolution
+router.post('/tasks/decompose', authenticateJWT, requireActiveMembership, requirePermission('people:read'), async (req: AuthenticatedRequest, res) => {
+  try {
+    const preview = await decomposeParentTask({
+      userId: req.user!.id,
+      input: req.body || {}
+    });
+    res.json(preview);
+  } catch (err) {
+    sendTaskError(res, err);
+  }
+});
+
+// POST /api/tasks/create-decomposed — Phase 2: Approve & persist parent task plan and subtasks
+router.post('/tasks/create-decomposed', authenticateJWT, requireActiveMembership, requirePermission('people:read'), async (req: AuthenticatedRequest, res) => {
+  try {
+    const result = await persistDecomposedTaskPlan({
+      userId: req.user!.id,
+      parentTask: req.body?.parentTask,
+      subtasks: req.body?.subtasks
+    });
+    res.status(201).json(result);
+  } catch (err) {
+    sendTaskError(res, err);
+  }
+});
+
 // PATCH a task's status and/or result. An employee advances their own work;
 // approved/rejected are reserved for the founder approval loop.
 router.patch('/tasks/:id', authenticateJWT, requireActiveMembership, requirePermission('people:read'), async (req: AuthenticatedRequest, res) => {
@@ -2135,7 +2173,10 @@ router.patch('/tasks/:id', authenticateJWT, requireActiveMembership, requirePerm
       userId: req.user!.id,
       taskId: req.params.id,
       status: req.body?.status,
-      result: req.body?.result
+      result: req.body?.result,
+      founderFeedback: req.body?.founderFeedback,
+      cancellationReason: req.body?.cancellationReason,
+      submissionNotes: req.body?.submissionNotes
     });
 
     // Record activity in Founder Activity Ledger
@@ -2223,6 +2264,316 @@ router.post('/tasks/:id/assistant', authenticateJWT, requireActiveMembership, re
       question,
       currentDraft
     }));
+  } catch (err) {
+    sendTaskError(res, err);
+  }
+});
+
+// ============================================================================
+// PHASE 5 & 6 — TASK SUPPORTING DOCUMENTS & AUDIT TRAIL
+// ============================================================================
+
+// POST /api/tasks/:id/documents — Phase 5: Upload permitted supporting documents
+router.post('/tasks/:id/documents', authenticateJWT, requireActiveMembership, requirePermission('people:read'), async (req: AuthenticatedRequest, res) => {
+  try {
+    const taskId = req.params.id;
+    const userId = req.user!.id;
+    const { name, fileData, content, mimeType, type } = req.body || {};
+
+    if (!name || typeof name !== 'string') {
+      return res.status(400).json({ error: 'Document filename is required.', code: 'INVALID_FILENAME' });
+    }
+
+    // Sanitize filename to prevent directory traversal or malformed paths
+    const sanitizedName = name.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/^\.+/, '');
+    if (!sanitizedName) {
+      return res.status(400).json({ error: 'Invalid document filename.', code: 'INVALID_FILENAME' });
+    }
+
+    // Validate file extension against permitted formats
+    const ext = sanitizedName.split('.').pop()?.toLowerCase() || '';
+    const ALLOWED_EXTENSIONS = ['pdf', 'docx', 'doc', 'txt', 'csv', 'xlsx', 'xls', 'json', 'md', 'png', 'jpg', 'jpeg'];
+    if (!ext || !ALLOWED_EXTENSIONS.includes(ext)) {
+      return res.status(400).json({
+        error: `Unsupported file format (.${ext}). Permitted formats: PDF, DOCX, TXT, CSV, JSON, MD, PNG, JPG.`,
+        code: 'UNSUPPORTED_FILE_TYPE'
+      });
+    }
+
+    // Verify task existence and tenant access
+    const membership = await resolveMembership(userId);
+    if (!membership) {
+      return res.status(403).json({ error: 'No active company membership.', code: 'NO_MEMBERSHIP' });
+    }
+
+    const task = await getTaskByIdForUser(userId, taskId);
+    const callerRole = membership.role;
+    const isPrivileged = callerRole === 'FOUNDER' || callerRole === 'ADMIN';
+    const isAssigned = task.assignedUserId === userId || task.ownerRole === callerRole;
+
+    // Do not allow employees to upload files to tasks they cannot access or are not assigned to
+    if (!isPrivileged && !isAssigned) {
+      return res.status(403).json({
+        error: 'Forbidden: You cannot upload files to tasks you are not assigned to.',
+        code: 'UNAUTHORIZED_TASK_ACCESS'
+      });
+    }
+
+    // Convert fileData (base64) or content (string) to Buffer
+    let buffer: Buffer;
+    if (fileData) {
+      buffer = Buffer.from(fileData, 'base64');
+    } else if (content) {
+      buffer = Buffer.from(content, 'utf-8');
+    } else {
+      return res.status(400).json({ error: 'No file content or data provided.', code: 'EMPTY_FILE' });
+    }
+
+    // Validate file size (max 15MB)
+    const MAX_FILE_SIZE = 15 * 1024 * 1024;
+    if (buffer.length > MAX_FILE_SIZE) {
+      return res.status(400).json({
+        error: `File size exceeds 15MB limit (${(buffer.length / (1024 * 1024)).toFixed(1)}MB).`,
+        code: 'FILE_TOO_LARGE'
+      });
+    }
+
+    const sizeStr = `${(buffer.length / 1024).toFixed(1)} KB`;
+    const docId = `doc_task_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const s3Key = `tasks/${taskId}/${Date.now()}_${sanitizedName}`;
+
+    // Upload to private object storage if configured
+    let storageKey = s3Key;
+    if (isS3Configured()) {
+      try {
+        await uploadToS3({
+          key: s3Key,
+          body: buffer,
+          contentType: mimeType || 'application/octet-stream',
+          metadata: {
+            taskId,
+            originalName: sanitizedName,
+            uploadedBy: userId,
+            startupId: membership.startupId
+          }
+        });
+        console.log(`[Task Documents API] Uploaded to Neon S3: ${s3Key}`);
+      } catch (s3Err: any) {
+        console.warn('[Task Documents API] S3 upload error (fallback):', s3Err.message);
+      }
+    }
+
+    // Save metadata and storage key in Neon Postgres
+    await safeDbQuery(async () => {
+      await (prisma as any).startupDocument.create({
+        data: {
+          id: docId,
+          name: sanitizedName,
+          type: type || 'task_document',
+          sourceType: 'TASK_DOCUMENT',
+          sourceRecordId: taskId,
+          size: sizeStr,
+          summary: `Supporting document for task: ${task.title}. StorageKey: ${storageKey}`,
+          startupId: membership.startupId,
+          accessScope: 'ALL',
+          indexingStatus: 'COMPLETED'
+        }
+      });
+    });
+
+    // Record activity in Founder Activity Ledger
+    try {
+      await activityLogService.logActivity({
+        startupId: membership.startupId,
+        userId: userId,
+        actorRole: req.user?.role || callerRole || 'EMPLOYEE',
+        action: 'TASK_DOCUMENT_UPLOADED',
+        targetEntity: 'TASK',
+        targetId: taskId,
+        department: task.department,
+        details: {
+          taskId,
+          documentId: docId,
+          documentName: sanitizedName,
+          size: sizeStr
+        }
+      });
+    } catch {}
+
+    // Return document info WITHOUT exposing raw private S3 storage URL
+    res.status(201).json({
+      id: docId,
+      name: sanitizedName,
+      size: sizeStr,
+      type: type || 'task_document',
+      createdAt: new Date().toISOString()
+    });
+  } catch (err) {
+    sendTaskError(res, err);
+  }
+});
+
+// GET /api/tasks/:id/documents — Phase 5 & 6: List supporting documents
+router.get('/tasks/:id/documents', authenticateJWT, requireActiveMembership, requirePermission('people:read'), async (req: AuthenticatedRequest, res) => {
+  try {
+    const taskId = req.params.id;
+    const userId = req.user!.id;
+    const membership = await resolveMembership(userId);
+    if (!membership) {
+      return res.status(403).json({ error: 'No active company membership.', code: 'NO_MEMBERSHIP' });
+    }
+
+    // Verify task access
+    await getTaskByIdForUser(userId, taskId);
+
+    const docs = await safeDbQuery(async () => {
+      return await (prisma as any).startupDocument.findMany({
+        where: {
+          startupId: membership.startupId,
+          sourceType: 'TASK_DOCUMENT',
+          sourceRecordId: taskId
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+    });
+
+    const safeDocs = (docs || []).map((d: any) => ({
+      id: d.id,
+      name: d.name,
+      size: d.size,
+      type: d.type,
+      createdAt: d.createdAt?.toISOString?.() ?? String(d.createdAt)
+    }));
+
+    res.json(safeDocs);
+  } catch (err) {
+    sendTaskError(res, err);
+  }
+});
+
+// GET /api/tasks/:id/documents/:docId/download — Phase 5 & 6: Secure time-limited presigned download URL
+router.get('/tasks/:id/documents/:docId/download', authenticateJWT, requireActiveMembership, requirePermission('people:read'), async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id: taskId, docId } = req.params;
+    const userId = req.user!.id;
+    const membership = await resolveMembership(userId);
+    if (!membership) {
+      return res.status(403).json({ error: 'No active company membership.', code: 'NO_MEMBERSHIP' });
+    }
+
+    // Verify task access
+    await getTaskByIdForUser(userId, taskId);
+
+    const doc = await safeDbQuery(async () => {
+      return await (prisma as any).startupDocument.findFirst({
+        where: {
+          id: docId,
+          sourceType: 'TASK_DOCUMENT',
+          sourceRecordId: taskId,
+          startupId: membership.startupId
+        }
+      });
+    });
+
+    if (!doc) {
+      return res.status(404).json({ error: 'Document not found.', code: 'NOT_FOUND' });
+    }
+
+    if (!isS3Configured()) {
+      return res.json({
+        downloadUrl: `#offline-doc-${docId}`,
+        filename: doc.name,
+        offline: true
+      });
+    }
+
+    const keyMatch = (doc.summary || '').match(/StorageKey:\s*([^\s]+)/);
+    const s3Key = keyMatch ? keyMatch[1] : `tasks/${taskId}/${doc.name}`;
+
+    const downloadUrl = await getPresignedDownloadUrl(s3Key, 900); // 15 minutes validity
+    res.json({
+      downloadUrl,
+      filename: doc.name
+    });
+  } catch (err) {
+    sendTaskError(res, err);
+  }
+});
+
+// GET /api/tasks/:id/activity — Phase 6: Relevant task activity history
+router.get('/tasks/:id/activity', authenticateJWT, requireActiveMembership, requirePermission('people:read'), async (req: AuthenticatedRequest, res) => {
+  try {
+    const taskId = req.params.id;
+    const userId = req.user!.id;
+    const membership = await resolveMembership(userId);
+    if (!membership) {
+      return res.status(403).json({ error: 'No active company membership.', code: 'NO_MEMBERSHIP' });
+    }
+
+    // Verify task access
+    await getTaskByIdForUser(userId, taskId);
+
+    let activities: any[] = [];
+    try {
+      const logs = await safeDbQuery(async () => {
+        return await (prisma as any).activityLog.findMany({
+          where: {
+            startupId: membership.startupId,
+            details: {
+              path: ['taskId'],
+              equals: taskId
+            }
+          },
+          orderBy: { timestamp: 'desc' },
+          take: 50
+        });
+      });
+      if (logs && logs.length > 0) {
+        activities = logs.map((l: any) => ({
+          id: l.id,
+          action: l.action,
+          actorRole: l.actorRole,
+          details: l.details,
+          timestamp: l.timestamp?.toISOString?.() ?? String(l.timestamp)
+        }));
+      } else {
+        // Fallback: search memory logs
+        const memLogs = await activityLogService.listActivities({
+          startupId: membership.startupId,
+          limit: 100
+        });
+        const matched = memLogs.filter((m: any) => m.targetId === taskId || m.details?.taskId === taskId);
+        for (const m of matched) {
+          activities.push({
+            id: m.id,
+            action: m.action,
+            actorRole: m.actorRole,
+            details: m.details,
+            timestamp: m.timestamp
+          });
+        }
+      }
+    } catch {}
+
+    try {
+      const { listTaskProgressUpdates } = await import('../services/employeeEcosystemService');
+      const progressUpdates = await listTaskProgressUpdates(taskId);
+      for (const p of progressUpdates) {
+        activities.push({
+          id: p.id,
+          action: 'PROGRESS_UPDATE',
+          actorRole: p.authorRole,
+          actorName: p.authorName,
+          details: { note: p.note },
+          timestamp: p.createdAt
+        });
+      }
+    } catch {}
+
+    // Sort by timestamp desc
+    activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    res.json(activities);
   } catch (err) {
     sendTaskError(res, err);
   }

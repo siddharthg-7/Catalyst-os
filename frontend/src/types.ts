@@ -69,7 +69,10 @@ export interface DelegatedTask {
   ownerRole: string | null;
   assignedUserId?: string | null;
   assignedUserName?: string | null;
-  status: 'pending' | 'in_progress' | 'submitted' | 'changes_requested' | 'approved' | 'rejected';
+  status: 'pending' | 'in_progress' | 'submitted' | 'changes_requested' | 'approved' | 'rejected' | 'backlog' | 'assigned' | 'in_review' | 'completed' | 'cancelled' | 'BACKLOG' | 'ASSIGNED' | 'IN_PROGRESS' | 'SUBMITTED' | 'IN_REVIEW' | 'CHANGES_REQUESTED' | 'COMPLETED' | 'CANCELLED';
+  canonicalStatus?: 'BACKLOG' | 'ASSIGNED' | 'IN_PROGRESS' | 'SUBMITTED' | 'IN_REVIEW' | 'CHANGES_REQUESTED' | 'COMPLETED' | 'CANCELLED';
+  isRestricted?: boolean;
+  cancellationReason?: string;
   result: string | null;
   founderFeedback?: string | null;
   changesRequested?: boolean;
@@ -77,12 +80,45 @@ export interface DelegatedTask {
   humanRequirement?: HumanRoleRequirement | null;
   priority?: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
   dueDate?: string;
+  deadline?: string;
+  description?: string;
+  dependencies?: string[];
+  expectedDeliverable?: string;
+  parentTask?: string;
+  parentTaskId?: string;
+  assignedBy?: string | null;
+  assignedByName?: string | null;
+  companyId?: string;
   projectName?: string;
   reviewerId?: string;
   reviewerName?: string;
   collaborators?: Array<{ id: string; name: string; role: string }>;
-  acceptanceCriteria?: string[];
   progressUpdates?: Array<{ id: string; author: string; note: string; timestamp: string }>;
+  subtasks?: Array<{
+    id: string;
+    title: string;
+    department?: string;
+    status: string;
+    assignedUserId?: string | null;
+    assignedUserName?: string | null;
+    dueDate?: string;
+    priority?: string;
+  }>;
+  documents?: Array<{
+    id: string;
+    name: string;
+    size: string;
+    type: string;
+    createdAt: string;
+  }>;
+  activityHistory?: Array<{
+    id: string;
+    action: string;
+    actorRole?: string;
+    actorName?: string;
+    details?: any;
+    timestamp: string;
+  }>;
   createdAt: string;
   updatedAt: string;
 }
@@ -680,4 +716,15 @@ export interface HiringReasoning {
     summary: string;
     requirementsSnippet: string;
   };
+}
+
+export interface NotificationItem {
+  id: string;
+  title: string;
+  message: string;
+  type: string;
+  createdAt: string;
+  read: boolean;
+  taskId?: string | null;
+  targetUserId?: string | null;
 }

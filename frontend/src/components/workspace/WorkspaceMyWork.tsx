@@ -11,7 +11,8 @@ import {
   User, Shield, ChevronRight, X, AlertCircle, Copy, Check,
   RotateCcw, MessageSquare, ExternalLink, Calendar,
   LayoutGrid, List, UserPlus, Play, CheckCircle, Flag,
-  Sparkles, Plus, AlertOctagon, CornerDownRight
+  Sparkles, Plus, AlertOctagon, CornerDownRight, Layers,
+  Paperclip, UploadCloud, Download
 } from 'lucide-react';
 
 interface WorkspaceMyWorkProps {
@@ -66,6 +67,11 @@ export default function WorkspaceMyWork({
   const [progressUpdates, setProgressUpdates] = useState<TaskProgressUpdate[]>([]);
   const [isSubmittingProgress, setIsSubmittingProgress] = useState<boolean>(false);
 
+  // Supporting documents state (Phase 5)
+  const [taskDocuments, setTaskDocuments] = useState<Array<{ id: string; name: string; size: string; type: string; createdAt: string }>>([]);
+  const [isUploadingDoc, setIsUploadingDoc] = useState<boolean>(false);
+  const [uploadDocError, setUploadDocError] = useState<string | null>(null);
+
   // Add collaborator state
   const [isCollaboratorModalOpen, setIsCollaboratorModalOpen] = useState<boolean>(false);
   const [selectedCollaboratorName, setSelectedCollaboratorName] = useState<string>('Priya Sundaram');
@@ -78,11 +84,32 @@ export default function WorkspaceMyWork({
   // Review feedback action state (for Awaiting Review)
   const [reviewFeedbackText, setReviewFeedbackText] = useState<string>('');
   const [isProcessingReview, setIsProcessingReview] = useState<boolean>(false);
+  const [fetchedTask, setFetchedTask] = useState<DelegatedTask | null>(null);
+
+  // If selected task is not in current list (e.g. across filters or newly assigned), load it directly
+  useEffect(() => {
+    if (selectedTaskId && !tasks.some(t => t.id === selectedTaskId)) {
+      apiFetch(`/api/tasks/${selectedTaskId}`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data && data.id) {
+            setFetchedTask(data);
+          }
+        })
+        .catch(() => {});
+    } else {
+      setFetchedTask(null);
+    }
+
+    if (selectedTaskId) {
+      setFilterStatus('ALL');
+    }
+  }, [selectedTaskId, tasks]);
 
   // Identify currently selected task
   const activeTask = useMemo(() => {
-    return tasks.find(t => t.id === selectedTaskId) || null;
-  }, [tasks, selectedTaskId]);
+    return tasks.find(t => t.id === selectedTaskId) || (fetchedTask?.id === selectedTaskId ? fetchedTask : null);
+  }, [tasks, selectedTaskId, fetchedTask]);
 
   // Is user a privileged reviewer?
   const isReviewerRole = useMemo(() => {
@@ -90,13 +117,15 @@ export default function WorkspaceMyWork({
     return ['FOUNDER', 'ADMIN', 'FINANCE', 'HR', 'OPERATIONS', 'GROWTH', 'LEAD', 'MANAGER'].includes(roleUpper);
   }, [userRole]);
 
-  // Load deliverable result, companion draft, blockers, and progress updates when active task changes
+  // Load deliverable result, companion draft, blockers, progress updates, and supporting documents when active task changes
   useEffect(() => {
     if (!activeTask) {
       setEditorText('');
       setCompanionDraft(null);
       setTaskBlockers([]);
       setProgressUpdates([]);
+      setTaskDocuments([]);
+      setUploadDocError(null);
       return;
     }
 
@@ -149,10 +178,112 @@ export default function WorkspaceMyWork({
       }
     };
 
+    // Fetch supporting documents for this task (Phase 5)
+    const fetchDocuments = async () => {
+      try {
+        const res = await apiFetch(`/api/tasks/${activeTask.id}/documents`);
+        if (res.ok) {
+          const docs = await res.json();
+          setTaskDocuments(Array.isArray(docs) ? docs : []);
+        }
+      } catch (e) {
+        console.warn('Note: Could not load task documents', e);
+      }
+    };
+
     fetchDraft();
     fetchBlockers();
     fetchProgressUpdates();
+    fetchDocuments();
   }, [activeTask?.id]);
+
+  // Handle supporting document upload (Phase 5)
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeTask) return;
+
+    setUploadDocError(null);
+
+    // Validate extension
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    const ALLOWED_EXTS = ['pdf', 'docx', 'doc', 'txt', 'csv', 'xlsx', 'xls', 'json', 'md', 'png', 'jpg', 'jpeg'];
+    if (!ALLOWED_EXTS.includes(ext)) {
+      setUploadDocError(`Unsupported format (.${ext}). Permitted: PDF, DOCX, TXT, CSV, JSON, MD, PNG, JPG.`);
+      e.target.value = '';
+      return;
+    }
+
+    // Validate size (max 15MB)
+    const MAX_SIZE = 15 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      setUploadDocError(`File size exceeds 15MB limit (${(file.size / (1024 * 1024)).toFixed(1)}MB).`);
+      e.target.value = '';
+      return;
+    }
+
+    try {
+      setIsUploadingDoc(true);
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const base64Data = (reader.result as string).split(',')[1];
+          const res = await apiFetch(`/api/tasks/${activeTask.id}/documents`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: file.name,
+              fileData: base64Data,
+              mimeType: file.type || 'application/octet-stream',
+              type: ext === 'pdf' ? 'pdf' : ['png', 'jpg', 'jpeg'].includes(ext) ? 'image' : 'document'
+            })
+          });
+
+          if (res.ok) {
+            const created = await res.json();
+            setTaskDocuments(prev => [created, ...prev]);
+            setStatusNotification({ type: 'success', text: `Uploaded "${file.name}" successfully.` });
+          } else {
+            const errData = await res.json().catch(() => null);
+            setUploadDocError(errData?.error || 'Failed to upload document.');
+          }
+        } catch {
+          setUploadDocError('Network error uploading document.');
+        } finally {
+          setIsUploadingDoc(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      setIsUploadingDoc(false);
+      setUploadDocError('Error reading file.');
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  // Handle supporting document secure download (Phase 5)
+  const handleDownloadDocument = async (docId: string, filename: string) => {
+    if (!activeTask) return;
+    try {
+      const res = await apiFetch(`/api/tasks/${activeTask.id}/documents/${docId}/download`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.downloadUrl) {
+          const a = document.createElement('a');
+          a.href = data.downloadUrl;
+          a.download = data.filename || filename;
+          a.target = '_blank';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }
+      } else {
+        setStatusNotification({ type: 'error', text: 'Could not generate secure download link.' });
+      }
+    } catch (err) {
+      console.warn('Download error:', err);
+    }
+  };
 
   // Handle saving draft
   const handleSaveDraft = async () => {
@@ -332,24 +463,27 @@ export default function WorkspaceMyWork({
   };
 
   // ── Filtered Tasks Calculation ───────────────────────────────────────────────
+  // ── Filtered Tasks Calculation (Phase 3 Filters) ────────────────────────────
   const filteredTasks = useMemo(() => {
     return tasks.filter(t => {
       // Review tab only shows submitted items
       if (currentView === 'REVIEW') {
         if (t.status !== 'submitted') return false;
       } else {
+        if ((filterStatus === 'NEW_ASSIGNMENTS' || filterStatus === 'UPCOMING') && t.status !== 'pending') return false;
         if (filterStatus === 'IN_PROGRESS' && t.status !== 'in_progress') return false;
-        if (filterStatus === 'UPCOMING' && t.status !== 'pending') return false;
-        if (filterStatus === 'REVIEW' && t.status !== 'submitted') return false;
+        if ((filterStatus === 'SUBMITTED' || filterStatus === 'REVIEW') && t.status !== 'submitted') return false;
+        if ((filterStatus === 'CHANGES_REQUESTED' || filterStatus === 'REVISION' || filterStatus === 'BLOCKED') && t.status !== 'changes_requested' && !t.changesRequested) return false;
         if (filterStatus === 'COMPLETED' && t.status !== 'approved') return false;
-        if (filterStatus === 'BLOCKED' && t.status !== 'changes_requested') return false;
       }
 
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const titleMatch = t.title.toLowerCase().includes(q);
         const deptMatch = (t.department || '').toLowerCase().includes(q);
-        return titleMatch || deptMatch;
+        const descMatch = (t.description || '').toLowerCase().includes(q);
+        const parentMatch = (t.parentTask || '').toLowerCase().includes(q);
+        return titleMatch || deptMatch || descMatch || parentMatch;
       }
       return true;
     });
@@ -448,13 +582,14 @@ export default function WorkspaceMyWork({
         {/* Filter bar for List & Board views */}
         {currentView !== 'CALENDAR' && currentView !== 'REVIEW' && (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 mt-4 border-t border-slate-100">
-            {/* Status pills */}
+            {/* Status pills matching Phase 3 */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
               {[
-                { id: 'ALL', label: 'All Tasks', count: tasks.length },
+                { id: 'ALL', label: 'My Tasks', count: tasks.length },
+                { id: 'NEW_ASSIGNMENTS', label: 'New Assignments', count: tasks.filter(t => t.status === 'pending').length },
                 { id: 'IN_PROGRESS', label: 'In Progress', count: tasks.filter(t => t.status === 'in_progress').length },
-                { id: 'UPCOMING', label: 'To Do', count: tasks.filter(t => t.status === 'pending').length },
-                { id: 'REVIEW', label: 'In Review', count: tasks.filter(t => t.status === 'submitted').length },
+                { id: 'SUBMITTED', label: 'Submitted', count: tasks.filter(t => t.status === 'submitted').length },
+                { id: 'CHANGES_REQUESTED', label: 'Changes Requested', count: tasks.filter(t => t.status === 'changes_requested' || t.changesRequested).length },
                 { id: 'COMPLETED', label: 'Completed', count: tasks.filter(t => t.status === 'approved').length },
               ].map(f => (
                 <button
@@ -479,7 +614,7 @@ export default function WorkspaceMyWork({
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
               <input
                 type="text"
-                placeholder="Search tasks by title or dept..."
+                placeholder="Search tasks by title, parent, or dept..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
@@ -501,7 +636,7 @@ export default function WorkspaceMyWork({
             filteredTasks.map(task => {
               const isSelected = task.id === selectedTaskId;
               const isInProgress = task.status === 'in_progress';
-              const isRevision = task.status === 'changes_requested';
+              const isRevision = task.status === 'changes_requested' || Boolean(task.changesRequested);
               const isSubmitted = task.status === 'submitted';
               const isApproved = task.status === 'approved';
 
@@ -513,8 +648,8 @@ export default function WorkspaceMyWork({
                     isSelected ? 'bg-indigo-50/50' : 'hover:bg-slate-50/80'
                   }`}
                 >
-                  <div className="min-w-0 flex items-start gap-3">
-                    <div className="mt-0.5 shrink-0">
+                  <div className="min-w-0 flex items-start gap-3 flex-1">
+                    <div className="mt-1 shrink-0">
                       {isApproved ? (
                         <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                       ) : isRevision ? (
@@ -528,32 +663,76 @@ export default function WorkspaceMyWork({
                       )}
                     </div>
 
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                    <div className="min-w-0 space-y-1.5 flex-1">
+                      {/* Meta badges: Department, Status, Priority, Due Date, Parent Task */}
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                           {task.department || 'GENERAL'}
                         </span>
                         <span className="text-slate-300">•</span>
-                        <span className={`text-[10px] font-semibold px-1.5 py-0.2 rounded ${
-                          isApproved ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
-                          isRevision ? 'bg-rose-50 text-rose-700 border border-rose-200' :
-                          isInProgress ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' :
-                          isSubmitted ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-                          'bg-slate-100 text-slate-700'
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                          isApproved ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                          isRevision ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                          isInProgress ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                          isSubmitted ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                          'bg-slate-100 text-slate-700 border-slate-200'
                         }`}>
-                          {isApproved ? 'Approved' : isRevision ? 'Revision Required' : isInProgress ? 'In Progress' : isSubmitted ? 'In Review' : 'To Do'}
+                          {isApproved ? 'Completed' : isRevision ? 'Changes Requested' : isInProgress ? 'In Progress' : isSubmitted ? 'Submitted (In Review)' : 'New Assignment'}
                         </span>
+
+                        {/* Priority Badge */}
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider border ${
+                          task.priority === 'CRITICAL' ? 'bg-rose-100 text-rose-800 border-rose-300' :
+                          task.priority === 'HIGH' ? 'bg-amber-100 text-amber-800 border-amber-300' :
+                          task.priority === 'LOW' ? 'bg-slate-100 text-slate-600 border-slate-200' :
+                          'bg-blue-50 text-blue-700 border-blue-200'
+                        }`}>
+                          {task.priority || 'MEDIUM'}
+                        </span>
+
+                        {/* Due Date Badge */}
+                        {(task.dueDate || task.deadline) && (
+                          <span className="text-[10px] text-slate-500 flex items-center gap-1 font-mono">
+                            <Calendar className="w-3 h-3 text-slate-400" />
+                            <span>Due: {task.dueDate || task.deadline}</span>
+                          </span>
+                        )}
+
+                        {/* Parent Task Badge */}
+                        {task.parentTask && (
+                          <span className="text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded flex items-center gap-1">
+                            <Layers className="w-3 h-3 text-slate-400" />
+                            <span className="truncate max-w-[200px]">Parent: {task.parentTask}</span>
+                          </span>
+                        )}
                       </div>
 
-                      <h3 className="text-xs font-semibold text-slate-900 truncate">
+                      {/* Task Title */}
+                      <h3 className="text-sm font-semibold text-slate-900 truncate">
                         {task.title.replace(/^\[.*?\]\s*/, '')}
                       </h3>
 
-                      {task.result && (
-                        <p className="text-[11px] text-slate-500 mt-1 line-clamp-1">
-                          Draft Deliverable: {task.result.slice(0, 120)}...
+                      {/* Task Description */}
+                      {task.description && (
+                        <p className="text-xs text-slate-600 line-clamp-1">
+                          {task.description}
                         </p>
                       )}
+
+                      {/* Deliverables snippet */}
+                      <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500 pt-0.5">
+                        {task.expectedDeliverable && (
+                          <span className="flex items-center gap-1 text-indigo-600 font-medium">
+                            <FileText className="w-3 h-3 text-indigo-500 shrink-0" />
+                            <span className="truncate max-w-sm">Expected Deliverable: {task.expectedDeliverable}</span>
+                          </span>
+                        )}
+                        {task.result && (
+                          <span className="text-slate-400 font-mono text-[10px] truncate max-w-xs">
+                            Submission: {task.result.slice(0, 80)}...
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -587,14 +766,20 @@ export default function WorkspaceMyWork({
 
       {/* BOARD VIEW (KANBAN LANES) */}
       {currentView === 'BOARD' && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3.5">
           {[
-            { id: 'pending', title: 'To Do', color: 'border-slate-200 bg-slate-50/50' },
+            { id: 'pending', title: 'New Assignments', color: 'border-slate-200 bg-slate-50/50' },
             { id: 'in_progress', title: 'In Progress', color: 'border-indigo-200 bg-indigo-50/30' },
-            { id: 'submitted', title: 'In Founder Review', color: 'border-amber-200 bg-amber-50/30' },
-            { id: 'approved', title: 'Done & Approved', color: 'border-emerald-200 bg-emerald-50/30' },
+            { id: 'submitted', title: 'Submitted', color: 'border-amber-200 bg-amber-50/30' },
+            { id: 'changes_requested', title: 'Changes Requested', color: 'border-rose-200 bg-rose-50/30' },
+            { id: 'approved', title: 'Completed', color: 'border-emerald-200 bg-emerald-50/30' },
           ].map(lane => {
-            const laneTasks = tasks.filter(t => t.status === lane.id);
+            const laneTasks = tasks.filter(t => {
+              if (lane.id === 'changes_requested') {
+                return t.status === 'changes_requested' || Boolean(t.changesRequested);
+              }
+              return t.status === lane.id;
+            });
 
             return (
               <div key={lane.id} className={`rounded-xl border ${lane.color} p-4 space-y-3`}>
@@ -617,12 +802,38 @@ export default function WorkspaceMyWork({
                       >
                         <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
                           <span>{task.department || 'GENERAL'}</span>
+                          <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold uppercase ${
+                            task.priority === 'CRITICAL' ? 'bg-rose-100 text-rose-700' :
+                            task.priority === 'HIGH' ? 'bg-amber-100 text-amber-700' :
+                            task.priority === 'LOW' ? 'bg-slate-100 text-slate-600' :
+                            'bg-blue-50 text-blue-700'
+                          }`}>
+                            {task.priority || 'MEDIUM'}
+                          </span>
                         </div>
+
                         <h4 className="text-xs font-semibold text-slate-900 line-clamp-2">
                           {task.title.replace(/^\[.*?\]\s*/, '')}
                         </h4>
+
+                        {task.description && (
+                          <p className="text-[11px] text-slate-500 line-clamp-1">
+                            {task.description}
+                          </p>
+                        )}
+
+                        {task.parentTask && (
+                          <div className="text-[10px] text-slate-500 truncate flex items-center gap-1 bg-slate-50 px-1.5 py-0.5 rounded">
+                            <Layers className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                            <span className="truncate">{task.parentTask}</span>
+                          </div>
+                        )}
+
                         <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[10px] text-slate-500">
-                          <span>Assigned</span>
+                          <span className="flex items-center gap-1 font-mono">
+                            <Calendar className="w-2.5 h-2.5 text-slate-400" />
+                            <span>{task.dueDate || task.deadline || 'Active'}</span>
+                          </span>
                           <span className="text-indigo-600 font-medium">Open Editor →</span>
                         </div>
                       </div>
@@ -753,13 +964,19 @@ export default function WorkspaceMyWork({
           <div className="w-full max-w-2xl bg-white h-full shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-right duration-200">
             {/* Drawer Header */}
             <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1 mr-4">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                     {activeTask.department || 'GENERAL'}
                   </span>
                   <span className="text-slate-300">•</span>
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${
+                    activeTask.status === 'approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                    activeTask.status === 'changes_requested' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                    activeTask.status === 'submitted' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                    activeTask.status === 'in_progress' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                    'bg-slate-100 text-slate-700 border-slate-200'
+                  }`}>
                     {activeTask.status.replace(/_/g, ' ')}
                   </span>
                 </div>
@@ -767,12 +984,23 @@ export default function WorkspaceMyWork({
                   {activeTask.title.replace(/^\[.*?\]\s*/, '')}
                 </h2>
               </div>
-              <button
-                onClick={() => onSelectTask(null)}
-                className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                {(activeTask.status === 'pending' || activeTask.status === 'changes_requested') && (
+                  <button
+                    onClick={() => handleStartWork(activeTask.id)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    <span>Start Task</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => onSelectTask(null)}
+                  className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Drawer Body (Scrollable) */}
@@ -809,11 +1037,74 @@ export default function WorkspaceMyWork({
                 </div>
               )}
 
+              {/* Task Specification & Deliverables Details Card */}
+              <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-200/80">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      Priority:
+                    </span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                      activeTask.priority === 'CRITICAL' ? 'bg-rose-100 text-rose-800 border-rose-300' :
+                      activeTask.priority === 'HIGH' ? 'bg-amber-100 text-amber-800 border-amber-300' :
+                      activeTask.priority === 'LOW' ? 'bg-slate-100 text-slate-600 border-slate-200' :
+                      'bg-blue-50 text-blue-700 border-blue-200'
+                    }`}>
+                      {activeTask.priority || 'MEDIUM'}
+                    </span>
+                  </div>
+
+                  {(activeTask.dueDate || activeTask.deadline) && (
+                    <div className="text-xs text-slate-600 flex items-center gap-1 font-mono">
+                      <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                      <span>Deadline: {activeTask.dueDate || activeTask.deadline}</span>
+                    </div>
+                  )}
+                </div>
+
+                {activeTask.parentTask && (
+                  <div className="text-xs text-slate-700 flex items-start gap-1.5">
+                    <Layers className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-semibold text-slate-800">Parent Task: </span>
+                      <span>{activeTask.parentTask}</span>
+                    </div>
+                  </div>
+                )}
+
+                {activeTask.description && (
+                  <div className="text-xs text-slate-600">
+                    <span className="font-semibold text-slate-800">Scope: </span>
+                    <span>{activeTask.description}</span>
+                  </div>
+                )}
+
+                {activeTask.expectedDeliverable && (
+                  <div className="text-xs text-indigo-700 bg-indigo-50/80 p-2.5 rounded-lg border border-indigo-100">
+                    <span className="font-bold flex items-center gap-1.5 mb-1">
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>Expected Deliverable:</span>
+                    </span>
+                    <p className="leading-relaxed">{activeTask.expectedDeliverable}</p>
+                  </div>
+                )}
+              </div>
+
               {/* Quick Action Toolbar */}
               <div className="flex flex-wrap items-center gap-2.5 pb-4 border-b border-slate-100">
+                {(activeTask.status === 'pending' || activeTask.status === 'changes_requested') && (
+                  <button
+                    onClick={() => handleStartWork(activeTask.id)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-current text-emerald-600" />
+                    <span>Start Task</span>
+                  </button>
+                )}
+
                 <button
                   onClick={() => setIsBlockerModalOpen(true)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors flex items-center gap-1.5"
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
                   <AlertOctagon className="w-3.5 h-3.5" />
                   <span>Report Blocker</span>
@@ -821,18 +1112,81 @@ export default function WorkspaceMyWork({
 
                 <button
                   onClick={() => setIsCollaboratorModalOpen(true)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-colors flex items-center gap-1.5"
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
                   <UserPlus className="w-3.5 h-3.5" />
                   <span>Add Collaborator</span>
                 </button>
               </div>
 
-              {/* Deliverable Editor & Formulation Area */}
+              {/* Supporting Documents & Deliverable Files Section (Phase 5) */}
+              <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                      <Paperclip className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Supporting Documents</span>
+                    </h4>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Attach documents, schemas, or specs (PDF, DOCX, TXT, CSV, JSON, MD, PNG, JPG • Max 15MB)
+                    </p>
+                  </div>
+                  <label className={`px-3 py-1.5 bg-white hover:bg-slate-50 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-semibold cursor-pointer flex items-center gap-1.5 shadow-2xs transition-all ${isUploadingDoc ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <UploadCloud className="w-3.5 h-3.5" />
+                    <span>{isUploadingDoc ? 'Uploading...' : 'Upload File'}</span>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept=".pdf,.docx,.doc,.txt,.csv,.xlsx,.xls,.json,.md,.png,.jpg,.jpeg"
+                      onChange={handleFileSelect}
+                      disabled={isUploadingDoc}
+                    />
+                  </label>
+                </div>
+
+                {uploadDocError && (
+                  <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-center gap-2">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-600" />
+                    <span>{uploadDocError}</span>
+                  </div>
+                )}
+
+                {/* Document list */}
+                <div className="space-y-1.5">
+                  {taskDocuments.length === 0 ? (
+                    <div className="p-3 text-center border border-dashed border-slate-200 rounded-lg text-slate-400 text-xs italic">
+                      No supporting documents attached yet.
+                    </div>
+                  ) : (
+                    taskDocuments.map(doc => (
+                      <div key={doc.id} className="p-2.5 rounded-lg bg-white border border-slate-200 flex items-center justify-between text-xs hover:border-slate-300 transition-colors">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <FileText className="w-4 h-4 text-indigo-600 shrink-0" />
+                          <div className="min-w-0">
+                            <span className="font-semibold text-slate-800 truncate block">{doc.name}</span>
+                            <span className="text-[10px] text-slate-400 font-mono">{doc.size} • {new Date(doc.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleDownloadDocument(doc.id, doc.name)}
+                          className="px-2.5 py-1 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors flex items-center gap-1 text-[11px] font-semibold cursor-pointer border border-slate-200"
+                          title="Download document securely"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>Download</span>
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Completion Notes & Deliverable Formulation Area */}
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                    Deliverable Formulation
+                  <label className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Completion Notes & Deliverable Formulation</span>
                   </label>
                   <span className="text-[11px] text-slate-400 font-mono">
                     Markdown supported
@@ -843,7 +1197,7 @@ export default function WorkspaceMyWork({
                   rows={10}
                   value={editorText}
                   onChange={e => setEditorText(e.target.value)}
-                  placeholder="Formulate your specifications, code architecture, analysis report, or deliverables..."
+                  placeholder="Add completion notes, specifications, architecture summary, or final deliverables..."
                   className="w-full p-4 rounded-xl border border-slate-200 text-xs font-mono text-slate-800 leading-relaxed focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 />
 
@@ -851,7 +1205,7 @@ export default function WorkspaceMyWork({
                   <button
                     disabled={isSaving}
                     onClick={handleSaveDraft}
-                    className="px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+                    className="px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
                   >
                     {isSaving ? 'Saving...' : 'Save Draft'}
                   </button>
@@ -859,10 +1213,10 @@ export default function WorkspaceMyWork({
                   <button
                     disabled={isSubmitting}
                     onClick={handleSubmitDeliverable}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-xs flex items-center gap-1.5 transition-colors"
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <Send className="w-3.5 h-3.5" />
-                    <span>{isSubmitting ? 'Submitting...' : 'Submit for Founder Review'}</span>
+                    <span>{isSubmitting ? 'Submitting...' : 'Submit Work for Founder Review'}</span>
                   </button>
                 </div>
               </div>

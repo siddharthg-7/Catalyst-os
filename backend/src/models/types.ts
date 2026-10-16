@@ -67,7 +67,10 @@ export interface DelegatedTask {
   ownerRole: string | null;
   assignedUserId?: string | null;
   assignedUserName?: string | null;
-  status: 'pending' | 'in_progress' | 'submitted' | 'changes_requested' | 'approved' | 'rejected';
+  status: 'pending' | 'in_progress' | 'submitted' | 'changes_requested' | 'approved' | 'rejected' | 'backlog' | 'assigned' | 'in_review' | 'completed' | 'cancelled' | 'BACKLOG' | 'ASSIGNED' | 'IN_PROGRESS' | 'SUBMITTED' | 'IN_REVIEW' | 'CHANGES_REQUESTED' | 'COMPLETED' | 'CANCELLED';
+  canonicalStatus?: 'BACKLOG' | 'ASSIGNED' | 'IN_PROGRESS' | 'SUBMITTED' | 'IN_REVIEW' | 'CHANGES_REQUESTED' | 'COMPLETED' | 'CANCELLED';
+  isRestricted?: boolean;
+  cancellationReason?: string;
   result: string | null;
   founderFeedback?: string | null;
   changesRequested?: boolean;

@@ -577,3 +577,358 @@ export async function sendPasswordResetEmail(payload: PasswordResetEmail): Promi
   }
 }
 
+// ============================================================================
+// PHASE 4 TASK NOTIFICATION EMAILS
+// ============================================================================
+
+export interface TaskAssignmentEmailPayload {
+  to: string;
+  employeeName: string;
+  taskTitle: string;
+  companyName: string;
+  priority: string;
+  deadline?: string;
+  parentTask?: string;
+  agentName?: string;
+  workspaceUrl?: string;
+}
+
+export async function sendTaskAssignmentEmail(payload: TaskAssignmentEmailPayload): Promise<DeliveryResult> {
+  const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@catalystos.internal';
+  const fromAddress = `"CatalystOS Tasks" <${fromEmail}>`;
+  const subject = `[New Assignment] ${payload.taskTitle} — ${payload.companyName}`;
+  const workspaceUrl = payload.workspaceUrl || 'http://localhost:3000/dashboard/workspace';
+
+  const text = [
+    `Hello ${payload.employeeName},`,
+    '',
+    `You have been assigned a new task in ${payload.companyName}:`,
+    `Task: ${payload.taskTitle}`,
+    `Priority: ${payload.priority}`,
+    payload.deadline ? `Deadline: ${payload.deadline}` : '',
+    payload.parentTask ? `Parent Initiative: ${payload.parentTask}` : '',
+    payload.agentName ? `AI Companion: ${payload.agentName}` : '',
+    '',
+    `View and execute this task in your workspace: ${workspaceUrl}`,
+    '',
+    '— CatalystOS Autonomous Venture Operating System'
+  ].filter(Boolean).join('\n');
+
+  const html = `<!DOCTYPE html>
+<html>
+<body style="margin: 0; padding: 20px; background-color: #0b0f17; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #f1f5f9;">
+  <div style="max-width: 580px; margin: 0 auto; background-color: #111827; border: 1px solid #1e293b; border-radius: 14px; padding: 32px;">
+    <div style="display: flex; align-items: center; margin-bottom: 20px;">
+      <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #6366f1; background-color: rgba(99,102,241,0.1); padding: 4px 10px; border-radius: 6px;">New Task Assignment</span>
+    </div>
+    <h2 style="color: #ffffff; margin-top: 0; font-size: 20px; line-height: 28px;">${payload.taskTitle}</h2>
+    <p style="color: #94a3b8; font-size: 14px; margin-bottom: 24px;">
+      Hello <strong style="color: #f1f5f9;">${payload.employeeName}</strong>, you have been assigned to execute this milestone in <strong style="color: #f1f5f9;">${payload.companyName}</strong>.
+    </p>
+
+    <div style="background-color: #1a2234; border: 1px solid #2d3748; border-radius: 10px; padding: 18px; margin-bottom: 24px;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+        <tr>
+          <td style="color: #64748b; padding: 4px 0; width: 120px;">Priority:</td>
+          <td style="color: ${payload.priority === 'CRITICAL' ? '#f43f5e' : payload.priority === 'HIGH' ? '#f59e0b' : '#38bdf8'}; font-weight: 600;">${payload.priority}</td>
+        </tr>
+        ${payload.deadline ? `<tr><td style="color: #64748b; padding: 4px 0;">Deadline:</td><td style="color: #f1f5f9; font-family: monospace;">${payload.deadline}</td></tr>` : ''}
+        ${payload.parentTask ? `<tr><td style="color: #64748b; padding: 4px 0;">Initiative:</td><td style="color: #cbd5e1;">${payload.parentTask}</td></tr>` : ''}
+        ${payload.agentName ? `<tr><td style="color: #64748b; padding: 4px 0;">AI Co-pilot:</td><td style="color: #818cf8; font-weight: 600;">${payload.agentName}</td></tr>` : ''}
+      </table>
+    </div>
+
+    <div style="margin: 28px 0;">
+      <a href="${workspaceUrl}" style="display: inline-block; padding: 12px 24px; background-color: #4f46e5; color: #ffffff; text-decoration: none; font-weight: 600; border-radius: 8px; font-size: 14px;">
+        Open Employee Workspace →
+      </a>
+    </div>
+    <p style="color: #64748b; font-size: 12px; margin-top: 24px; border-top: 1px solid #1e293b; padding-top: 16px;">
+      CatalystOS Venture Execution Telemetry • You received this because you are an active team member of ${payload.companyName}.
+    </p>
+  </div>
+</body>
+</html>`;
+
+  if (!smtpConfigured()) {
+    console.log(`\n[invitationMailer] (Console delivery) Task Assignment Email for ${payload.to}:\n  Task: ${payload.taskTitle} (Priority: ${payload.priority})\n`);
+    return { delivered: false, channel: 'console' };
+  }
+
+  try {
+    const moduleName = 'nodemailer';
+    const nodemailer: any = await import(/* @vite-ignore */ moduleName).catch(() => null);
+    if (!nodemailer) return { delivered: false, channel: 'console', error: 'nodemailer not installed' };
+    const transport = createSmtpTransport(nodemailer);
+    await transport.sendMail({ from: fromAddress, to: payload.to, subject, text, html });
+    console.log(`[invitationMailer] ✅ Task assignment email dispatched via SMTP to ${payload.to}`);
+    return { delivered: true, channel: 'smtp' };
+  } catch (err: any) {
+    console.error('[invitationMailer] ❌ Task assignment email failed:', err.message);
+    return { delivered: false, channel: 'smtp', error: err.message };
+  }
+}
+
+export interface TaskReviewRequestEmailPayload {
+  to: string;
+  founderName: string;
+  employeeName: string;
+  taskTitle: string;
+  companyName: string;
+  summary?: string;
+  workspaceUrl?: string;
+}
+
+export async function sendTaskReviewRequestEmail(payload: TaskReviewRequestEmailPayload): Promise<DeliveryResult> {
+  const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@catalystos.internal';
+  const fromAddress = `"CatalystOS Approvals" <${fromEmail}>`;
+  const subject = `[Review Requested] ${payload.taskTitle} submitted by ${payload.employeeName}`;
+  const workspaceUrl = payload.workspaceUrl || 'http://localhost:3000/dashboard/approvals';
+
+  const text = [
+    `Hello ${payload.founderName},`,
+    '',
+    `${payload.employeeName} has submitted deliverable work for "${payload.taskTitle}" in ${payload.companyName}.`,
+    payload.summary ? `Summary: ${payload.summary}` : '',
+    '',
+    `Review, approve, or request revisions: ${workspaceUrl}`,
+    '',
+    '— CatalystOS Autonomous Venture Operating System'
+  ].filter(Boolean).join('\n');
+
+  const html = `<!DOCTYPE html>
+<html>
+<body style="margin: 0; padding: 20px; background-color: #0b0f17; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #f1f5f9;">
+  <div style="max-width: 580px; margin: 0 auto; background-color: #111827; border: 1px solid #1e293b; border-radius: 14px; padding: 32px;">
+    <div style="margin-bottom: 20px;">
+      <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #a855f7; background-color: rgba(168,85,247,0.1); padding: 4px 10px; border-radius: 6px;">Founder Review Required</span>
+    </div>
+    <h2 style="color: #ffffff; margin-top: 0; font-size: 20px;">${payload.taskTitle}</h2>
+    <p style="color: #94a3b8; font-size: 14px;">
+      <strong style="color: #f1f5f9;">${payload.employeeName}</strong> has submitted deliverable artifacts for review in <strong>${payload.companyName}</strong>.
+    </p>
+    ${payload.summary ? `<div style="background-color: #1a2234; border-left: 3px solid #a855f7; padding: 14px; border-radius: 4px; color: #cbd5e1; font-size: 13px; margin: 20px 0;">${payload.summary}</div>` : ''}
+    <div style="margin: 28px 0;">
+      <a href="${workspaceUrl}" style="display: inline-block; padding: 12px 24px; background-color: #7c3aed; color: #ffffff; text-decoration: none; font-weight: 600; border-radius: 8px; font-size: 14px;">
+        Review &amp; Approve in Dashboard →
+      </a>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  if (!smtpConfigured()) {
+    console.log(`\n[invitationMailer] (Console delivery) Review Request Email for ${payload.to}:\n  Task: ${payload.taskTitle}\n`);
+    return { delivered: false, channel: 'console' };
+  }
+
+  try {
+    const moduleName = 'nodemailer';
+    const nodemailer: any = await import(/* @vite-ignore */ moduleName).catch(() => null);
+    if (!nodemailer) return { delivered: false, channel: 'console', error: 'nodemailer not installed' };
+    const transport = createSmtpTransport(nodemailer);
+    await transport.sendMail({ from: fromAddress, to: payload.to, subject, text, html });
+    console.log(`[invitationMailer] ✅ Review request email dispatched via SMTP to ${payload.to}`);
+    return { delivered: true, channel: 'smtp' };
+  } catch (err: any) {
+    console.error('[invitationMailer] ❌ Review request email failed:', err.message);
+    return { delivered: false, channel: 'smtp', error: err.message };
+  }
+}
+
+export interface TaskRevisionRequestedEmailPayload {
+  to: string;
+  employeeName: string;
+  taskTitle: string;
+  companyName: string;
+  feedback: string;
+  workspaceUrl?: string;
+}
+
+export async function sendTaskRevisionRequestedEmail(payload: TaskRevisionRequestedEmailPayload): Promise<DeliveryResult> {
+  const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@catalystos.internal';
+  const fromAddress = `"CatalystOS Governance" <${fromEmail}>`;
+  const subject = `[Revisions Requested] Feedback on "${payload.taskTitle}"`;
+  const workspaceUrl = payload.workspaceUrl || 'http://localhost:3000/dashboard/workspace';
+
+  const text = [
+    `Hello ${payload.employeeName},`,
+    '',
+    `The founder reviewed your submission for "${payload.taskTitle}" and requested revisions.`,
+    `Feedback: "${payload.feedback}"`,
+    '',
+    `Please review the feedback and update your deliverable: ${workspaceUrl}`,
+    '',
+    '— CatalystOS Autonomous Venture Operating System'
+  ].join('\n');
+
+  const html = `<!DOCTYPE html>
+<html>
+<body style="margin: 0; padding: 20px; background-color: #0b0f17; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #f1f5f9;">
+  <div style="max-width: 580px; margin: 0 auto; background-color: #111827; border: 1px solid #1e293b; border-radius: 14px; padding: 32px;">
+    <div style="margin-bottom: 20px;">
+      <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #f43f5e; background-color: rgba(244,63,94,0.1); padding: 4px 10px; border-radius: 6px;">Changes Requested</span>
+    </div>
+    <h2 style="color: #ffffff; margin-top: 0; font-size: 20px;">${payload.taskTitle}</h2>
+    <p style="color: #94a3b8; font-size: 14px;">
+      The founder reviewed your submission and requested adjustments before final sign-off.
+    </p>
+    <div style="background-color: #1a2234; border-left: 3px solid #f43f5e; padding: 14px; border-radius: 4px; color: #fecdd3; font-size: 13px; margin: 20px 0;">
+      <strong>Founder Feedback:</strong><br/>
+      ${payload.feedback}
+    </div>
+    <div style="margin: 28px 0;">
+      <a href="${workspaceUrl}" style="display: inline-block; padding: 12px 24px; background-color: #e11d48; color: #ffffff; text-decoration: none; font-weight: 600; border-radius: 8px; font-size: 14px;">
+        Open Task &amp; Revise →
+      </a>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  if (!smtpConfigured()) {
+    console.log(`\n[invitationMailer] (Console delivery) Revision Email for ${payload.to}:\n  Feedback: ${payload.feedback}\n`);
+    return { delivered: false, channel: 'console' };
+  }
+
+  try {
+    const moduleName = 'nodemailer';
+    const nodemailer: any = await import(/* @vite-ignore */ moduleName).catch(() => null);
+    if (!nodemailer) return { delivered: false, channel: 'console', error: 'nodemailer not installed' };
+    const transport = createSmtpTransport(nodemailer);
+    await transport.sendMail({ from: fromAddress, to: payload.to, subject, text, html });
+    console.log(`[invitationMailer] ✅ Revisions email dispatched via SMTP to ${payload.to}`);
+    return { delivered: true, channel: 'smtp' };
+  } catch (err: any) {
+    console.error('[invitationMailer] ❌ Revisions email failed:', err.message);
+    return { delivered: false, channel: 'smtp', error: err.message };
+  }
+}
+
+export interface TaskApprovedEmailPayload {
+  to: string;
+  employeeName: string;
+  taskTitle: string;
+  companyName: string;
+  workspaceUrl?: string;
+}
+
+export async function sendTaskApprovedEmail(payload: TaskApprovedEmailPayload): Promise<DeliveryResult> {
+  const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@catalystos.internal';
+  const fromAddress = `"CatalystOS Governance" <${fromEmail}>`;
+  const subject = `[Approved] "${payload.taskTitle}" approved by Founder`;
+  const workspaceUrl = payload.workspaceUrl || 'http://localhost:3000/dashboard/workspace';
+
+  const text = [
+    `Hello ${payload.employeeName},`,
+    '',
+    `Congratulations! Your deliverable for "${payload.taskTitle}" in ${payload.companyName} has been approved by the Founder.`,
+    '',
+    `View completed milestone: ${workspaceUrl}`,
+    '',
+    '— CatalystOS Autonomous Venture Operating System'
+  ].join('\n');
+
+  const html = `<!DOCTYPE html>
+<html>
+<body style="margin: 0; padding: 20px; background-color: #0b0f17; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #f1f5f9;">
+  <div style="max-width: 580px; margin: 0 auto; background-color: #111827; border: 1px solid #1e293b; border-radius: 14px; padding: 32px;">
+    <div style="margin-bottom: 20px;">
+      <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #10b981; background-color: rgba(16,185,129,0.1); padding: 4px 10px; border-radius: 6px;">Deliverable Approved</span>
+    </div>
+    <h2 style="color: #ffffff; margin-top: 0; font-size: 20px;">${payload.taskTitle}</h2>
+    <p style="color: #94a3b8; font-size: 14px;">
+      Great work! The founder has approved your submitted deliverable. It is now logged in the venture operational ledger.
+    </p>
+    <div style="margin: 28px 0;">
+      <a href="${workspaceUrl}" style="display: inline-block; padding: 12px 24px; background-color: #059669; color: #ffffff; text-decoration: none; font-weight: 600; border-radius: 8px; font-size: 14px;">
+        View in Workspace →
+      </a>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  if (!smtpConfigured()) {
+    console.log(`\n[invitationMailer] (Console delivery) Task Approved Email for ${payload.to}:\n  Task: ${payload.taskTitle}\n`);
+    return { delivered: false, channel: 'console' };
+  }
+
+  try {
+    const moduleName = 'nodemailer';
+    const nodemailer: any = await import(/* @vite-ignore */ moduleName).catch(() => null);
+    if (!nodemailer) return { delivered: false, channel: 'console', error: 'nodemailer not installed' };
+    const transport = createSmtpTransport(nodemailer);
+    await transport.sendMail({ from: fromAddress, to: payload.to, subject, text, html });
+    console.log(`[invitationMailer] ✅ Task approved email dispatched via SMTP to ${payload.to}`);
+    return { delivered: true, channel: 'smtp' };
+  } catch (err: any) {
+    console.error('[invitationMailer] ❌ Task approved email failed:', err.message);
+    return { delivered: false, channel: 'smtp', error: err.message };
+  }
+}
+
+export interface DeadlineReminderEmailPayload {
+  to: string;
+  employeeName: string;
+  taskTitle: string;
+  companyName: string;
+  deadline: string;
+  workspaceUrl?: string;
+}
+
+export async function sendDeadlineReminderEmail(payload: DeadlineReminderEmailPayload): Promise<DeliveryResult> {
+  const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@catalystos.internal';
+  const fromAddress = `"CatalystOS Deadlines" <${fromEmail}>`;
+  const subject = `[Deadline Reminder] "${payload.taskTitle}" is due on ${payload.deadline}`;
+  const workspaceUrl = payload.workspaceUrl || 'http://localhost:3000/dashboard/workspace';
+
+  const text = [
+    `Hello ${payload.employeeName},`,
+    '',
+    `This is a reminder that your assigned task "${payload.taskTitle}" is approaching its target deadline: ${payload.deadline}.`,
+    '',
+    `Open your workspace to log progress or submit work: ${workspaceUrl}`,
+    '',
+    '— CatalystOS Autonomous Venture Operating System'
+  ].join('\n');
+
+  const html = `<!DOCTYPE html>
+<html>
+<body style="margin: 0; padding: 20px; background-color: #0b0f17; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #f1f5f9;">
+  <div style="max-width: 580px; margin: 0 auto; background-color: #111827; border: 1px solid #1e293b; border-radius: 14px; padding: 32px;">
+    <div style="margin-bottom: 20px;">
+      <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #f59e0b; background-color: rgba(245,158,11,0.1); padding: 4px 10px; border-radius: 6px;">Deadline Approaching</span>
+    </div>
+    <h2 style="color: #ffffff; margin-top: 0; font-size: 20px;">${payload.taskTitle}</h2>
+    <p style="color: #94a3b8; font-size: 14px;">
+      Your assigned task in <strong>${payload.companyName}</strong> is due on <strong style="color: #f1f5f9; font-family: monospace;">${payload.deadline}</strong>.
+    </p>
+    <div style="margin: 28px 0;">
+      <a href="${workspaceUrl}" style="display: inline-block; padding: 12px 24px; background-color: #d97706; color: #ffffff; text-decoration: none; font-weight: 600; border-radius: 8px; font-size: 14px;">
+        Open Workspace &amp; Update →
+      </a>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  if (!smtpConfigured()) {
+    console.log(`\n[invitationMailer] (Console delivery) Deadline Email for ${payload.to}:\n  Task: ${payload.taskTitle} (Due: ${payload.deadline})\n`);
+    return { delivered: false, channel: 'console' };
+  }
+
+  try {
+    const moduleName = 'nodemailer';
+    const nodemailer: any = await import(/* @vite-ignore */ moduleName).catch(() => null);
+    if (!nodemailer) return { delivered: false, channel: 'console', error: 'nodemailer not installed' };
+    const transport = createSmtpTransport(nodemailer);
+    await transport.sendMail({ from: fromAddress, to: payload.to, subject, text, html });
+    console.log(`[invitationMailer] ✅ Deadline reminder email dispatched via SMTP to ${payload.to}`);
+    return { delivered: true, channel: 'smtp' };
+  } catch (err: any) {
+    console.error('[invitationMailer] ❌ Deadline reminder email failed:', err.message);
+    return { delivered: false, channel: 'smtp', error: err.message };
+  }
+}
+

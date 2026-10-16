@@ -549,6 +549,46 @@ export class ApprovalService {
       }
     }
 
+    // Self-approval guard: An employee must not be able to approve their own submission
+    // unless an explicitly authorized business rule permits it (e.g. startup founder/owner).
+    if (action === 'approve') {
+      let isSelfSubmission = false;
+      if (approvalId.startsWith('appr_task_') && prisma) {
+        const taskId = approvalId.replace('appr_task_', '');
+        try {
+          const taskRecord: any = await (prisma as any).task.findUnique({
+            where: { id: taskId },
+            select: { assignedTo: true }
+          });
+          if (taskRecord?.assignedTo && taskRecord.assignedTo.includes(userId)) {
+            isSelfSubmission = true;
+          }
+        } catch {}
+      }
+
+      const metaPreparedByUserId = (dbApproval?.metricChanges as any)?.preparedByUserId;
+      if (metaPreparedByUserId && metaPreparedByUserId === userId) {
+        isSelfSubmission = true;
+      }
+
+      // Check caller role in company
+      const isOwner = startup && startup.ownerId === userId;
+      if (isSelfSubmission && !isOwner) {
+        await idempotencyService.release({
+          tenantId: effectiveTenantId,
+          approvalId,
+          action,
+          idempotencyKey: params.idempotencyKey,
+          error: 'SelfApprovalForbidden'
+        });
+        return {
+          success: false,
+          statusCode: 403,
+          error: 'Self-approval forbidden: An employee cannot approve their own submission.'
+        };
+      }
+    }
+
     const currentStatus = dbApproval ? dbApproval.status : memoryApproval?.status;
 
     // 3. Idempotency Guard: prevent re-executing already processed approvals
@@ -693,13 +733,27 @@ export class ApprovalService {
 
           if (approvalId.startsWith('appr_task_')) {
             const taskId = approvalId.replace('appr_task_', '');
-            await (prisma as any).task.update({
+            const updatedTask = await (prisma as any).task.update({
               where: { id: taskId },
               data: {
-                status: 'in_progress',
+                status: 'changes_requested',
                 result: `${dbApproval.content}\n\n[FOUNDER_DIRECTIVE]: ${directiveFeedback}`
               }
-            }).catch(() => {});
+            }).catch(() => null);
+
+            if (updatedTask) {
+              try {
+                const { notifyRevisionRequested } = await import('./notificationService');
+                const { decodeTask } = await import('./taskDelegationService');
+                const decoded = decodeTask(updatedTask);
+                await notifyRevisionRequested({
+                  startupId: startup.id,
+                  task: { id: taskId, title: decoded.title, assignedUserId: decoded.assignedUserId },
+                  feedback: directiveFeedback,
+                  founderUserId: userId
+                });
+              } catch {}
+            }
           }
 
           await prisma.decisionLog.create({
@@ -1016,21 +1070,24 @@ export class ApprovalService {
 
           if (approvalId.startsWith('appr_task_')) {
             const taskId = approvalId.replace('appr_task_', '');
-            await (prisma as any).task.update({
+            const updatedTask = await (prisma as any).task.update({
               where: { id: taskId },
               data: { status: 'approved' }
-            }).catch(() => {});
-          }
+            }).catch(() => null);
 
-          // Create real-time notification for successful approval
-          await prisma.notification.create({
-            data: {
-              title: `Approved: ${appr.title}`,
-              message: `Founder approved deliverable. Operational state changes committed and saved to company memory.`,
-              type: 'APPROVED',
-              startupId: startup.id
+            if (updatedTask) {
+              try {
+                const { notifyTaskApproval } = await import('./notificationService');
+                const { decodeTask } = await import('./taskDelegationService');
+                const decoded = decodeTask(updatedTask);
+                await notifyTaskApproval({
+                  startupId: startup.id,
+                  task: { id: taskId, title: decoded.title, assignedUserId: decoded.assignedUserId },
+                  founderUserId: userId
+                });
+              } catch {}
             }
-          }).catch(() => {});
+          }
 
           // CRITICAL: Invalidate Company Context so future AI requests retrieve fresh database state
           companyContextService.invalidate(startup.id);

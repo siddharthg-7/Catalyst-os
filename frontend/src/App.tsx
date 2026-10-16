@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { StartupProfile, Agent, Initiative, Deliverable, KnowledgeFile, DecisionRecord, TeamMember, UserPermissions, CompanyInvitation, DelegatedTask } from './types';
+import { StartupProfile, Agent, Initiative, Deliverable, KnowledgeFile, DecisionRecord, TeamMember, UserPermissions, CompanyInvitation, DelegatedTask, NotificationItem } from './types';
 import SaaSDashboard from './components/SaaSDashboard';
 import AgentWorkspace from './components/AgentWorkspace';
 import WorkflowCanvas from './components/WorkflowCanvas';
@@ -202,6 +202,58 @@ export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [selectedTaskIdForWorkspace, setSelectedTaskIdForWorkspace] = useState<string | null>(null);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadNotifCount, setUnreadNotifCount] = useState<number>(0);
+
+  // Reliable polling for in-app task notifications (paused when document hidden)
+  const fetchNotifications = async () => {
+    if (!user) return;
+    try {
+      const res = await apiFetch('/api/notifications');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setNotifications(data);
+          const unread = data.filter((n: any) => !n.read).length;
+          setUnreadNotifCount(unread);
+        }
+      }
+    } catch (err) {
+      console.warn('[App] Error fetching notifications:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (!user) {
+      setNotifications([]);
+      setUnreadNotifCount(0);
+      return;
+    }
+
+    fetchNotifications();
+
+    // Check approaching deadlines periodically
+    apiFetch('/api/notifications/check-deadlines', { method: 'POST' }).catch(() => {});
+
+    // Reliable polling every 12 seconds when window is active
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        fetchNotifications();
+      }
+    }, 12000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchNotifications();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [user]);
 
   // Sync selected agent with URL if on /dashboard/agents/:agentId
   useEffect(() => {
@@ -1164,12 +1216,16 @@ export default function App() {
               <button 
                 onClick={() => setNotificationsOpen(true)}
                 className="relative p-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer shadow-xs"
-                title="Open Operational Alerts"
+                title="Open Work Notifications"
               >
                 <Bell className="w-4 h-4" />
-                {approvals.length > 0 && (
-                  <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-rose-500" />
-                )}
+                {unreadNotifCount > 0 ? (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white font-bold text-[10px] flex items-center justify-center shadow-xs">
+                    {unreadNotifCount > 99 ? '99+' : unreadNotifCount}
+                  </span>
+                ) : approvals.length > 0 ? (
+                  <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-amber-500" />
+                ) : null}
               </button>
 
               {/* Settings */}
@@ -1220,6 +1276,7 @@ export default function App() {
                       decisions={decisions}
                       knowledge={knowledge}
                       tasks={tasks}
+                      teamMembers={teamMembers}
                       memberships={memberships}
                       invitations={invitations}
                       onReviewItem={handleReviewItem}
@@ -1532,7 +1589,14 @@ export default function App() {
       <NotificationPanel 
         isOpen={notificationsOpen} 
         onClose={() => setNotificationsOpen(false)} 
-        onNavigate={(tab) => handleTabChange(tab)} 
+        onNavigate={(tab) => handleTabChange(tab as any)} 
+        onOpenTask={(taskId) => {
+          setSelectedTaskIdForWorkspace(taskId);
+          navigate(`/employee?task=${taskId}`);
+        }}
+        notifications={notifications}
+        unreadCount={unreadNotifCount}
+        onRefresh={fetchNotifications}
       />
 
       {/* Global Voice Studio Management Panel */}

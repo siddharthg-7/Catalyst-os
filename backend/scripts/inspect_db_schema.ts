@@ -36,10 +36,10 @@ async function main() {
   `);
   console.log('KnowledgeChunk columns:', chunkCols);
 
-  const embedCols: any = await prisma.$queryRawUnsafe(`
-    SELECT column_name, data_type, udt_name FROM information_schema.columns WHERE table_name = 'Embedding';
+  const notifCols: any = await prisma.$queryRawUnsafe(`
+    SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'Notification';
   `);
-  console.log('Embedding columns:', embedCols);
+  console.log('Notification columns:', notifCols);
 
   await prisma.$disconnect();
 }

@@ -25,17 +25,257 @@ import { resolveMembership } from './membershipService';
 export type Department =
   | 'TALENT' | 'FINANCE' | 'GROWTH' | 'LEGAL' | 'OPERATIONS' | 'AUDITOR';
 
+export type CanonicalTaskStatus =
+  | 'BACKLOG'
+  | 'ASSIGNED'
+  | 'IN_PROGRESS'
+  | 'SUBMITTED'
+  | 'IN_REVIEW'
+  | 'CHANGES_REQUESTED'
+  | 'COMPLETED'
+  | 'CANCELLED';
+
 export type TaskStatus =
-  | 'pending'      // delegated, nobody has picked it up
-  | 'in_progress'        // an employee is working on it with their AI teammate
-  | 'submitted'          // employee submitted; awaits founder approval
-  | 'changes_requested'  // founder reviewed and asked for revisions
+  | 'pending'
+  | 'backlog'
+  | 'assigned'
+  | 'in_progress'
+  | 'submitted'
+  | 'in_review'
+  | 'changes_requested'
   | 'approved'
-  | 'rejected';
+  | 'completed'
+  | 'cancelled'
+  | 'rejected'
+  | CanonicalTaskStatus;
 
 export const TASK_STATUSES: TaskStatus[] = [
-  'pending', 'in_progress', 'submitted', 'changes_requested', 'approved', 'rejected'
+  'pending', 'backlog', 'assigned', 'in_progress', 'submitted', 'in_review',
+  'changes_requested', 'approved', 'completed', 'cancelled', 'rejected',
+  'BACKLOG', 'ASSIGNED', 'IN_PROGRESS', 'SUBMITTED', 'IN_REVIEW',
+  'CHANGES_REQUESTED', 'COMPLETED', 'CANCELLED'
 ];
+
+/**
+ * Valid state machine transitions.
+ * Forward pipeline: BACKLOG -> ASSIGNED -> IN_PROGRESS -> SUBMITTED -> IN_REVIEW -> COMPLETED
+ * Revisions: IN_REVIEW -> CHANGES_REQUESTED -> IN_PROGRESS
+ * Direct founder review shortcuts: SUBMITTED -> COMPLETED, SUBMITTED -> CHANGES_REQUESTED
+ * Cancellation: allowed from any non-terminal state through authorized workflow
+ * Terminal states: COMPLETED and CANCELLED (reopening requires Founder/Admin)
+ */
+export const VALID_STATUS_TRANSITIONS: Record<CanonicalTaskStatus, CanonicalTaskStatus[]> = {
+  BACKLOG: ['ASSIGNED', 'IN_PROGRESS', 'CANCELLED'],
+  ASSIGNED: ['IN_PROGRESS', 'BACKLOG', 'CANCELLED'],
+  IN_PROGRESS: ['SUBMITTED', 'ASSIGNED', 'BACKLOG', 'CANCELLED'],
+  SUBMITTED: ['IN_REVIEW', 'COMPLETED', 'CHANGES_REQUESTED', 'IN_PROGRESS', 'CANCELLED'],
+  IN_REVIEW: ['COMPLETED', 'CHANGES_REQUESTED', 'SUBMITTED', 'CANCELLED'],
+  CHANGES_REQUESTED: ['IN_PROGRESS', 'COMPLETED', 'CANCELLED'],
+  COMPLETED: ['IN_REVIEW', 'IN_PROGRESS'], // Authorized reopen reserved for Founder/Admin
+  CANCELLED: ['BACKLOG', 'IN_PROGRESS']    // Authorized reopen reserved for Founder/Admin
+};
+
+export function toCanonicalStatus(rawStatus?: string | null, assignedTo?: string | null): CanonicalTaskStatus | null {
+  const s = (rawStatus || '').toUpperCase().trim();
+  if (s === 'BACKLOG') return 'BACKLOG';
+  if (s === 'ASSIGNED') return 'ASSIGNED';
+  if (s === 'IN_PROGRESS') return 'IN_PROGRESS';
+  if (s === 'SUBMITTED') return 'SUBMITTED';
+  if (s === 'IN_REVIEW') return 'IN_REVIEW';
+  if (s === 'CHANGES_REQUESTED') return 'CHANGES_REQUESTED';
+  if (s === 'COMPLETED' || s === 'APPROVED') return 'COMPLETED';
+  if (s === 'CANCELLED' || s === 'REJECTED') return 'CANCELLED';
+
+  if (s === 'PENDING') {
+    const rawAssigned = (assignedTo || '').trim();
+    const isAssigned = rawAssigned && rawAssigned !== 'UNASSIGNED';
+    return isAssigned ? 'ASSIGNED' : 'BACKLOG';
+  }
+
+  return null;
+}
+
+export function toDbStatus(canonical: CanonicalTaskStatus): string {
+  switch (canonical) {
+    case 'BACKLOG':
+    case 'ASSIGNED':
+      return 'pending';
+    case 'IN_PROGRESS':
+      return 'in_progress';
+    case 'SUBMITTED':
+      return 'submitted';
+    case 'IN_REVIEW':
+      return 'in_review';
+    case 'CHANGES_REQUESTED':
+      return 'changes_requested';
+    case 'COMPLETED':
+      return 'approved';
+    case 'CANCELLED':
+      return 'cancelled';
+    default:
+      return 'pending';
+  }
+}
+
+export interface TransitionValidationResult {
+  allowed: boolean;
+  canonicalFrom: CanonicalTaskStatus;
+  canonicalTo: CanonicalTaskStatus;
+  persistedDbStatus: string;
+  statusCode?: number;
+  errorCode?: string;
+  errorMessage?: string;
+}
+
+export function validateStatusTransition(params: {
+  currentStatus: string;
+  nextStatus: string;
+  assignedTo?: string | null;
+  callerUserId: string;
+  callerRole: string;
+  isDirectAssignee: boolean;
+  founderFeedback?: string | null;
+  cancellationReason?: string | null;
+}): TransitionValidationResult {
+  const {
+    currentStatus,
+    nextStatus,
+    assignedTo,
+    callerRole,
+    isDirectAssignee,
+    founderFeedback
+  } = params;
+
+  const isPrivileged = callerRole === 'FOUNDER' || callerRole === 'ADMIN';
+  const canonicalFrom = toCanonicalStatus(currentStatus, assignedTo) || 'BACKLOG';
+  const canonicalTo = toCanonicalStatus(nextStatus, assignedTo);
+
+  // Reject unrecognized / arbitrary statuses
+  if (!canonicalTo) {
+    return {
+      allowed: false,
+      canonicalFrom,
+      canonicalTo: 'BACKLOG',
+      persistedDbStatus: 'pending',
+      statusCode: 400,
+      errorCode: 'INVALID_STATUS_TRANSITION',
+      errorMessage: `Status "${nextStatus}" is not a recognized task status.`
+    };
+  }
+
+  const persistedDbStatus = toDbStatus(canonicalTo);
+
+  // Idempotent: transition to same canonical status is allowed
+  if (canonicalFrom === canonicalTo) {
+    return {
+      allowed: true,
+      canonicalFrom,
+      canonicalTo,
+      persistedDbStatus
+    };
+  }
+
+  // 1. Terminal state guard: COMPLETED or CANCELLED tasks can only be reopened by Founder/Admin
+  if ((canonicalFrom === 'COMPLETED' || canonicalFrom === 'CANCELLED') && !isPrivileged) {
+    return {
+      allowed: false,
+      canonicalFrom,
+      canonicalTo,
+      persistedDbStatus,
+      statusCode: 403,
+      errorCode: 'TERMINAL_STATE_LOCKED',
+      errorMessage: `Cannot modify a ${canonicalFrom} task. Only founders or administrators can reopen terminal tasks.`
+    };
+  }
+
+  // 2. Cancellation workflow guard: only Founder/Admin can cancel tasks
+  if (canonicalTo === 'CANCELLED' && !isPrivileged) {
+    return {
+      allowed: false,
+      canonicalFrom,
+      canonicalTo,
+      persistedDbStatus,
+      statusCode: 403,
+      errorCode: 'UNAUTHORIZED_CANCELLATION',
+      errorMessage: 'Cancellation is restricted: Only founders or administrators can cancel tasks.'
+    };
+  }
+
+  // 3. Approval / Completion guard:
+  if (canonicalTo === 'COMPLETED') {
+    // Self-approval guard: an employee cannot approve their own submission
+    if (isDirectAssignee && callerRole !== 'FOUNDER') {
+      return {
+        allowed: false,
+        canonicalFrom,
+        canonicalTo,
+        persistedDbStatus,
+        statusCode: 403,
+        errorCode: 'SELF_APPROVAL_FORBIDDEN',
+        errorMessage: 'Self-approval forbidden: An employee cannot approve their own submission.'
+      };
+    }
+    if (!isPrivileged) {
+      return {
+        allowed: false,
+        canonicalFrom,
+        canonicalTo,
+        persistedDbStatus,
+        statusCode: 403,
+        errorCode: 'APPROVAL_RESERVED',
+        errorMessage: 'Only the founder or an admin can approve submitted work.'
+      };
+    }
+  }
+
+  // 4. Changes Requested guard:
+  if (canonicalTo === 'CHANGES_REQUESTED') {
+    if (!isPrivileged) {
+      return {
+        allowed: false,
+        canonicalFrom,
+        canonicalTo,
+        persistedDbStatus,
+        statusCode: 403,
+        errorCode: 'APPROVAL_RESERVED',
+        errorMessage: 'Only the founder or an admin can request revisions.'
+      };
+    }
+    const feedback = (founderFeedback || '').trim();
+    if (!feedback) {
+      return {
+        allowed: false,
+        canonicalFrom,
+        canonicalTo,
+        persistedDbStatus,
+        statusCode: 400,
+        errorCode: 'FEEDBACK_REQUIRED',
+        errorMessage: 'Feedback is required when requesting revisions or changes.'
+      };
+    }
+  }
+
+  // 5. Verify transition is allowed in the state machine transition graph
+  const allowedTargets = VALID_STATUS_TRANSITIONS[canonicalFrom] || [];
+  if (!allowedTargets.includes(canonicalTo)) {
+    return {
+      allowed: false,
+      canonicalFrom,
+      canonicalTo,
+      persistedDbStatus,
+      statusCode: 400,
+      errorCode: 'INVALID_STATUS_TRANSITION',
+      errorMessage: `Invalid status transition: cannot transition task from ${canonicalFrom} to ${canonicalTo}. Allowed transitions from ${canonicalFrom}: [${allowedTargets.join(', ')}].`
+    };
+  }
+
+  return {
+    allowed: true,
+    canonicalFrom,
+    canonicalTo,
+    persistedDbStatus
+  };
+}
 
 /**
  * Department -> the human role that owns the work.
@@ -218,6 +458,9 @@ export interface DelegatedTask {
   assignedUserId?: string | null;
   assignedUserName?: string | null;
   status: TaskStatus;
+  canonicalStatus?: CanonicalTaskStatus;
+  isRestricted?: boolean;
+  cancellationReason?: string | null;
   result: string | null;
   founderFeedback?: string | null;
   changesRequested?: boolean;
@@ -226,6 +469,21 @@ export interface DelegatedTask {
   humanRequirement?: HumanRoleRequirement | null;
   createdAt: string;
   updatedAt: string;
+  description?: string;
+  priority?: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  dueDate?: string;
+  deadline?: string;
+  dependencies?: string[];
+  expectedDeliverable?: string;
+  parentTask?: string;
+  parentTaskId?: string;
+  assignedBy?: string | null;
+  assignedByName?: string | null;
+  companyId?: string;
+  subtasks?: any[];
+  documents?: any[];
+  progressUpdates?: any[];
+  activityHistory?: any[];
 }
 
 export interface PlanStepDefinition {
@@ -265,7 +523,7 @@ export interface DecomposedPlanResult {
   missingHumanRequirements?: HumanRoleRequirement[];
 }
 
-function decodeTask(row: any): DelegatedTask {
+export function decodeTask(row: any): DelegatedTask {
   const match = TITLE_PREFIX.exec(row.title || '');
   const department = match?.[1] || 'GENERAL';
   const agent = match?.[2] || 'CEO';
@@ -287,7 +545,18 @@ function decodeTask(row: any): DelegatedTask {
 
   let founderFeedback: string | null = null;
   let changesRequested = (row.status === 'changes_requested');
+  let cleanResult: string | null = row.result ?? null;
+  let metadata: Record<string, any> = {};
+
   if (row.result && typeof row.result === 'string') {
+    const metaMatch = row.result.match(/\[TASK_META\]:\s*(\{.*?\})(?:\n|$)/);
+    if (metaMatch) {
+      try {
+        metadata = JSON.parse(metaMatch[1]);
+        cleanResult = row.result.replace(/\[TASK_META\]:\s*\{.*?\}(?:\n|$)/, '').trim() || null;
+      } catch {}
+    }
+
     const feedbackMatch = row.result.match(/\[FOUNDER_(?:DIRECTIVE|FEEDBACK)\]:\s*([^\n]+)/);
     if (feedbackMatch) {
       founderFeedback = feedbackMatch[1].trim();
@@ -295,17 +564,60 @@ function decodeTask(row: any): DelegatedTask {
     }
   }
 
+  // Priority resolution with fallback
+  const rawPriority = (metadata.priority || (department === 'FINANCE' || department === 'LEGAL' ? 'HIGH' : 'MEDIUM')).toUpperCase();
+  const priority: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' =
+    ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].includes(rawPriority) ? rawPriority : 'MEDIUM';
+
+  // Parent task resolution
+  const parentTask = metadata.parentTaskTitle || row.plan?.title || 'Core Executive Operations';
+  const parentTaskId = metadata.parentTaskId || row.plan?.id || row.planId;
+  const companyId = metadata.companyId || row.plan?.startupId;
+
+  // Deadline / Due date resolution: 7 days default from creation
+  const createdAtDate = row.createdAt ? new Date(row.createdAt) : new Date();
+  const defaultDue = new Date(createdAtDate.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const dueDate = metadata.deadline || metadata.dueDate || defaultDue;
+
+  // Description
+  const description = metadata.description || row.plan?.description || title;
+
+  // Expected deliverable
+  const expectedDeliverable = metadata.expectedDeliverable ||
+    `Structured findings, implementation specs, and operational outputs for "${title}"`;
+
+  const isRestricted = Boolean(
+    metadata.isRestricted || metadata.restricted || metadata.confidential ||
+    metadata.accessScope === 'RESTRICTED' || row.title?.includes('[RESTRICTED]')
+  );
+  const canonicalStatus = toCanonicalStatus(row.status || 'pending', row.assignedTo) || 'BACKLOG';
+  const cancellationReason = metadata.cancellationReason || null;
+
   return {
     id: row.id,
     planId: row.planId,
+    companyId,
+    parentTaskId,
+    parentTask,
     title,
+    description,
+    priority,
+    dueDate,
+    deadline: dueDate,
+    dependencies: Array.isArray(metadata.dependencies) ? metadata.dependencies : [],
+    expectedDeliverable,
     department,
     agent,
     ownerRole: ownerRole ? normalizeRole(ownerRole) : null,
     assignedUserId,
     assignedUserName: row.assignedUserName || null,
+    assignedBy: metadata.assignedBy || null,
+    assignedByName: row.assignedByName || null,
     status: (row.status || 'pending') as any,
-    result: row.result ?? null,
+    canonicalStatus,
+    isRestricted,
+    cancellationReason,
+    result: cleanResult,
     founderFeedback,
     changesRequested,
     needsHumanOwner,
@@ -1224,7 +1536,10 @@ export async function getPlanById(userId: string, planId: string): Promise<PlanW
  * Helper to enrich tasks with their assigned user's display name.
  */
 async function enrichTasksWithUserNames(tasks: DelegatedTask[]): Promise<DelegatedTask[]> {
-  const userIds = Array.from(new Set(tasks.map(t => t.assignedUserId).filter(Boolean))) as string[];
+  const userIds = Array.from(new Set([
+    ...tasks.map(t => t.assignedUserId),
+    ...tasks.map(t => t.assignedBy)
+  ].filter(Boolean))) as string[];
   if (userIds.length === 0 || !prisma) return tasks;
 
   try {
@@ -1239,10 +1554,14 @@ async function enrichTasksWithUserNames(tasks: DelegatedTask[]): Promise<Delegat
       userMap.set(u.id, u.name || u.email || 'Team Member');
     }
     return tasks.map(t => {
+      let updated = { ...t };
       if (t.assignedUserId && userMap.has(t.assignedUserId)) {
-        return { ...t, assignedUserName: userMap.get(t.assignedUserId)! };
+        updated.assignedUserName = userMap.get(t.assignedUserId)!;
       }
-      return t;
+      if (t.assignedBy && userMap.has(t.assignedBy)) {
+        updated.assignedByName = userMap.get(t.assignedBy)!;
+      }
+      return updated;
     });
   } catch {
     return tasks;
@@ -1287,15 +1606,162 @@ export async function listTasksForUser(userId: string): Promise<DelegatedTask[]>
                 ]
               })
         },
+        include: {
+          plan: { select: { id: true, title: true, description: true, startupId: true } }
+        },
         orderBy: { createdAt: 'desc' }
       })
     );
     const decoded = (rows || []).map(decodeTask);
-    return await enrichTasksWithUserNames(decoded);
+    const filtered = isPrivileged
+      ? decoded
+      : decoded.filter(t => {
+          if (t.isRestricted && t.assignedUserId !== userId) {
+            return false;
+          }
+          return true;
+        });
+    return await enrichTasksWithUserNames(filtered);
   } catch (err: any) {
     console.warn('[taskDelegationService] listTasksForUser note:', err.message);
     return [];
   }
+}
+
+/**
+ * Retrieves a single task by ID if the caller is authorized to view it in their company workspace.
+ * Founder/Admin can view any company task; employees can view tasks for their role or assigned to them.
+ */
+export async function getTaskByIdForUser(userId: string, taskId: string): Promise<DelegatedTask> {
+  if (!userId || !prisma) {
+    throw new TaskDelegationError(503, 'Database unavailable.', 'DB_UNAVAILABLE');
+  }
+
+  const membership = await resolveMembership(userId);
+  if (!membership) {
+    throw new TaskDelegationError(
+      403,
+      'Forbidden: you do not have active access to a company workspace.',
+      'NO_ACTIVE_MEMBERSHIP'
+    );
+  }
+
+  const role = membership.role;
+  const isPrivileged = role === 'FOUNDER' || role === 'ADMIN';
+
+  const row: any = await safeDbQuery(() =>
+    (prisma as any).task.findFirst({
+      where: {
+        id: taskId,
+        plan: { startupId: membership.startupId }
+      },
+      include: {
+        plan: { select: { id: true, title: true, description: true, startupId: true } }
+      }
+    })
+  );
+
+  if (!row) {
+    throw new TaskDelegationError(404, 'Task not found in this company.', 'NOT_FOUND');
+  }
+
+  const decoded = decodeTask(row);
+
+  if (!isPrivileged) {
+    const isOwnerRole = decoded.ownerRole === role;
+    const isAssignedUser = decoded.assignedUserId === userId;
+
+    // Phase 8: Prevent employees from viewing other employees' restricted tasks
+    if (decoded.isRestricted && !isAssignedUser) {
+      throw new TaskDelegationError(
+        403,
+        'Forbidden: this is a restricted task and cannot be viewed by other employees.',
+        'RESTRICTED_TASK_ACCESS'
+      );
+    }
+
+    if (!isOwnerRole && !isAssignedUser) {
+      throw new TaskDelegationError(403, 'You do not have authorization to view this task.', 'UNAUTHORIZED_TASK_ACCESS');
+    }
+  }
+
+  const enriched = await enrichTasksWithUserNames([decoded]);
+  const mainTask = enriched[0];
+
+  // Fetch sibling subtasks under the same plan
+  let subtasks: any[] = [];
+  if (row.planId) {
+    try {
+      const siblings: any[] = await safeDbQuery(() =>
+        (prisma as any).task.findMany({
+          where: { planId: row.planId },
+          include: { plan: { select: { id: true, title: true, description: true, startupId: true } } }
+        })
+      );
+      if (siblings && siblings.length > 0) {
+        const decodedSiblings = await enrichTasksWithUserNames(siblings.map(decodeTask));
+        subtasks = decodedSiblings.filter(s => s.id !== decoded.id);
+      }
+    } catch (subErr: any) {
+      console.warn('[taskDelegationService] Subtasks query note:', subErr.message);
+    }
+  }
+
+  // Fetch attached documents
+  let documents: any[] = [];
+  try {
+    const docs: any[] = await safeDbQuery(() =>
+      (prisma as any).startupDocument.findMany({
+        where: {
+          startupId: membership.startupId,
+          sourceType: 'TASK_DOCUMENT',
+          sourceRecordId: taskId
+        },
+        orderBy: { createdAt: 'desc' }
+      })
+    );
+    if (docs) {
+      documents = docs.map((d: any) => ({
+        id: d.id,
+        name: d.name,
+        size: d.size,
+        type: d.type,
+        createdAt: d.createdAt?.toISOString?.() ?? String(d.createdAt)
+      }));
+    }
+  } catch (docErr: any) {
+    console.warn('[taskDelegationService] Documents query note:', docErr.message);
+  }
+
+  // Fetch progress updates
+  let progressUpdates: any[] = [];
+  try {
+    const { listTaskProgressUpdates } = await import('./employeeEcosystemService');
+    progressUpdates = await listTaskProgressUpdates(taskId);
+  } catch (progErr: any) {
+    console.warn('[taskDelegationService] Progress query note:', progErr.message);
+  }
+
+  // Fetch relevant task activity history
+  let activityHistory: any[] = [];
+  try {
+    const { activityLogService } = await import('./activityLogService');
+    const logs = await activityLogService.listActivities({
+      startupId: membership.startupId,
+      limit: 50
+    });
+    activityHistory = logs.filter((l: any) => l.targetId === taskId || (l.details && l.details.taskId === taskId));
+  } catch (actErr: any) {
+    console.warn('[taskDelegationService] Activity history query note:', actErr.message);
+  }
+
+  return {
+    ...mainTask,
+    subtasks,
+    documents,
+    progressUpdates,
+    activityHistory
+  };
 }
 
 /**
@@ -1340,6 +1806,14 @@ export async function assignTaskForUser(params: {
   }
 
   const decoded = decodeTask(row);
+
+  // Phase 8 Idempotency: duplicate assignment retries must be a no-op
+  if (targetAssigneeId && decoded.assignedUserId === targetAssigneeId) {
+    return decoded;
+  }
+  if (!targetAssigneeId && !decoded.assignedUserId) {
+    return decoded;
+  }
 
   // If not privileged, caller can only claim the task for THEMSELVES and only if they match the department ownerRole
   if (!isPrivileged) {
@@ -1393,8 +1867,9 @@ export async function assignTaskForUser(params: {
   const updateData: Record<string, any> = {
     assignedTo: newAssignedTo
   };
-  // If task was pending and is now claimed by user, advance to in_progress
-  if (targetAssigneeId && row.status === 'pending') {
+  // If task was pending and is self-claimed by the employee, advance to in_progress.
+  // If assigned by founder/admin to a team member, keep status pending (canonical ASSIGNED).
+  if (targetAssigneeId && row.status === 'pending' && (!isPrivileged || userId === targetAssigneeId)) {
     updateData.status = 'in_progress';
   }
 
@@ -1407,6 +1882,28 @@ export async function assignTaskForUser(params: {
   if (targetUserName) {
     resTask.assignedUserName = targetUserName;
   }
+
+  // Phase 4: Alert team and founder upon task assignment or reassignment
+  if (callerMembership?.startupId) {
+    try {
+      const { notifyAssignmentChange } = await import('./notificationService');
+      await notifyAssignmentChange({
+        startupId: callerMembership.startupId,
+        task: {
+          id: row.id,
+          title: resTask.title,
+          priority: resTask.priority,
+          deadline: resTask.deadline
+        },
+        previousAssigneeId: decoded.assignedUserId,
+        newAssigneeId: targetAssigneeId,
+        changedByUserId: userId
+      });
+    } catch (notifErr: any) {
+      console.warn('[taskDelegationService] Task assigned notification note:', notifErr?.message);
+    }
+  }
+
   return resTask;
 }
 
@@ -1422,6 +1919,9 @@ export async function updateTaskForUser(params: {
   taskId: string;
   status?: string;
   result?: string;
+  founderFeedback?: string;
+  cancellationReason?: string;
+  submissionNotes?: string;
 }): Promise<DelegatedTask> {
   const { userId, taskId } = params;
   if (!prisma) {
@@ -1464,30 +1964,58 @@ export async function updateTaskForUser(params: {
   }
 
   const data: Record<string, any> = {};
+  let transitionValidation: TransitionValidationResult | null = null;
 
   if (params.status !== undefined) {
-    const next = String(params.status).toLowerCase() as TaskStatus;
-    if (!TASK_STATUSES.includes(next)) {
+    transitionValidation = validateStatusTransition({
+      currentStatus: row.status,
+      nextStatus: params.status,
+      assignedTo: row.assignedTo,
+      callerUserId: userId,
+      callerRole: role,
+      isDirectAssignee,
+      founderFeedback: params.founderFeedback,
+      cancellationReason: params.cancellationReason
+    });
+
+    if (!transitionValidation.allowed) {
       throw new TaskDelegationError(
-        400,
-        `Status must be one of [${TASK_STATUSES.join(', ')}].`,
-        'INVALID_STATUS'
+        transitionValidation.statusCode || 400,
+        transitionValidation.errorMessage || 'Invalid status transition.',
+        transitionValidation.errorCode || 'INVALID_STATUS_TRANSITION'
       );
     }
-    // approved/rejected are set by the founder approval loop, not by an employee
-    // marking their own work done.
-    if ((next === 'approved' || next === 'rejected') && !isPrivileged) {
-      throw new TaskDelegationError(
-        403,
-        'Only the founder or an admin can approve or reject submitted work.',
-        'APPROVAL_RESERVED'
-      );
+
+    data.status = transitionValidation.persistedDbStatus;
+  }
+
+  if (params.submissionNotes !== undefined) {
+    const notesStr = String(params.submissionNotes).trim();
+    if (notesStr) {
+      const currentRes = data.result !== undefined ? data.result : (row.result || '');
+      data.result = `[TASK_SUBMISSION]: ${notesStr}\n\n${currentRes}`.trim();
     }
-    data.status = next;
+  }
+
+  if (params.cancellationReason !== undefined) {
+    const reasonStr = String(params.cancellationReason).trim();
+    if (reasonStr) {
+      const currentRes = data.result !== undefined ? data.result : (row.result || '');
+      data.result = `${currentRes}\n\n[TASK_CANCELLATION_REASON]: ${reasonStr}`.trim();
+    }
   }
 
   if (params.result !== undefined) {
     data.result = String(params.result);
+  }
+
+  if (params.founderFeedback !== undefined) {
+    const feedbackStr = String(params.founderFeedback).trim();
+    if (feedbackStr) {
+      const currentRes = data.result !== undefined ? data.result : (row.result || '');
+      const cleaned = currentRes.replace(/\n*\[FOUNDER_(?:DIRECTIVE|FEEDBACK)\]:\s*[^\n]*/g, '').trim();
+      data.result = `${cleaned}\n\n[FOUNDER_FEEDBACK]: ${feedbackStr}`.trim();
+    }
   }
 
   if (Object.keys(data).length === 0) {
@@ -1500,6 +2028,55 @@ export async function updateTaskForUser(params: {
   });
 
   const decoded = decodeTask(updated);
+
+  // Record transition in activity log and progress update history if status changed
+  if (transitionValidation && transitionValidation.canonicalFrom !== transitionValidation.canonicalTo) {
+    try {
+      const { activityLogService } = await import('./activityLogService');
+      await activityLogService.logActivity({
+        startupId: membership.startupId,
+        userId,
+        actorRole: role,
+        action: 'TASK_STATUS_TRANSITION',
+        targetEntity: 'TASK',
+        targetId: row.id,
+        department: decoded.department,
+        details: {
+          taskId: row.id,
+          fromStatus: transitionValidation.canonicalFrom,
+          toStatus: transitionValidation.canonicalTo,
+          reason: params.founderFeedback || params.cancellationReason || null
+        }
+      });
+    } catch {}
+
+    try {
+      const { addTaskProgressUpdate } = await import('./employeeEcosystemService');
+      const note = transitionValidation.canonicalTo === 'CHANGES_REQUESTED'
+        ? `[Status: ${transitionValidation.canonicalFrom} → CHANGES_REQUESTED] Feedback: ${params.founderFeedback || ''}`
+        : transitionValidation.canonicalTo === 'CANCELLED'
+        ? `[Status: ${transitionValidation.canonicalFrom} → CANCELLED] Reason: ${params.cancellationReason || 'Task cancelled by founder/admin'}`
+        : `[Status: ${transitionValidation.canonicalFrom} → ${transitionValidation.canonicalTo}]`;
+
+      await addTaskProgressUpdate({
+        userId,
+        taskId: row.id,
+        note
+      });
+    } catch {}
+
+    // If cancelled, sync with approval record
+    if (transitionValidation.canonicalTo === 'CANCELLED') {
+      try {
+        await safeDbQuery(async () => {
+          await (prisma as any).approval.update({
+            where: { id: `appr_task_${row.id}` },
+            data: { status: 'rejected' }
+          }).catch(() => {});
+        });
+      } catch {}
+    }
+  }
 
   // If status is 'submitted', route deliverable directly to the Founder Approval queue (Phase B & D)
   if (data.status === 'submitted') {
@@ -1600,16 +2177,20 @@ export async function updateTaskForUser(params: {
 
     if (membership?.startupId) {
       try {
-        await (prisma as any).notification.create({
-          data: {
-            startupId: membership.startupId,
-            type: 'APPROVAL',
-            title: `Deliverable Submitted: ${approvalTitle}`,
-            message: `${preparedByUserName} (${membership.role}) submitted deliverable with ${aiAssistanceName} assistance for Founder approval.`,
-            read: false
-          }
+        const { notifyReviewRequest } = await import('./notificationService');
+        await notifyReviewRequest({
+          startupId: membership.startupId,
+          task: {
+            id: row.id,
+            title: decoded.title,
+            department: decoded.department
+          },
+          employeeUserId: userId,
+          summary
         });
-      } catch {}
+      } catch (err: any) {
+        console.warn('[TaskDelegationService] Review request notification warning:', err?.message);
+      }
 
       // Dynamic RAG synchronization: index submitted task deliverable into operational knowledge
       try {
@@ -1633,6 +2214,57 @@ export async function updateTaskForUser(params: {
         console.warn('[TaskDelegationService] Dynamic task RAG sync warning:', ragErr.message);
       }
     }
+  }
+
+  // Phase 4: Handle notifications when founder requests changes or approves task directly
+  if (data.status === 'changes_requested' && membership?.startupId) {
+    try {
+      const { notifyRevisionRequested } = await import('./notificationService');
+      const feedback = params.founderFeedback || 'Founder requested modifications to deliverable.';
+      await notifyRevisionRequested({
+        startupId: membership.startupId,
+        task: {
+          id: row.id,
+          title: decoded.title,
+          assignedUserId: decoded.assignedUserId
+        },
+        feedback,
+        founderUserId: userId
+      });
+    } catch (err: any) {
+      console.warn('[TaskDelegationService] Revision requested notification warning:', err?.message);
+    }
+    try {
+      await safeDbQuery(async () => {
+        await (prisma as any).approval.update({
+          where: { id: `appr_task_${row.id}` },
+          data: { status: 'changes_requested' }
+        }).catch(() => {});
+      });
+    } catch {}
+  } else if (data.status === 'approved' && membership?.startupId) {
+    try {
+      const { notifyTaskApproval } = await import('./notificationService');
+      await notifyTaskApproval({
+        startupId: membership.startupId,
+        task: {
+          id: row.id,
+          title: decoded.title,
+          assignedUserId: decoded.assignedUserId
+        },
+        founderUserId: userId
+      });
+    } catch (err: any) {
+      console.warn('[TaskDelegationService] Task approval notification warning:', err?.message);
+    }
+    try {
+      await safeDbQuery(async () => {
+        await (prisma as any).approval.update({
+          where: { id: `appr_task_${row.id}` },
+          data: { status: 'approved' }
+        }).catch(() => {});
+      });
+    } catch {}
   }
 
   return decoded;
@@ -2488,4 +3120,388 @@ export async function retrieveDecisionMemory(params: {
     relevantDecisions,
     answerSummary
   };
+}
+
+export interface DecomposeTaskInput {
+  title: string;
+  description?: string;
+  priority?: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  deadline?: string;
+}
+
+export interface ProposedSubtask {
+  id: string;
+  stepNumber: number;
+  title: string;
+  description: string;
+  department: Department;
+  agent: string;
+  suggestedRole: Role | null;
+  priority: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  dependencies: string[];
+  expectedDeliverable: string;
+  deadline?: string;
+  assignedUserId: string | null;
+  assignedUserName: string | null;
+  needsAttention: boolean;
+  assignmentStatus: 'ASSIGNED' | 'UNFILLED' | 'AMBIGUOUS';
+  reason: string | null;
+}
+
+export interface TaskDecompositionPreview {
+  parentTask: {
+    title: string;
+    description: string;
+    priority: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+    deadline: string;
+  };
+  proposedSubtasks: ProposedSubtask[];
+  companyMembers: Array<{
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  }>;
+}
+
+/**
+ * Phase 2: Generates a structured multi-agent decomposition of a parent task
+ * with role-to-employee resolution, identifies missing or ambiguous assignments,
+ * and prepares the preview for founder sign-off before persistence.
+ */
+export async function decomposeParentTask(params: {
+  userId: string;
+  input: DecomposeTaskInput;
+}): Promise<TaskDecompositionPreview> {
+  const { userId, input } = params;
+  if (!prisma) {
+    throw new TaskDelegationError(503, 'The database is unavailable.', 'DB_UNAVAILABLE');
+  }
+
+  // 1. Validate the authenticated founder and company membership
+  const membership = await resolveMembership(userId);
+  if (!membership) {
+    throw new TaskDelegationError(
+      403,
+      'Forbidden: you do not have active access to a company workspace.',
+      'NO_ACTIVE_MEMBERSHIP'
+    );
+  }
+  const role = membership.role;
+  if (role !== 'FOUNDER' && role !== 'ADMIN') {
+    throw new TaskDelegationError(
+      403,
+      'Forbidden: only a Founder or Admin can create and decompose company tasks.',
+      'FOUNDER_REQUIRED'
+    );
+  }
+
+  const cleanTitle = (input.title || '').trim();
+  if (!cleanTitle) {
+    throw new TaskDelegationError(400, 'Parent task title is required.', 'TITLE_REQUIRED');
+  }
+
+  const cleanDesc = (input.description || '').trim();
+  const rawPriority = (input.priority || 'HIGH').toUpperCase();
+  const priority: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' =
+    ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].includes(rawPriority) ? (rawPriority as any) : 'HIGH';
+
+  const defaultDeadline = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const deadline = input.deadline || defaultDeadline;
+
+  // 2. Invoke multi-agent orchestration service / decomposition engine
+  const fullPrompt = cleanDesc ? `${cleanTitle}: ${cleanDesc}` : cleanTitle;
+  const planData = buildPlanStepsForCommand(fullPrompt);
+
+  let rawSteps = planData.steps;
+  if (!rawSteps || rawSteps.length === 0) {
+    rawSteps = [
+      { stepNumber: 1, title: 'Analyze requirements & system architecture', department: 'OPERATIONS', agent: 'Operations', ownerRole: 'OPERATIONS' },
+      { stepNumber: 2, title: 'Formulate implementation specifications & deliverable artifacts', department: 'GROWTH', agent: 'Growth', ownerRole: 'GROWTH' },
+      { stepNumber: 3, title: 'Audit budget thresholds & unit economic compliance', department: 'FINANCE', agent: 'CFO', ownerRole: 'FINANCE' },
+      { stepNumber: 4, title: 'Check regulatory, compliance, and IP covenants', department: 'LEGAL', agent: 'Legal', ownerRole: null }
+    ];
+  }
+
+  // 3. Fetch active company members strictly in the founder's company
+  const companyMemberships: any[] = await safeDbQuery(() =>
+    prisma.membership.findMany({
+      where: { startupId: membership.startupId, status: 'ACTIVE' },
+      include: { user: { select: { id: true, name: true, email: true } } }
+    })
+  ) || [];
+
+  const companyMembers = companyMemberships.map(m => ({
+    id: m.user.id,
+    name: m.user.name || m.user.email || 'Team Member',
+    email: m.user.email,
+    role: m.role
+  }));
+
+  // 4. Resolve suggested roles to real employees in the same company
+  const proposedSubtasks: ProposedSubtask[] = rawSteps.map((step, idx) => {
+    const dept = (step.department || 'GENERAL').toUpperCase() as Department;
+    const suggestedRole = step.ownerRole || ownerRoleForDepartment(dept);
+    const agent = step.agent || agentForDepartment(dept);
+    const subtaskPriority = (dept === 'FINANCE' || dept === 'LEGAL' || priority === 'CRITICAL') ? 'HIGH' : priority;
+    
+    // Dependencies: preceding step title if any
+    const dependencies = idx > 0 ? [rawSteps[idx - 1].title] : [];
+
+    // Formulate expected deliverable
+    let expectedDeliverable = `Structured findings, implementation specs, and operational outputs for "${step.title}"`;
+    if (dept === 'TALENT') {
+      expectedDeliverable = 'Candidate role profile, scorecard rubric, and compensation grid.';
+    } else if (dept === 'FINANCE') {
+      expectedDeliverable = 'Fully-loaded burn model, runway sensitivity stress-test, and ROI analysis.';
+    } else if (dept === 'LEGAL') {
+      expectedDeliverable = 'Regulatory compliance checklist, IP assignment provisions, and risk assessment.';
+    } else if (dept === 'GROWTH') {
+      expectedDeliverable = 'Target ICP positioning, channel acquisition projections, and marketing assets.';
+    } else if (dept === 'OPERATIONS') {
+      expectedDeliverable = 'Milestone delivery timeline, technical architecture, and SLA guarantees.';
+    }
+
+    let assignedUserId: string | null = null;
+    let assignedUserName: string | null = null;
+    let needsAttention = false;
+    let assignmentStatus: 'ASSIGNED' | 'UNFILLED' | 'AMBIGUOUS' = 'UNFILLED';
+    let reason: string | null = null;
+
+    if (!suggestedRole) {
+      // e.g. LEGAL or AUDITOR which have no human employee role
+      needsAttention = true;
+      assignmentStatus = 'UNFILLED';
+      reason = `No human employee role exists for ${dept}. Founder can assign or handle directly.`;
+    } else {
+      const candidates = companyMembers.filter(m => normalizeRole(m.role) === normalizeRole(suggestedRole));
+      if (candidates.length === 1) {
+        assignedUserId = candidates[0].id;
+        assignedUserName = candidates[0].name;
+        needsAttention = false;
+        assignmentStatus = 'ASSIGNED';
+        reason = null;
+      } else if (candidates.length > 1) {
+        assignedUserId = null;
+        assignedUserName = null;
+        needsAttention = true;
+        assignmentStatus = 'AMBIGUOUS';
+        reason = `Multiple team members have role "${suggestedRole}". Please select an assignee.`;
+      } else {
+        // 0 candidates
+        assignedUserId = null;
+        assignedUserName = null;
+        needsAttention = true;
+        assignmentStatus = 'UNFILLED';
+        reason = `No active team member with role "${suggestedRole}" exists in this company.`;
+      }
+    }
+
+    return {
+      id: `temp_subtask_${idx + 1}`,
+      stepNumber: idx + 1,
+      title: step.title,
+      description: `Execute ${step.title} in collaboration with ${agent} AI specialist companion.`,
+      department: dept,
+      agent,
+      suggestedRole,
+      priority: subtaskPriority,
+      dependencies,
+      expectedDeliverable,
+      deadline,
+      assignedUserId,
+      assignedUserName,
+      needsAttention,
+      assignmentStatus,
+      reason
+    };
+  });
+
+  return {
+    parentTask: {
+      title: cleanTitle,
+      description: cleanDesc || planData.description,
+      priority,
+      deadline
+    },
+    proposedSubtasks,
+    companyMembers
+  };
+}
+
+/**
+ * Phase 2 & 3: Persists the approved parent plan and its decomposed subtasks
+ * with strict membership validation, AI capability auto-provisioning,
+ * and real-time team notifications.
+ */
+export async function persistDecomposedTaskPlan(params: {
+  userId: string;
+  parentTask: {
+    title: string;
+    description?: string;
+    priority?: string;
+    deadline?: string;
+  };
+  subtasks: Array<{
+    title: string;
+    description?: string;
+    department?: string;
+    agent?: string;
+    suggestedRole?: string | null;
+    priority?: string;
+    dependencies?: string[];
+    expectedDeliverable?: string;
+    deadline?: string;
+    assignedUserId?: string | null;
+  }>;
+}): Promise<{ plan: any; tasks: DelegatedTask[] }> {
+  const { userId, parentTask, subtasks } = params;
+  if (!prisma) {
+    throw new TaskDelegationError(503, 'The database is unavailable.', 'DB_UNAVAILABLE');
+  }
+
+  // 1. Validate founder role and company membership
+  const membership = await resolveMembership(userId);
+  if (!membership) {
+    throw new TaskDelegationError(
+      403,
+      'Forbidden: you do not have active access to a company workspace.',
+      'NO_ACTIVE_MEMBERSHIP'
+    );
+  }
+  const role = membership.role;
+  if (role !== 'FOUNDER' && role !== 'ADMIN') {
+    throw new TaskDelegationError(
+      403,
+      'Forbidden: only a Founder or Admin can approve and persist task decompositions.',
+      'FOUNDER_REQUIRED'
+    );
+  }
+
+  // 2. Validate all model-generated and user inputs before persisting
+  const parentTitle = (parentTask?.title || '').trim();
+  if (!parentTitle) {
+    throw new TaskDelegationError(400, 'Parent task title is required.', 'TITLE_REQUIRED');
+  }
+  const parentDesc = (parentTask?.description || '').trim();
+  const parentPriority = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].includes((parentTask?.priority || '').toUpperCase())
+    ? parentTask.priority!.toUpperCase()
+    : 'HIGH';
+  const parentDeadline = parentTask?.deadline || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+  if (!Array.isArray(subtasks) || subtasks.length === 0) {
+    throw new TaskDelegationError(400, 'At least one subtask is required.', 'SUBTASKS_REQUIRED');
+  }
+
+  // Fetch valid company members strictly in the founder's company
+  const companyMemberships: any[] = await safeDbQuery(() =>
+    prisma.membership.findMany({
+      where: { startupId: membership.startupId, status: 'ACTIVE' },
+      select: { userId: true, role: true }
+    })
+  ) || [];
+  const validMemberIds = new Set(companyMemberships.map(m => m.userId));
+
+  // 3. Create parent Plan in database
+  const plan: any = await safeDbQuery(() =>
+    (prisma as any).plan.create({
+      data: {
+        title: parentTitle,
+        description: parentDesc || `Strategic parent initiative: ${parentTitle}`,
+        status: 'active',
+        startupId: membership.startupId
+      }
+    })
+  );
+
+  const planId = plan?.id || `plan_${Date.now()}`;
+  const createdTasks: DelegatedTask[] = [];
+
+  // 4. Validate and persist each subtask
+  for (const st of subtasks) {
+    const rawTitle = (st.title || '').trim();
+    if (!rawTitle) continue;
+
+    const dept = (st.department || 'GENERAL').toUpperCase();
+    const agent = st.agent || agentForDepartment(dept);
+    const suggestedRole = st.suggestedRole ? normalizeRole(st.suggestedRole) : ownerRoleForDepartment(dept);
+    const subtaskPriority = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].includes((st.priority || '').toUpperCase())
+      ? st.priority!.toUpperCase()
+      : parentPriority;
+    const subtaskDeadline = st.deadline || parentDeadline;
+    const subtaskDesc = (st.description || '').trim() || `Execute ${rawTitle} with ${agent} assistance.`;
+    const subtaskDeliverable = (st.expectedDeliverable || '').trim() || `Deliverable artifact for "${rawTitle}"`;
+
+    // Strictly enforce: never allow assigning an employee outside the founder's company
+    let targetAssigneeId: string | null = st.assignedUserId || null;
+    if (targetAssigneeId && !validMemberIds.has(targetAssigneeId)) {
+      console.warn(`[taskDelegationService] Blocked illegal assignment of non-company user ${targetAssigneeId}`);
+      targetAssigneeId = null;
+    }
+
+    // Auto-provision AI specialist capability if not existing
+    try {
+      await ensureAiSpecialistCapability(membership.startupId, dept);
+    } catch {}
+
+    const encodedTitle = encodeTitle(dept, agent, suggestedRole, rawTitle);
+
+    const meta = {
+      description: subtaskDesc,
+      priority: subtaskPriority,
+      deadline: subtaskDeadline,
+      dependencies: Array.isArray(st.dependencies) ? st.dependencies : [],
+      expectedDeliverable: subtaskDeliverable,
+      assignedBy: userId,
+      parentTaskId: planId,
+      parentTaskTitle: parentTitle,
+      companyId: membership.startupId
+    };
+
+    const rolePrefix = suggestedRole || 'UNASSIGNED';
+    const assignedTo = targetAssigneeId ? `${rolePrefix}:${targetAssigneeId}` : rolePrefix;
+
+    const taskRow: any = await (prisma as any).task.create({
+      data: {
+        title: encodedTitle,
+        assignedTo,
+        status: 'pending',
+        result: `[TASK_META]: ${JSON.stringify(meta)}\n`,
+        planId
+      }
+    });
+
+    const decoded = decodeTask(taskRow);
+    createdTasks.push(decoded);
+
+    // If assigned to a team member, create persistent notification & email
+    if (targetAssigneeId) {
+      try {
+        const { notifyNewAssignment } = await import('./notificationService');
+        await notifyNewAssignment({
+          startupId: membership.startupId,
+          task: {
+            id: taskRow.id,
+            title: rawTitle,
+            priority: subtaskPriority,
+            deadline: subtaskDeadline,
+            parentTask: parentTitle,
+            agent
+          },
+          assigneeUserId: targetAssigneeId,
+          assignerUserId: userId
+        });
+      } catch (notifErr: any) {
+        console.warn('[taskDelegationService] New assignment notification warning:', notifErr?.message);
+      }
+    }
+  }
+
+  // Log real-time delegation telemetry
+  try {
+    console.log(`[taskDelegationService] Delegated ${createdTasks.length} work orders under plan "${parentTitle}" (${planId}) for company ${membership.startupId}`);
+  } catch {}
+
+  const enrichedTasks = await enrichTasksWithUserNames(createdTasks);
+  return { plan, tasks: enrichedTasks };
 }

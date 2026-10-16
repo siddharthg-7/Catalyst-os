@@ -1,21 +1,22 @@
-import React, { useEffect, useState } from 'react';
-import { Bell, X, AlertTriangle, Info, CheckCircle2, AlertCircle, FileText, CheckCheck, ArrowRight, Loader2 } from 'lucide-react';
+import React, { useEffect, useState, useMemo } from 'react';
+import { 
+  Bell, X, AlertTriangle, Info, CheckCircle2, AlertCircle, 
+  FileText, CheckCheck, ArrowRight, Loader2, UserPlus, 
+  Clock, RotateCcw, ShieldCheck, Sparkles, ExternalLink,
+  Layers, CheckSquare, Filter
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
-
-export interface NotificationItem {
-  id: string;
-  title: string;
-  message: string;
-  type: string;
-  createdAt: string;
-  read: boolean;
-}
+import { NotificationItem } from '../types';
 
 interface NotificationPanelProps {
   isOpen: boolean;
   onClose: () => void;
-  onNavigate?: (tab: 'dashboard' | 'approvals' | 'knowledge' | 'agents') => void;
+  onNavigate?: (tab: string) => void;
+  onOpenTask?: (taskId: string) => void;
+  notifications?: NotificationItem[];
+  unreadCount?: number;
+  onRefresh?: () => void;
 }
 
 function timeAgo(dateString: string): string {
@@ -33,10 +34,21 @@ function timeAgo(dateString: string): string {
   }
 }
 
-export default function NotificationPanel({ isOpen, onClose, onNavigate }: NotificationPanelProps) {
+export default function NotificationPanel({ 
+  isOpen, 
+  onClose, 
+  onNavigate,
+  onOpenTask,
+  notifications: propNotifications,
+  unreadCount: propUnreadCount,
+  onRefresh
+}: NotificationPanelProps) {
   const { apiFetch } = useAuth();
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [internalNotifications, setInternalNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<'all' | 'unread'>('all');
+
+  const notifications = propNotifications ?? internalNotifications;
 
   const fetchNotifications = async () => {
     try {
@@ -45,7 +57,7 @@ export default function NotificationPanel({ isOpen, onClose, onNavigate }: Notif
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
-          setNotifications(data);
+          setInternalNotifications(data);
         }
       }
     } catch (err) {
@@ -57,35 +69,60 @@ export default function NotificationPanel({ isOpen, onClose, onNavigate }: Notif
 
   useEffect(() => {
     if (isOpen) {
-      fetchNotifications();
+      if (onRefresh) {
+        onRefresh();
+      }
+      if (!propNotifications) {
+        fetchNotifications();
+      }
     }
   }, [isOpen]);
 
   const markAllRead = async () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    setInternalNotifications(prev => prev.map(n => ({ ...n, read: true })));
     try {
       await apiFetch('/api/notifications/read-all', { method: 'POST' });
+      if (onRefresh) onRefresh();
     } catch (err) {
       console.warn('[NotificationPanel] Error marking all read:', err);
     }
   };
 
   const markOneRead = async (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    setInternalNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
     try {
       await apiFetch(`/api/notifications/${id}/read`, { method: 'POST' });
+      if (onRefresh) onRefresh();
     } catch (err) {
       console.warn('[NotificationPanel] Error marking read:', err);
     }
   };
 
+  const handleTaskAction = (n: NotificationItem) => {
+    markOneRead(n.id);
+    if (n.taskId && onOpenTask) {
+      onOpenTask(n.taskId);
+      onClose();
+    } else if (onNavigate) {
+      onNavigate('workspace');
+      onClose();
+    }
+  };
+
   const handleNotificationClick = (n: NotificationItem) => {
     markOneRead(n.id);
-    if (n.type === 'APPROVAL' && onNavigate) {
+    const t = (n.type || '').toUpperCase();
+    if (n.taskId && onOpenTask) {
+      onOpenTask(n.taskId);
+      onClose();
+    } else if (t === 'APPROVAL' && onNavigate) {
       onNavigate('approvals');
       onClose();
-    } else if (n.type === 'DOCUMENT' && onNavigate) {
+    } else if (t === 'DOCUMENT' && onNavigate) {
       onNavigate('knowledge');
+      onClose();
+    } else if (t.startsWith('TASK_') && onNavigate) {
+      onNavigate('workspace');
       onClose();
     }
   };
@@ -93,6 +130,18 @@ export default function NotificationPanel({ isOpen, onClose, onNavigate }: Notif
   const getIcon = (type: string) => {
     const t = (type || '').toUpperCase();
     switch (t) {
+      case 'TASK_ASSIGNED':
+        return <UserPlus className="w-4 h-4 text-indigo-600" />;
+      case 'TASK_REASSIGNED':
+        return <Layers className="w-4 h-4 text-purple-600" />;
+      case 'DEADLINE_REMINDER':
+        return <Clock className="w-4 h-4 text-amber-600" />;
+      case 'REVIEW_REQUESTED':
+        return <ShieldCheck className="w-4 h-4 text-sky-600" />;
+      case 'REVISION_REQUESTED':
+        return <RotateCcw className="w-4 h-4 text-rose-600" />;
+      case 'TASK_APPROVED':
+        return <CheckCircle2 className="w-4 h-4 text-emerald-600" />;
       case 'APPROVAL':
       case 'WARNING':
         return <AlertTriangle className="w-4 h-4 text-amber-500" />;
@@ -104,14 +153,50 @@ export default function NotificationPanel({ isOpen, onClose, onNavigate }: Notif
       case 'SUCCESS':
         return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
       default:
-        return <Info className="w-4 h-4 text-indigo-400" />;
+        return <Info className="w-4 h-4 text-indigo-500" />;
+    }
+  };
+
+  const getTypeBadge = (type: string) => {
+    const t = (type || '').toUpperCase();
+    switch (t) {
+      case 'TASK_ASSIGNED':
+        return <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">Assignment</span>;
+      case 'TASK_REASSIGNED':
+        return <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">Reassigned</span>;
+      case 'DEADLINE_REMINDER':
+        return <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">Deadline</span>;
+      case 'REVIEW_REQUESTED':
+        return <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200">Review Request</span>;
+      case 'REVISION_REQUESTED':
+        return <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">Revisions</span>;
+      case 'TASK_APPROVED':
+        return <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">Approved</span>;
+      case 'APPROVAL':
+        return <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">Approval</span>;
+      case 'DOCUMENT':
+        return <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200">Document</span>;
+      default:
+        return null;
     }
   };
 
   const getBgStyle = (type: string, read: boolean) => {
-    if (read) return 'bg-slate-50/70 border-slate-200/80 opacity-70';
+    if (read) return 'bg-slate-50/70 border-slate-200/80 opacity-75';
     const t = (type || '').toUpperCase();
     switch (t) {
+      case 'TASK_ASSIGNED':
+        return 'bg-indigo-50/60 border-indigo-200 shadow-xs';
+      case 'TASK_REASSIGNED':
+        return 'bg-purple-50/60 border-purple-200 shadow-xs';
+      case 'DEADLINE_REMINDER':
+        return 'bg-amber-50/70 border-amber-200 shadow-xs';
+      case 'REVIEW_REQUESTED':
+        return 'bg-sky-50/70 border-sky-200 shadow-xs';
+      case 'REVISION_REQUESTED':
+        return 'bg-rose-50/70 border-rose-200 shadow-xs';
+      case 'TASK_APPROVED':
+        return 'bg-emerald-50/70 border-emerald-200 shadow-xs';
       case 'APPROVAL':
       case 'WARNING':
         return 'bg-amber-50/80 border-amber-200 shadow-xs';
@@ -127,7 +212,18 @@ export default function NotificationPanel({ isOpen, onClose, onNavigate }: Notif
     }
   };
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const calculatedUnread = useMemo(() => {
+    return notifications.filter(n => !n.read).length;
+  }, [notifications]);
+
+  const unreadCount = propUnreadCount !== undefined ? propUnreadCount : calculatedUnread;
+
+  const filteredNotifications = useMemo(() => {
+    if (activeFilter === 'unread') {
+      return notifications.filter(n => !n.read);
+    }
+    return notifications;
+  }, [notifications, activeFilter]);
 
   return (
     <AnimatePresence>
@@ -145,7 +241,7 @@ export default function NotificationPanel({ isOpen, onClose, onNavigate }: Notif
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: '100%', opacity: 0 }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed top-0 right-0 h-screen w-full max-w-sm bg-white border-l border-slate-200 z-50 flex flex-col shadow-2xl font-sans"
+            className="fixed top-0 right-0 h-screen w-full max-w-md bg-white border-l border-slate-200 z-50 flex flex-col shadow-2xl font-sans"
           >
             {/* Header */}
             <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-white">
@@ -154,27 +250,49 @@ export default function NotificationPanel({ isOpen, onClose, onNavigate }: Notif
                   <Bell className="w-4 h-4" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-bold text-slate-900 tracking-tight">Executive Notifications</h2>
-                  <p className="text-[10px] text-slate-400 font-mono">OPERATIONAL AUDIT TRAIL</p>
+                  <h2 className="text-sm font-bold text-slate-900 tracking-tight">Work & Task Notifications</h2>
+                  <p className="text-[10px] text-slate-400 font-mono">LIVE COLLABORATION FEED</p>
                 </div>
               </div>
               <button 
                 onClick={onClose}
                 className="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-all cursor-pointer"
+                title="Close"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Sub-bar */}
-            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50/60">
-              <span className="text-xs font-medium text-slate-500">
-                {unreadCount > 0 ? `${unreadCount} Unread Alerts` : 'All Caught Up'}
-              </span>
+            {/* Filter Sub-bar */}
+            <div className="flex items-center justify-between px-5 py-2.5 border-b border-slate-100 bg-slate-50/70">
+              <div className="flex items-center gap-1.5 bg-slate-200/60 p-0.5 rounded-lg">
+                <button
+                  onClick={() => setActiveFilter('all')}
+                  className={`px-2.5 py-1 text-xs rounded-md font-medium transition-colors cursor-pointer ${
+                    activeFilter === 'all'
+                      ? 'bg-white text-slate-900 shadow-xs font-semibold'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  All ({notifications.length})
+                </button>
+                <button
+                  onClick={() => setActiveFilter('unread')}
+                  className={`px-2.5 py-1 text-xs rounded-md font-medium transition-colors cursor-pointer ${
+                    activeFilter === 'unread'
+                      ? 'bg-white text-slate-900 shadow-xs font-semibold'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Unread ({unreadCount})
+                </button>
+              </div>
+
               {unreadCount > 0 && (
                 <button 
                   onClick={markAllRead}
                   className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors flex items-center gap-1 cursor-pointer"
+                  title="Mark all notifications as read"
                 >
                   <CheckCheck className="w-3.5 h-3.5" />
                   <span>Mark all read</span>
@@ -185,57 +303,85 @@ export default function NotificationPanel({ isOpen, onClose, onNavigate }: Notif
             {/* Notifications List */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {loading ? (
-                <div className="py-12 flex flex-col items-center justify-center text-slate-400 space-y-2">
+                <div className="py-16 flex flex-col items-center justify-center text-slate-400 space-y-2">
                   <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
-                  <span className="text-xs font-mono">Syncing operational events...</span>
+                  <span className="text-xs font-mono">Syncing task notifications...</span>
                 </div>
-              ) : notifications.length === 0 ? (
-                <div className="py-16 text-center space-y-3">
+              ) : filteredNotifications.length === 0 ? (
+                <div className="py-20 text-center space-y-3">
                   <div className="w-12 h-12 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center mx-auto text-slate-400">
                     <CheckCircle2 className="w-6 h-6" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-slate-800">No Notifications Yet</h4>
+                    <h4 className="text-sm font-bold text-slate-800">
+                      {activeFilter === 'unread' ? 'No Unread Notifications' : 'No Notifications Yet'}
+                    </h4>
                     <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
-                      Events from agent analyses, document indexation, and approval requirements will appear here in real-time.
+                      {activeFilter === 'unread'
+                        ? 'All caught up! New assignments, review requests, and approvals will show here.'
+                        : 'Task assignments, transfers, revisions, review requests, and approvals appear here in real-time.'}
                     </p>
                   </div>
                 </div>
               ) : (
-                notifications.map((n) => (
+                filteredNotifications.map((n) => (
                   <div 
                     key={n.id}
                     onClick={() => handleNotificationClick(n)}
-                    className={`p-4 rounded-xl border transition-all cursor-pointer hover:border-slate-300 ${getBgStyle(n.type, n.read)}`}
+                    className={`p-4 rounded-xl border transition-all cursor-pointer hover:border-slate-300 relative ${getBgStyle(n.type, n.read)}`}
                   >
+                    {!n.read && (
+                      <span className="absolute top-3 right-3 w-2 h-2 rounded-full bg-indigo-600 shadow-xs" />
+                    )}
+
                     <div className="flex gap-3 items-start">
-                      <div className="shrink-0 mt-0.5">
+                      <div className="shrink-0 mt-0.5 p-1.5 rounded-lg bg-white/90 border border-slate-200/80 shadow-2xs">
                         {getIcon(n.type)}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1 gap-2">
-                          <h4 className={`text-xs font-bold truncate ${n.read ? 'text-slate-600' : 'text-slate-900'}`}>
-                            {n.title}
-                          </h4>
-                          <span className="text-[9px] font-mono text-slate-400 shrink-0">
+                      <div className="flex-1 min-w-0 pr-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          {getTypeBadge(n.type)}
+                          <span className="text-[10px] font-mono text-slate-400 shrink-0">
                             {timeAgo(n.createdAt)}
                           </span>
                         </div>
-                        <p className={`text-xs leading-relaxed line-clamp-2 ${n.read ? 'text-slate-400' : 'text-slate-600'}`}>
+
+                        <h4 className={`text-xs font-bold leading-snug mb-1 ${n.read ? 'text-slate-700' : 'text-slate-900'}`}>
+                          {n.title}
+                        </h4>
+
+                        <p className={`text-xs leading-relaxed ${n.read ? 'text-slate-500' : 'text-slate-600'}`}>
                           {n.message}
                         </p>
-                        {n.type === 'APPROVAL' && (
-                          <div className="mt-2 flex items-center gap-1 text-[10px] text-amber-700 font-semibold">
-                            <span>Review required in Approvals</span>
-                            <ArrowRight className="w-3 h-3" />
+
+                        {/* Explicit "View Task" action button */}
+                        {n.taskId ? (
+                          <div className="mt-3 flex items-center gap-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleTaskAction(n);
+                              }}
+                              className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                            >
+                              <span>View Task</span>
+                              <ArrowRight className="w-3.5 h-3.5" />
+                            </button>
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              ID: {n.taskId.slice(0, 10)}...
+                            </span>
                           </div>
-                        )}
-                        {n.type === 'DOCUMENT' && (
-                          <div className="mt-2 flex items-center gap-1 text-[10px] text-sky-700 font-semibold">
-                            <span>View in Knowledge Base</span>
-                            <ArrowRight className="w-3 h-3" />
+                        ) : n.type === 'APPROVAL' ? (
+                          <div className="mt-2.5 flex items-center gap-1 text-[11px] text-amber-700 font-semibold">
+                            <span>Review required in Approvals Queue</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
                           </div>
-                        )}
+                        ) : n.type === 'DOCUMENT' ? (
+                          <div className="mt-2.5 flex items-center gap-1 text-[11px] text-sky-700 font-semibold">
+                            <span>Open in Knowledge Base</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                   </div>
@@ -244,10 +390,9 @@ export default function NotificationPanel({ isOpen, onClose, onNavigate }: Notif
             </div>
             
             {/* Footer */}
-            <div className="p-4 border-t border-slate-100 bg-slate-50/60">
-              <p className="text-[10px] text-center text-slate-400 font-mono">
-                CatalystOS Operational Event Stream • Scoped to Workspace
-              </p>
+            <div className="p-3.5 border-t border-slate-100 bg-slate-50/70 flex items-center justify-between text-[10px] text-slate-500 font-mono">
+              <span>Scoped to Company Workspace</span>
+              <span>Reliable Realtime Polling</span>
             </div>
           </motion.div>
         </>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { EmployeeWorkspacePayload, DelegatedTask, CommunityPost, ReportingHierarchy } from '../types';
+import { EmployeeWorkspacePayload, DelegatedTask, CommunityPost, ReportingHierarchy, NotificationItem } from '../types';
 import { useAuth } from '../context/AuthContext';
+import NotificationPanel from './NotificationPanel';
 import {
   Compass, CheckSquare, Users, MessageSquare, RefreshCw,
   User, Shield, Building, Mail, X, Check, ArrowRight,
@@ -88,6 +89,51 @@ export default function EmployeeWorkspace({
   // Profile modal state (Section 8: compact employee profile)
   const [isProfileModalOpen, setIsProfileModalOpen] = useState<boolean>(false);
   const [hierarchyData, setHierarchyData] = useState<ReportingHierarchy | null>(null);
+
+  // In-App Task Notifications state & reliable polling
+  const [notificationsOpen, setNotificationsOpen] = useState<boolean>(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadNotifCount, setUnreadNotifCount] = useState<number>(0);
+
+  const fetchNotifications = async () => {
+    if (!user) return;
+    try {
+      const res = await apiFetch('/api/notifications');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setNotifications(data);
+          const unread = data.filter((n: any) => !n.read).length;
+          setUnreadNotifCount(unread);
+        }
+      }
+    } catch (err) {
+      console.warn('[EmployeeWorkspace] Error fetching notifications:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (!user) return;
+    fetchNotifications();
+
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        fetchNotifications();
+      }
+    }, 12000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchNotifications();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [user]);
 
   // Handle incoming initialTaskId prop
   useEffect(() => {
@@ -180,9 +226,23 @@ export default function EmployeeWorkspace({
               <button
                 onClick={handleRefresh}
                 title="Refresh Workspace"
-                className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+                className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
               >
                 <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-indigo-600' : ''}`} />
+              </button>
+
+              {/* Notification Bell */}
+              <button
+                onClick={() => setNotificationsOpen(true)}
+                title="Work Notifications & Alerts"
+                className="relative p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+              >
+                <Bell className="w-4 h-4" />
+                {unreadNotifCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white font-bold text-[10px] flex items-center justify-center shadow-xs">
+                    {unreadNotifCount > 99 ? '99+' : unreadNotifCount}
+                  </span>
+                )}
               </button>
 
               {onNavigateToApprovals && (
@@ -397,6 +457,19 @@ export default function EmployeeWorkspace({
           </div>
         </div>
       )}
+
+      {/* Persistent In-App Notifications Drawer */}
+      <NotificationPanel
+        isOpen={notificationsOpen}
+        onClose={() => setNotificationsOpen(false)}
+        onOpenTask={(taskId) => {
+          setSelectedTaskId(taskId);
+          setActiveTab('work');
+        }}
+        notifications={notifications}
+        unreadCount={unreadNotifCount}
+        onRefresh={fetchNotifications}
+      />
     </div>
   );
 }
