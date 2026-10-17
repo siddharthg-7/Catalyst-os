@@ -1535,7 +1535,7 @@ export async function getPlanById(userId: string, planId: string): Promise<PlanW
 /**
  * Helper to enrich tasks with their assigned user's display name.
  */
-async function enrichTasksWithUserNames(tasks: DelegatedTask[]): Promise<DelegatedTask[]> {
+export async function enrichTasksWithUserNames(tasks: DelegatedTask[]): Promise<DelegatedTask[]> {
   const userIds = Array.from(new Set([
     ...tasks.map(t => t.assignedUserId),
     ...tasks.map(t => t.assignedBy)

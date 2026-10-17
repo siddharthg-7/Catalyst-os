@@ -94,6 +94,14 @@ import { orchestrationService } from '../services/orchestrationService';
 import { multiLevelOrchestrator } from '../services/multiLevelOrchestrator';
 import { workspaceService, DEFAULT_EXECUTIVE_ROLES } from '../services/workspaceService';
 import { authorizeDocumentDownload } from '../services/documentAccessService';
+import {
+  planParentTaskWithRecovery,
+  retryTaskPlanning,
+  persistAssignmentsWithResilientNotifications,
+  retryTaskNotification,
+  assertNonTerminalLlmOutput,
+  OrchestrationLifecycleStage
+} from '../services/orchestrationReliabilityService';
 import { companyContextService } from '../services/companyContextService';
 import { approvalService } from '../services/approvalService';
 import { performDevReset } from '../scripts/devReset';
@@ -2139,26 +2147,77 @@ router.get('/tasks/:id', authenticateJWT, requireActiveMembership, requirePermis
   }
 });
 
-// POST /api/tasks/decompose — Phase 2: Multi-Agent task decomposition & employee assignment resolution
+// POST /api/tasks/decompose — Phase 2 & 9: Reliable task planning & decomposition with failure recovery
 router.post('/tasks/decompose', authenticateJWT, requireActiveMembership, requirePermission('people:read'), async (req: AuthenticatedRequest, res) => {
   try {
-    const preview = await decomposeParentTask({
+    const result = await planParentTaskWithRecovery({
       userId: req.user!.id,
-      input: req.body || {}
+      input: req.body || {},
+      parentTaskId: req.body?.parentTaskId,
+      simulateFailure: req.body?.simulateFailure
     });
-    res.json(preview);
+
+    if (!result.success) {
+      return res.status(422).json({
+        error: result.recovery?.errorMessage || 'Task planning failed to decompose initiative.',
+        code: 'PLANNING_FAILED',
+        recoverable: true,
+        parentTaskId: result.parentTaskId,
+        recovery: result.recovery
+      });
+    }
+
+    res.json({
+      ...result.preview,
+      parentTaskId: result.parentTaskId,
+      stage: result.currentStage
+    });
   } catch (err) {
     sendTaskError(res, err);
   }
 });
 
-// POST /api/tasks/create-decomposed — Phase 2: Approve & persist parent task plan and subtasks
+// POST /api/tasks/:id/retry-decomposition — Phase 9: Recover from planning failure and retry AI decomposition
+router.post('/tasks/:id/retry-decomposition', authenticateJWT, requireActiveMembership, requirePermission('people:read'), async (req: AuthenticatedRequest, res) => {
+  try {
+    const result = await retryTaskPlanning(req.user!.id, req.params.id);
+    if (!result.success) {
+      return res.status(422).json({
+        error: result.recovery?.errorMessage || 'Retry planning failed.',
+        code: 'PLANNING_FAILED',
+        recoverable: true,
+        parentTaskId: result.parentTaskId,
+        recovery: result.recovery
+      });
+    }
+    res.json({
+      ...result.preview,
+      parentTaskId: result.parentTaskId,
+      stage: result.currentStage
+    });
+  } catch (err) {
+    sendTaskError(res, err);
+  }
+});
+
+// POST /api/tasks/:id/retry-notification — Phase 9: Retry undelivered assignment notification
+router.post('/tasks/:id/retry-notification', authenticateJWT, requireActiveMembership, requirePermission('people:read'), async (req: AuthenticatedRequest, res) => {
+  try {
+    const result = await retryTaskNotification(req.user!.id, req.params.id);
+    res.json(result);
+  } catch (err) {
+    sendTaskError(res, err);
+  }
+});
+
+// POST /api/tasks/create-decomposed — Phase 2 & 9: Approve & persist parent task plan and subtasks with resilient notifications
 router.post('/tasks/create-decomposed', authenticateJWT, requireActiveMembership, requirePermission('people:read'), async (req: AuthenticatedRequest, res) => {
   try {
-    const result = await persistDecomposedTaskPlan({
+    const result = await persistAssignmentsWithResilientNotifications({
       userId: req.user!.id,
       parentTask: req.body?.parentTask,
-      subtasks: req.body?.subtasks
+      subtasks: req.body?.subtasks,
+      simulateNotificationFailure: req.body?.simulateNotificationFailure
     });
     res.status(201).json(result);
   } catch (err) {
@@ -2170,6 +2229,10 @@ router.post('/tasks/create-decomposed', authenticateJWT, requireActiveMembership
 // approved/rejected are reserved for the founder approval loop.
 router.patch('/tasks/:id', authenticateJWT, requireActiveMembership, requirePermission('people:read'), async (req: AuthenticatedRequest, res) => {
   try {
+    if (req.body?.isAutomatedLlmOutput) {
+      assertNonTerminalLlmOutput('PATCH /tasks/:id', req.body?.status);
+    }
+
     const updated = await updateTaskForUser({
       userId: req.user!.id,
       taskId: req.params.id,
@@ -2255,10 +2318,16 @@ router.get('/tasks/:id/draft', authenticateJWT, requireActiveMembership, require
 // POST interact with companion AI executive assistant on a task (Phase C5).
 router.post('/tasks/:id/assistant', authenticateJWT, requireActiveMembership, requirePermission('people:read'), async (req: AuthenticatedRequest, res) => {
   try {
-    const { question, currentDraft } = req.body || {};
+    const { question, currentDraft, proposedStatus } = req.body || {};
     if (!question || typeof question !== 'string') {
       return res.status(400).json({ error: 'Question is required for AI assistance.' });
     }
+
+    // Phase 9: Do not treat an LLM response as a completed assignment
+    if (proposedStatus) {
+      assertNonTerminalLlmOutput('POST /tasks/:id/assistant', proposedStatus);
+    }
+
     res.json(await assistEmployeeOnTask({
       userId: req.user!.id,
       taskId: req.params.id,
