@@ -70,11 +70,12 @@ import SettingsModal from './components/SettingsModal';
 import ForcedPasswordChangeModal from './components/ForcedPasswordChangeModal';
 import VerifyEmailScreen from './components/VerifyEmailScreen';
 import ResetPasswordScreen from './components/ResetPasswordScreen';
+import { useRealtime } from './hooks/useRealtime';
 
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, loading, logout, apiFetch, loginAsDemo } = useAuth();
+  const { user, token, loading, logout, apiFetch, loginAsDemo } = useAuth();
   
   const [onboardingCompleted, setOnboardingCompleted] = useState<boolean>(() => {
     try {
@@ -235,12 +236,12 @@ export default function App() {
     // Check approaching deadlines periodically
     apiFetch('/api/notifications/check-deadlines', { method: 'POST' }).catch(() => {});
 
-    // Reliable polling every 12 seconds when window is active
+    // Gentle fallback backup sync every 60s (SSE delivers live instant updates)
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         fetchNotifications();
       }
-    }, 12000);
+    }, 60000);
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
@@ -477,6 +478,37 @@ export default function App() {
       console.warn('[App] Tasks refresh warning:', err);
     }
   };
+
+  const hydrateApprovals = async () => {
+    if (!user) return;
+    try {
+      const res = await apiFetch('/api/approvals');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) setApprovals(data);
+      }
+    } catch (err) {
+      console.warn('[App] Approvals refresh warning:', err);
+    }
+  };
+
+  // Phase 4, 5, 6, 8: Real-time Event Subscription and Targeted Cache Invalidation
+  const { isConnected: isRealtimeConnected } = useRealtime({
+    token: token || null,
+    onNotification: () => {
+      fetchNotifications();
+    },
+    onTaskEvent: (event) => {
+      hydrateTasks();
+      if (
+        event.type === 'task.submitted' ||
+        event.type === 'task.approved' ||
+        event.type === 'task.changes_requested'
+      ) {
+        hydrateApprovals();
+      }
+    },
+  });
 
   const hydrateState = async () => {
     if (!user) return;
@@ -1213,6 +1245,17 @@ export default function App() {
                 <Radio className="w-3.5 h-3.5 text-[#141413]" />
                 <span>Voice</span>
               </button>
+
+              {/* Real-time SSE Connection Indicator */}
+              <div 
+                className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-[10px] border border-[#141413]/10 bg-white text-[#141413] shadow-[rgba(0,0,0,0.02)_0px_1px_4px_0px]"
+                title={isRealtimeConnected ? 'Real-time live synchronization active (SSE stream connected)' : 'Real-time stream reconnecting...'}
+              >
+                <span className={`w-2 h-2 rounded-full ${isRealtimeConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`} />
+                <span className="text-[10px] font-mono font-bold text-[#696969]">
+                  {isRealtimeConnected ? 'LIVE' : 'SYNCING'}
+                </span>
+              </div>
 
               {/* Notifications */}
               <button 

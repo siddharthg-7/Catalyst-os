@@ -20,6 +20,9 @@
 import { prisma, safeDbQuery } from './dbService';
 import { normalizeRole, type Role, ROLES } from './permissionService';
 import { resolveMembership } from './membershipService';
+import { realtimeEventService } from './realtimeEventService';
+import { ingestionPipelineService } from './ingestionPipelineService';
+import { processedApprovalsMap } from './approvalService';
 
 /** Council work-order departments, as produced by multiAgentCouncil.decompose. */
 export type Department =
@@ -1902,6 +1905,17 @@ export async function assignTaskForUser(params: {
     } catch (notifErr: any) {
       console.warn('[taskDelegationService] Task assigned notification note:', notifErr?.message);
     }
+
+    // Phase 4: Emit real-time task.assigned event to tenant clients
+    try {
+      const { realtimeEventService } = await import('./realtimeEventService');
+      realtimeEventService.emitEvent({
+        type: 'task.assigned',
+        startupId: callerMembership.startupId,
+        taskId: row.id,
+        targetUserId: targetAssigneeId || undefined
+      });
+    } catch {}
   }
 
   return resTask;
@@ -2029,41 +2043,43 @@ export async function updateTaskForUser(params: {
 
   const decoded = decodeTask(updated);
 
-  // Record transition in activity log and progress update history if status changed
+  // Record transition in activity log and progress update history asynchronously
   if (transitionValidation && transitionValidation.canonicalFrom !== transitionValidation.canonicalTo) {
-    try {
-      const { activityLogService } = await import('./activityLogService');
-      await activityLogService.logActivity({
-        startupId: membership.startupId,
-        userId,
-        actorRole: role,
-        action: 'TASK_STATUS_TRANSITION',
-        targetEntity: 'TASK',
-        targetId: row.id,
-        department: decoded.department,
-        details: {
+    setImmediate(async () => {
+      try {
+        const { activityLogService } = await import('./activityLogService');
+        await activityLogService.logActivity({
+          startupId: membership.startupId,
+          userId,
+          actorRole: role,
+          action: 'TASK_STATUS_TRANSITION',
+          targetEntity: 'TASK',
+          targetId: row.id,
+          department: decoded.department,
+          details: {
+            taskId: row.id,
+            fromStatus: transitionValidation.canonicalFrom,
+            toStatus: transitionValidation.canonicalTo,
+            reason: params.founderFeedback || params.cancellationReason || null
+          }
+        });
+      } catch {}
+
+      try {
+        const { addTaskProgressUpdate } = await import('./employeeEcosystemService');
+        const note = transitionValidation.canonicalTo === 'CHANGES_REQUESTED'
+          ? `[Status: ${transitionValidation.canonicalFrom} → CHANGES_REQUESTED] Feedback: ${params.founderFeedback || ''}`
+          : transitionValidation.canonicalTo === 'CANCELLED'
+          ? `[Status: ${transitionValidation.canonicalFrom} → CANCELLED] Reason: ${params.cancellationReason || 'Task cancelled by founder/admin'}`
+          : `[Status: ${transitionValidation.canonicalFrom} → ${transitionValidation.canonicalTo}]`;
+
+        await addTaskProgressUpdate({
+          userId,
           taskId: row.id,
-          fromStatus: transitionValidation.canonicalFrom,
-          toStatus: transitionValidation.canonicalTo,
-          reason: params.founderFeedback || params.cancellationReason || null
-        }
-      });
-    } catch {}
-
-    try {
-      const { addTaskProgressUpdate } = await import('./employeeEcosystemService');
-      const note = transitionValidation.canonicalTo === 'CHANGES_REQUESTED'
-        ? `[Status: ${transitionValidation.canonicalFrom} → CHANGES_REQUESTED] Feedback: ${params.founderFeedback || ''}`
-        : transitionValidation.canonicalTo === 'CANCELLED'
-        ? `[Status: ${transitionValidation.canonicalFrom} → CANCELLED] Reason: ${params.cancellationReason || 'Task cancelled by founder/admin'}`
-        : `[Status: ${transitionValidation.canonicalFrom} → ${transitionValidation.canonicalTo}]`;
-
-      await addTaskProgressUpdate({
-        userId,
-        taskId: row.id,
-        note
-      });
-    } catch {}
+          note
+        });
+      } catch {}
+    });
 
     // If cancelled, sync with approval record
     if (transitionValidation.canonicalTo === 'CANCELLED') {
@@ -2135,84 +2151,84 @@ export async function updateTaskForUser(params: {
       submittedAt: new Date().toISOString()
     };
 
-    // Import processedApprovalsMap to clear any previous review cache so the founder can review the new submission
+    // Clear any previous review cache so the founder can review the new submission
     try {
-      const { processedApprovalsMap } = await import('./approvalService');
       processedApprovalsMap.delete(approvalId);
     } catch {
       // ignore
     }
 
     await safeDbQuery(async () => {
-      const existing = await (prisma as any).approval.findUnique({ where: { id: approvalId } });
-      if (!existing) {
-        await (prisma as any).approval.create({
-          data: {
-            id: approvalId,
-            title: approvalTitle,
-            description: rawContent || summary,
-            type: approvalType,
-            content: rawContent,
-            impact: impact,
-            financialChange: 0,
-            metricChanges: metricChangesPayload as any,
-            planId: row.planId,
-            status: 'pending_review'
-          }
-        });
-      } else {
-        await (prisma as any).approval.update({
-          where: { id: approvalId },
-          data: {
-            title: approvalTitle,
-            description: rawContent || summary,
-            content: rawContent,
-            impact: impact,
-            metricChanges: metricChangesPayload as any,
-            status: 'pending_review'
-          }
-        });
-      }
+      await (prisma as any).approval.upsert({
+        where: { id: approvalId },
+        create: {
+          id: approvalId,
+          title: approvalTitle,
+          description: rawContent || summary,
+          type: approvalType,
+          content: rawContent,
+          impact: impact,
+          financialChange: 0,
+          metricChanges: metricChangesPayload as any,
+          planId: row.planId,
+          status: 'pending_review'
+        },
+        update: {
+          title: approvalTitle,
+          description: rawContent || summary,
+          content: rawContent,
+          impact: impact,
+          metricChanges: metricChangesPayload as any,
+          status: 'pending_review'
+        }
+      });
     });
 
     if (membership?.startupId) {
-      try {
-        const { notifyReviewRequest } = await import('./notificationService');
-        await notifyReviewRequest({
-          startupId: membership.startupId,
-          task: {
-            id: row.id,
-            title: decoded.title,
-            department: decoded.department
-          },
-          employeeUserId: userId,
-          summary
-        });
-      } catch (err: any) {
-        console.warn('[TaskDelegationService] Review request notification warning:', err?.message);
-      }
+      // Dispatch notification & dynamic RAG ingestion in background without blocking response
+      setImmediate(async () => {
+        try {
+          const { notifyReviewRequest } = await import('./notificationService');
+          await notifyReviewRequest({
+            startupId: membership.startupId,
+            task: {
+              id: row.id,
+              title: decoded.title,
+              department: decoded.department
+            },
+            employeeUserId: userId,
+            summary
+          });
+        } catch (err: any) {
+          console.warn('[TaskDelegationService] Review request notification warning:', err?.message);
+        }
 
-      // Dynamic RAG synchronization: index submitted task deliverable into operational knowledge
-      try {
-        const { ingestionPipelineService } = await import('./ingestionPipelineService');
-        await ingestionPipelineService.enqueueJob({
-          startupId: membership.startupId,
-          sourceType: 'TASK',
-          sourceRecordId: row.id,
-          action: 'UPSERT',
-          payload: {
-            documentId: `doc_task_${row.id}`,
-            name: `[Task] ${decoded.title}`,
-            type: 'task',
-            content: `TASK DELIVERABLE: ${decoded.title}\nDepartment: ${decoded.department}\nAgent: ${decoded.agent}\nStatus: ${data.status}\nDetails:\n${params.result || updated.result || ''}`,
-            accessScope: decoded.department || 'ALL',
-            summary: `Deliverable for task: ${decoded.title}`
-          },
-          immediate: true
-        });
-      } catch (ragErr: any) {
-        console.warn('[TaskDelegationService] Dynamic task RAG sync warning:', ragErr.message);
-      }
+        try {
+          const job = await ingestionPipelineService.enqueueJob({
+            startupId: membership.startupId,
+            sourceType: 'TASK',
+            sourceRecordId: row.id,
+            action: 'UPSERT',
+            payload: {
+              documentId: `doc_task_${row.id}`,
+              name: `[Task] ${decoded.title}`,
+              type: 'task',
+              content: `TASK DELIVERABLE: ${decoded.title}\nDepartment: ${decoded.department}\nAgent: ${decoded.agent}\nStatus: ${data.status}\nDetails:\n${params.result || updated.result || ''}`,
+              accessScope: decoded.department || 'ALL',
+              summary: `Deliverable for task: ${decoded.title}`
+            },
+            immediate: false
+          });
+
+          if (job?.id) {
+            ingestionPipelineService.processJob(job.id).catch((err: any) => {
+              console.warn('[TaskDelegationService] Background ingestion runner notice:', err?.message);
+            });
+          }
+        } catch (ragErr: any) {
+          console.warn('[TaskDelegationService] Dynamic task RAG sync warning:', ragErr.message);
+        }
+      });
     }
   }
 
@@ -2263,6 +2279,23 @@ export async function updateTaskForUser(params: {
           where: { id: `appr_task_${row.id}` },
           data: { status: 'approved' }
         }).catch(() => {});
+      });
+    } catch {}
+  }
+
+  // Phase 4: Emit real-time event for task updates, submissions, approvals, or revisions
+  if (membership?.startupId) {
+    try {
+      let eventType: 'task.submitted' | 'task.approved' | 'task.changes_requested' | 'task.updated' = 'task.updated';
+      if (data.status === 'submitted') eventType = 'task.submitted';
+      else if (data.status === 'approved') eventType = 'task.approved';
+      else if (data.status === 'changes_requested') eventType = 'task.changes_requested';
+
+      realtimeEventService.emitEvent({
+        type: eventType,
+        startupId: membership.startupId,
+        taskId: row.id,
+        targetUserId: decoded.assignedUserId || undefined
       });
     } catch {}
   }
@@ -3500,6 +3533,16 @@ export async function persistDecomposedTaskPlan(params: {
   // Log real-time delegation telemetry
   try {
     console.log(`[taskDelegationService] Delegated ${createdTasks.length} work orders under plan "${parentTitle}" (${planId}) for company ${membership.startupId}`);
+  } catch {}
+
+  // Phase 4: Emit real-time event for newly created task plan
+  try {
+    const { realtimeEventService } = await import('./realtimeEventService');
+    realtimeEventService.emitEvent({
+      type: 'task.updated',
+      startupId: membership.startupId,
+      taskId: planId,
+    });
   } catch {}
 
   const enrichedTasks = await enrichTasksWithUserNames(createdTasks);

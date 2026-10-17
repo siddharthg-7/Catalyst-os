@@ -32,6 +32,7 @@
     "@lottiefiles/dotlottie-react": "^0.19.7",
     "@prisma/client": "^6.2.1",
     "@tailwindcss/vite": "^4.1.14",
+    "@tanstack/react-query": "^5.104.3",
     "@vitejs/plugin-react": "^5.0.4",
     "@xyflow/react": "^12.12.0",
     "bcryptjs": "^3.0.3",

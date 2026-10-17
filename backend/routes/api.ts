@@ -129,6 +129,7 @@ import {
   synthesizeGroundedResponse,
   formatGroundedSystemPrompt
 } from '../services/groundedResponseEngine';
+import { realtimeEventService } from '../services/realtimeEventService';
 
 const router = Router();
 const idempotencyCache = new Map<string, { status: number; body: any; timestamp: number }>();
@@ -151,6 +152,58 @@ router.get('/ready', (req, res) => {
     databaseConnected: isDbAvailable,
     geminiConfigured: !!(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'MY_GEMINI_API_KEY'),
     environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// Phase 4, 5, 6: Real-time Server-Sent Events (SSE) stream endpoint
+router.get('/realtime/stream', authenticateJWT, async (req: AuthenticatedRequest, res) => {
+  const caller = req.user;
+  if (!caller) {
+    res.status(401).json({ error: 'Unauthorized: Authentication required for real-time stream.' });
+    return;
+  }
+
+  // Resolve active startup and membership with strict tenant isolation
+  const requestedStartupId = typeof req.query.startupId === 'string' ? req.query.startupId : undefined;
+  const membership = await resolveMembership(caller.id, requestedStartupId);
+  if (!membership) {
+    res.status(403).json({ error: 'Forbidden: No authorized tenant membership found.' });
+    return;
+  }
+
+  // Set standard SSE streaming headers
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache, no-transform',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+  if (typeof (res as any).flushHeaders === 'function') {
+    (res as any).flushHeaders();
+  }
+
+  const connectionId = `conn_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  const lastEventId = (req.headers['last-event-id'] as string) || (typeof req.query.lastEventId === 'string' ? req.query.lastEventId : null);
+
+  realtimeEventService.registerClient({
+    connectionId,
+    userId: caller.id,
+    startupId: membership.startupId,
+    role: membership.role,
+    res,
+    lastEventId,
+  });
+
+  req.on('close', () => {
+    realtimeEventService.unregisterClient(connectionId);
+  });
+});
+
+router.get('/realtime/status', authenticateJWT, (req: AuthenticatedRequest, res) => {
+  res.json({
+    status: 'online',
+    connectedClients: realtimeEventService.getConnectedClientsCount(),
+    timestamp: Date.now(),
   });
 });
 
@@ -2379,6 +2432,8 @@ router.post('/tasks/:id/documents', authenticateJWT, requireActiveMembership, re
       });
     }
     const membership = { startupId: authResult.startupId!, role: authResult.role! };
+    const task = authResult.task;
+    const callerRole = authResult.role || req.user?.role || 'EMPLOYEE';
 
     // Convert fileData (base64) or content (string) to Buffer
     let buffer: Buffer;
@@ -2434,7 +2489,7 @@ router.post('/tasks/:id/documents', authenticateJWT, requireActiveMembership, re
           sourceType: 'TASK_DOCUMENT',
           sourceRecordId: taskId,
           size: sizeStr,
-          summary: `Supporting document for task: ${task.title}. StorageKey: ${storageKey}`,
+          summary: `Supporting document for task: ${task?.title || taskId}. StorageKey: ${storageKey}`,
           startupId: membership.startupId,
           accessScope: 'ALL',
           indexingStatus: 'COMPLETED'
@@ -2451,7 +2506,7 @@ router.post('/tasks/:id/documents', authenticateJWT, requireActiveMembership, re
         action: 'TASK_DOCUMENT_UPLOADED',
         targetEntity: 'TASK',
         targetId: taskId,
-        department: task.department,
+        department: task?.department || 'General',
         details: {
           taskId,
           documentId: docId,
@@ -4051,7 +4106,8 @@ router.get('/knowledge/:id/download', authenticateJWT, requireActiveMembership, 
         const userContext = await companyContextService.getContextForUser(userId);
         const userDoc = userContext?.documents?.find((d: any) => d.id === id);
         const membership = await resolveMembership(userId);
-        if (userDoc && (!userDoc.startupId || userDoc.startupId === membership?.startupId)) {
+        const docStartupId = (userDoc as any)?.startupId || userContext?.startupId;
+        if (userDoc && (!docStartupId || docStartupId === membership?.startupId)) {
           return res.json({ downloadUrl: `#offline-download-${id}`, filename: userDoc.name, offline: true });
         }
       }

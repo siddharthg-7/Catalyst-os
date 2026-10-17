@@ -49,14 +49,27 @@ export async function authenticateJWT(
   res: Response,
   next: NextFunction
 ): Promise<void> {
+  let token = '';
   const authHeader = req.headers.authorization;
+  if (authHeader && typeof authHeader === 'string') {
+    if (authHeader.startsWith('Bearer ')) {
+      token = authHeader.slice(7).trim();
+    }
+  } else if (req.query && typeof req.query.token === 'string') {
+    token = (req.query.token as string).trim();
+    // Scrub token from req.query to prevent exposure in downstream logging
+    delete req.query.token;
+  } else if (req.query && typeof req.query.access_token === 'string') {
+    token = (req.query.access_token as string).trim();
+    delete req.query.access_token;
+  }
 
   // In non-production development environments, provide seamless fallback for local dashboard viewing
   if (
     process.env.NODE_ENV !== 'production' &&
     process.env.NODE_ENV !== 'test' &&
     process.env.STRICT_AUTH !== 'true' &&
-    (!authHeader || authHeader === 'Bearer' || authHeader === 'Bearer null' || authHeader === 'Bearer undefined')
+    (!token || token === 'null' || token === 'undefined')
   ) {
     req.user = {
       id: 'usr_founder_demo',
@@ -68,19 +81,8 @@ export async function authenticateJWT(
     return next();
   }
 
-  if (!authHeader || typeof authHeader !== 'string') {
-    res.status(401).json({ error: 'Unauthorized: Missing Authorization header.' });
-    return;
-  }
-
-  if (!authHeader.startsWith('Bearer ')) {
-    res.status(401).json({ error: 'Unauthorized: Bearer token format required.' });
-    return;
-  }
-
-  const token = authHeader.slice(7).trim();
   if (!token) {
-    res.status(401).json({ error: 'Unauthorized: Token payload is empty.' });
+    res.status(401).json({ error: 'Unauthorized: Missing Authorization header or session token.' });
     return;
   }
 

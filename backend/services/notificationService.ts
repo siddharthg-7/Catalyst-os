@@ -146,7 +146,7 @@ export async function createNotification(params: CreateNotificationParams): Prom
   });
 
   try {
-    return await safeDbQuery(() =>
+    const created = await safeDbQuery(() =>
       db.notification.create({
         data: {
           startupId: params.startupId,
@@ -157,6 +157,19 @@ export async function createNotification(params: CreateNotificationParams): Prom
         }
       })
     );
+    if (created) {
+      try {
+        const { realtimeEventService } = await import('./realtimeEventService');
+        realtimeEventService.emitEvent({
+          type: 'notification.created',
+          startupId: params.startupId,
+          taskId: params.taskId || undefined,
+          notificationId: (created as any).id,
+          targetUserId: params.targetUserId || undefined,
+        });
+      } catch {}
+    }
+    return created;
   } catch (err: any) {
     console.error('[notificationService] Failed to create notification:', err.message);
     return null;
@@ -365,16 +378,18 @@ export async function notifyReviewRequest(params: {
     tx
   });
 
-  // 2. Email Founder
+  // 2. Email Founder Asynchronously in background worker
   if (startup?.owner?.email) {
-    sendTaskReviewRequestEmail({
-      to: startup.owner.email,
-      founderName,
-      employeeName,
-      taskTitle: cleanTitle,
-      companyName,
-      summary
-    }).catch(err => console.warn('[notificationService] Email dispatch note:', err?.message));
+    setImmediate(() => {
+      sendTaskReviewRequestEmail({
+        to: startup.owner.email,
+        founderName,
+        employeeName,
+        taskTitle: cleanTitle,
+        companyName,
+        summary
+      }).catch(err => console.warn('[notificationService] Email dispatch note:', err?.message));
+    });
   }
 
   return notif;
@@ -420,15 +435,17 @@ export async function notifyRevisionRequested(params: {
     tx
   });
 
-  // 2. Email Employee
+  // 2. Email Employee Asynchronously in background worker
   if (assigneeUser?.email) {
-    sendTaskRevisionRequestedEmail({
-      to: assigneeUser.email,
-      employeeName,
-      taskTitle: cleanTitle,
-      companyName,
-      feedback
-    }).catch(err => console.warn('[notificationService] Email dispatch note:', err?.message));
+    setImmediate(() => {
+      sendTaskRevisionRequestedEmail({
+        to: assigneeUser.email,
+        employeeName,
+        taskTitle: cleanTitle,
+        companyName,
+        feedback
+      }).catch(err => console.warn('[notificationService] Email dispatch note:', err?.message));
+    });
   }
 
   return notif;
@@ -473,14 +490,16 @@ export async function notifyTaskApproval(params: {
     tx
   });
 
-  // 2. Email Employee
+  // 2. Email Employee Asynchronously in background worker
   if (assigneeUser?.email) {
-    sendTaskApprovedEmail({
-      to: assigneeUser.email,
-      employeeName,
-      taskTitle: cleanTitle,
-      companyName
-    }).catch(err => console.warn('[notificationService] Email dispatch note:', err?.message));
+    setImmediate(() => {
+      sendTaskApprovedEmail({
+        to: assigneeUser.email,
+        employeeName,
+        taskTitle: cleanTitle,
+        companyName
+      }).catch(err => console.warn('[notificationService] Email dispatch note:', err?.message));
+    });
   }
 
   return notif;
@@ -670,12 +689,22 @@ export async function listNotificationsForUser(userId: string): Promise<ParsedNo
 export async function markNotificationRead(notificationId: string): Promise<boolean> {
   if (!prisma) return false;
   try {
-    await safeDbQuery(() =>
+    const updated = await safeDbQuery(() =>
       prisma.notification.update({
         where: { id: notificationId },
         data: { read: true }
       })
     );
+    if (updated) {
+      try {
+        const { realtimeEventService } = await import('./realtimeEventService');
+        realtimeEventService.emitEvent({
+          type: 'notification.read',
+          startupId: (updated as any).startupId,
+          notificationId: (updated as any).id,
+        });
+      } catch {}
+    }
     return true;
   } catch {
     return false;
@@ -702,6 +731,16 @@ export async function markAllNotificationsRead(userId: string): Promise<number> 
         data: { read: true }
       })
     );
+    if (updated?.count && startupId) {
+      try {
+        const { realtimeEventService } = await import('./realtimeEventService');
+        realtimeEventService.emitEvent({
+          type: 'notification.read',
+          startupId,
+          targetUserId: userId,
+        });
+      } catch {}
+    }
     return updated?.count || 0;
   } catch {
     return 0;

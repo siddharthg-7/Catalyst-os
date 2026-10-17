@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { EmployeeWorkspacePayload, DelegatedTask, CommunityPost, ReportingHierarchy, NotificationItem } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { useRealtime } from '../hooks/useRealtime';
 import NotificationPanel from './NotificationPanel';
 import {
   Compass, CheckSquare, Users, MessageSquare, RefreshCw,
@@ -33,7 +34,7 @@ export default function EmployeeWorkspace({
   onNavigateToApprovals,
   onNavigateToDashboard
 }: EmployeeWorkspaceProps) {
-  const { apiFetch, user, logout } = useAuth();
+  const { apiFetch, user, token, logout } = useAuth();
   const userRole = propUserRole || user?.role || 'Member';
   const userName = propUserName || user?.name || 'Team Member';
 
@@ -116,11 +117,12 @@ export default function EmployeeWorkspace({
     if (!user) return;
     fetchNotifications();
 
+    // Gentle fallback backup sync every 60s (SSE handles instantaneous real-time events)
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         fetchNotifications();
       }
-    }, 12000);
+    }, 60000);
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
@@ -182,6 +184,19 @@ export default function EmployeeWorkspace({
     }
   };
 
+  // Real-time SSE Subscription for Employee Workspace
+  const { isConnected: isRealtimeConnected } = useRealtime({
+    token: token || null,
+    onNotification: () => {
+      fetchNotifications();
+    },
+    onTaskEvent: () => {
+      loadWorkspace(true);
+      fetchNotifications();
+      if (onRefreshTasks) onRefreshTasks();
+    },
+  });
+
   useEffect(() => {
     loadWorkspace();
   }, []);
@@ -230,6 +245,17 @@ export default function EmployeeWorkspace({
               >
                 <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-[#141413]' : ''}`} />
               </button>
+
+              {/* Real-time Connection Indicator */}
+              <div
+                className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg border border-[#141413]/10 bg-white"
+                title={isRealtimeConnected ? 'Real-time live synchronization active (SSE)' : 'Connecting to real-time stream...'}
+              >
+                <span className={`w-2 h-2 rounded-full ${isRealtimeConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`} />
+                <span className="text-[10px] font-mono font-bold text-[#696969]">
+                  {isRealtimeConnected ? 'LIVE' : 'SYNCING'}
+                </span>
+              </div>
 
               {/* Notification Bell */}
               <button

@@ -159,6 +159,7 @@ export interface CompanyContext {
     type: string;
     size: string;
     summary: string;
+    startupId?: string;
   }>;
   agents: Array<{
     id: string;

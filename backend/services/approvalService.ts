@@ -752,6 +752,13 @@ export class ApprovalService {
                   feedback: directiveFeedback,
                   founderUserId: userId
                 });
+                const { realtimeEventService } = await import('./realtimeEventService');
+                realtimeEventService.emitEvent({
+                  type: 'task.changes_requested',
+                  startupId: startup.id,
+                  taskId,
+                  targetUserId: decoded.assignedUserId || undefined
+                });
               } catch {}
             }
           }
@@ -1084,6 +1091,13 @@ export class ApprovalService {
                   startupId: startup.id,
                   task: { id: taskId, title: decoded.title, assignedUserId: decoded.assignedUserId },
                   founderUserId: userId
+                });
+                const { realtimeEventService } = await import('./realtimeEventService');
+                realtimeEventService.emitEvent({
+                  type: 'task.approved',
+                  startupId: startup.id,
+                  taskId,
+                  targetUserId: decoded.assignedUserId || undefined
                 });
               } catch {}
             }
