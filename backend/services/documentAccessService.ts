@@ -122,3 +122,89 @@ export async function authorizeDocumentDownload(
     offline
   };
 }
+
+export interface DocumentUploadAuthResult {
+  allowed: boolean;
+  statusCode?: number;
+  errorCode?: string;
+  errorMessage?: string;
+  startupId?: string;
+  role?: string;
+  task?: any;
+}
+
+/**
+ * Authorizes document and attachment uploads.
+ * Enforces company membership, task assignment permission, and FOUNDER_ONLY scope restrictions.
+ */
+export async function authorizeDocumentUpload(params: {
+  userId: string;
+  taskId?: string;
+  accessScope?: string;
+}): Promise<DocumentUploadAuthResult> {
+  const { userId, taskId, accessScope } = params;
+  if (!userId) {
+    return {
+      allowed: false,
+      statusCode: 401,
+      errorCode: 'UNAUTHORIZED',
+      errorMessage: 'Authentication required.'
+    };
+  }
+
+  const membership = await resolveMembership(userId);
+  if (!membership || !membership.startupId) {
+    return {
+      allowed: false,
+      statusCode: 403,
+      errorCode: 'NO_MEMBERSHIP',
+      errorMessage: 'No active company membership.'
+    };
+  }
+
+  const callerRole = (membership.role || 'EMPLOYEE').toUpperCase();
+  const isPrivileged = callerRole === 'FOUNDER' || callerRole === 'ADMIN';
+
+  // Check accessScope restrictions: only founder/admin can upload FOUNDER_ONLY docs
+  const normScope = (accessScope || 'ALL').toUpperCase();
+  if (normScope === 'FOUNDER_ONLY' && !isPrivileged) {
+    return {
+      allowed: false,
+      statusCode: 403,
+      errorCode: 'UNAUTHORIZED_SCOPE',
+      errorMessage: 'Access denied: Only founders or admins can assign FOUNDER_ONLY access scope.'
+    };
+  }
+
+  // If uploading for a specific task, verify task permissions
+  let task: any = null;
+  if (taskId) {
+    try {
+      task = await getTaskByIdForUser(userId, taskId);
+    } catch (taskErr: any) {
+      return {
+        allowed: false,
+        statusCode: taskErr.status || 403,
+        errorCode: taskErr.code || 'UNAUTHORIZED_TASK_ACCESS',
+        errorMessage: taskErr.message || 'Task not found in this company workspace.'
+      };
+    }
+
+    const isAssigned = task.assignedUserId === userId || task.ownerRole === callerRole;
+    if (!isPrivileged && !isAssigned) {
+      return {
+        allowed: false,
+        statusCode: 403,
+        errorCode: 'UNAUTHORIZED_TASK_ACCESS',
+        errorMessage: 'Forbidden: You cannot upload files to tasks you are not assigned to.'
+      };
+    }
+  }
+
+  return {
+    allowed: true,
+    startupId: membership.startupId,
+    role: callerRole,
+    task
+  };
+}

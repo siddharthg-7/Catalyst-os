@@ -93,7 +93,7 @@ import {
 import { orchestrationService } from '../services/orchestrationService';
 import { multiLevelOrchestrator } from '../services/multiLevelOrchestrator';
 import { workspaceService, DEFAULT_EXECUTIVE_ROLES } from '../services/workspaceService';
-import { authorizeDocumentDownload } from '../services/documentAccessService';
+import { authorizeDocumentDownload, authorizeDocumentUpload } from '../services/documentAccessService';
 import {
   planParentTaskWithRecovery,
   retryTaskPlanning,
@@ -2370,24 +2370,15 @@ router.post('/tasks/:id/documents', authenticateJWT, requireActiveMembership, re
       });
     }
 
-    // Verify task existence and tenant access
-    const membership = await resolveMembership(userId);
-    if (!membership) {
-      return res.status(403).json({ error: 'No active company membership.', code: 'NO_MEMBERSHIP' });
-    }
-
-    const task = await getTaskByIdForUser(userId, taskId);
-    const callerRole = membership.role;
-    const isPrivileged = callerRole === 'FOUNDER' || callerRole === 'ADMIN';
-    const isAssigned = task.assignedUserId === userId || task.ownerRole === callerRole;
-
-    // Do not allow employees to upload files to tasks they cannot access or are not assigned to
-    if (!isPrivileged && !isAssigned) {
-      return res.status(403).json({
-        error: 'Forbidden: You cannot upload files to tasks you are not assigned to.',
-        code: 'UNAUTHORIZED_TASK_ACCESS'
+    // Verify task existence and upload authorization
+    const authResult = await authorizeDocumentUpload({ userId, taskId });
+    if (!authResult.allowed) {
+      return res.status(authResult.statusCode || 403).json({
+        error: authResult.errorMessage,
+        code: authResult.errorCode
       });
     }
+    const membership = { startupId: authResult.startupId!, role: authResult.role! };
 
     // Convert fileData (base64) or content (string) to Buffer
     let buffer: Buffer;
