@@ -93,6 +93,7 @@ import {
 import { orchestrationService } from '../services/orchestrationService';
 import { multiLevelOrchestrator } from '../services/multiLevelOrchestrator';
 import { workspaceService, DEFAULT_EXECUTIVE_ROLES } from '../services/workspaceService';
+import { authorizeDocumentDownload } from '../services/documentAccessService';
 import { companyContextService } from '../services/companyContextService';
 import { approvalService } from '../services/approvalService';
 import { performDevReset } from '../scripts/devReset';
@@ -2456,44 +2457,24 @@ router.get('/tasks/:id/documents/:docId/download', authenticateJWT, requireActiv
   try {
     const { id: taskId, docId } = req.params;
     const userId = req.user!.id;
-    const membership = await resolveMembership(userId);
-    if (!membership) {
-      return res.status(403).json({ error: 'No active company membership.', code: 'NO_MEMBERSHIP' });
-    }
 
-    // Verify task access
-    await getTaskByIdForUser(userId, taskId);
-
-    const doc = await safeDbQuery(async () => {
-      return await (prisma as any).startupDocument.findFirst({
-        where: {
-          id: docId,
-          sourceType: 'TASK_DOCUMENT',
-          sourceRecordId: taskId,
-          startupId: membership.startupId
-        }
-      });
-    });
-
-    if (!doc) {
-      return res.status(404).json({ error: 'Document not found.', code: 'NOT_FOUND' });
-    }
-
-    if (!isS3Configured()) {
-      return res.json({
-        downloadUrl: `#offline-doc-${docId}`,
-        filename: doc.name,
-        offline: true
+    const authResult = await authorizeDocumentDownload(userId, docId);
+    if (!authResult.allowed) {
+      return res.status(authResult.statusCode || 403).json({
+        error: authResult.errorMessage || 'Forbidden',
+        code: authResult.errorCode || 'FORBIDDEN'
       });
     }
 
-    const keyMatch = (doc.summary || '').match(/StorageKey:\s*([^\s]+)/);
-    const s3Key = keyMatch ? keyMatch[1] : `tasks/${taskId}/${doc.name}`;
+    // Verify that the document belongs to this specific task
+    if (authResult.doc?.sourceType === 'TASK_DOCUMENT' && authResult.doc?.sourceRecordId !== taskId) {
+      return res.status(404).json({ error: 'Document not found for this task.', code: 'NOT_FOUND' });
+    }
 
-    const downloadUrl = await getPresignedDownloadUrl(s3Key, 900); // 15 minutes validity
     res.json({
-      downloadUrl,
-      filename: doc.name
+      downloadUrl: authResult.downloadUrl,
+      filename: authResult.filename,
+      offline: authResult.offline
     });
   } catch (err) {
     sendTaskError(res, err);
@@ -3994,50 +3975,38 @@ router.get('/storage/status', authenticateJWT, async (req: AuthenticatedRequest,
   }
 });
 
-// GET presigned download URL for an uploaded document (Scoped to Owner's Startup)
-router.get('/knowledge/:id/download', authenticateJWT, async (req: AuthenticatedRequest, res) => {
+// GET presigned download URL for an uploaded document (Strict Company Isolation & AccessScope Protection)
+router.get('/knowledge/:id/download', authenticateJWT, requireActiveMembership, async (req: AuthenticatedRequest, res) => {
   try {
     const { id } = req.params;
     const userId = req.user?.id;
     if (!userId) {
-      res.status(401).json({ error: 'Authentication required.' });
-      return;
+      return res.status(401).json({ error: 'Authentication required.', code: 'UNAUTHORIZED' });
     }
 
-    let doc: any = null;
-    if (isDbAvailable && prisma) {
-      try {
-        doc = await prisma.startupDocument.findFirst({
-          where: {
-            id,
-            startup: { ownerId: userId }
-          }
-        });
-      } catch (dbErr: any) {
-        console.warn('[Knowledge API] Download DB query warning:', dbErr.message);
+    const authResult = await authorizeDocumentDownload(userId, id);
+    if (!authResult.allowed) {
+      // Check offline documents fallback for requesting user's company context only
+      if (authResult.statusCode === 404) {
+        const userContext = await companyContextService.getContextForUser(userId);
+        const userDoc = userContext?.documents?.find((d: any) => d.id === id);
+        const membership = await resolveMembership(userId);
+        if (userDoc && (!userDoc.startupId || userDoc.startupId === membership?.startupId)) {
+          return res.json({ downloadUrl: `#offline-download-${id}`, filename: userDoc.name, offline: true });
+        }
       }
+
+      return res.status(authResult.statusCode || 403).json({
+        error: authResult.errorMessage || 'Forbidden',
+        code: authResult.errorCode || 'FORBIDDEN'
+      });
     }
 
-    if (!doc) {
-      // Strict tenant isolation fallback: check requesting user's company context only
-      const userContext = await companyContextService.getContextForUser(userId);
-      const userDoc = userContext?.documents?.find((d: any) => d.id === id);
-      if (userDoc) {
-        return res.json({ downloadUrl: `#offline-download-${id}`, filename: userDoc.name });
-      }
-      res.status(404).json({ error: 'Document not found.' });
-      return;
-    }
-
-    if (!isS3Configured()) {
-      res.status(400).json({ error: 'Neon S3 storage is not configured.' });
-      return;
-    }
-
-    // Try finding by name or document key
-    const sanitized = doc.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const downloadUrl = await getPresignedDownloadUrl(`documents/${sanitized}`);
-    res.json({ downloadUrl, filename: doc.name });
+    return res.json({
+      downloadUrl: authResult.downloadUrl,
+      filename: authResult.filename,
+      offline: authResult.offline
+    });
   } catch (err: any) {
     res.status(500).json({ error: `Could not generate download URL: ${err.message}` });
   }

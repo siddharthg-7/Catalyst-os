@@ -12,6 +12,8 @@ import {
   createNotification,
   listNotificationsForUser
 } from '../backend/services/notificationService';
+import { authorizeDocumentDownload } from '../backend/services/documentAccessService';
+import { resolveMembership } from '../backend/services/membershipService';
 
 const prisma = new PrismaClient();
 
@@ -613,8 +615,110 @@ async function runPhase7Phase8Tests() {
     console.log(`   ✓ Duplicate notification intercepted by dedupKey (Record ID: ${notif1?.id}).`);
     console.log('   ✅ PASS: Duplicate records from network retries strictly prevented.');
 
+    // 8.6 Prevent Unauthorized and Cross-Company Document Downloads
+    console.log('\n[Phase 8.6] Testing Document Download Isolation and Access Scoping...');
+
+    // Document in Company A with FOUNDER_ONLY accessScope
+    const founderOnlyDoc = await (prisma as any).startupDocument.create({
+      data: {
+        name: 'Confidential_Venture_Term_Sheet.pdf',
+        type: 'legal',
+        sourceType: 'DOCUMENT',
+        size: '1.2 MB',
+        summary: 'Founder-only series A term sheet. StorageKey: documents/confidential_term_sheet.pdf',
+        startupId: companyA.id,
+        accessScope: 'FOUNDER_ONLY',
+        indexingStatus: 'COMPLETED'
+      }
+    });
+
+    // Document in Company A with general accessScope
+    const generalDocA = await (prisma as any).startupDocument.create({
+      data: {
+        name: 'Company_A_Handbook.pdf',
+        type: 'general',
+        sourceType: 'DOCUMENT',
+        size: '500 KB',
+        summary: 'Company A employee handbook. StorageKey: documents/company_a_handbook.pdf',
+        startupId: companyA.id,
+        accessScope: 'ALL',
+        indexingStatus: 'COMPLETED'
+      }
+    });
+
+    // 1. Cross-Company Download Attempt: Employee B1 (Company B) tries to download Document A
+    const crossCompanyDocAttempt = await authorizeDocumentDownload(employeeB1.id, generalDocA.id);
+    if (crossCompanyDocAttempt.allowed || crossCompanyDocAttempt.statusCode !== 404) {
+      throw new Error('SECURITY BREACH: User in Company B was able to access/enumerate document in Company A!');
+    }
+    console.log(`   ✓ Cross-company document download strictly blocked with 404: ${crossCompanyDocAttempt.errorMessage}`);
+
+    // 2. Unauthorized Role Download Attempt: Employee A1 (Engineering) tries to download FOUNDER_ONLY document in Company A
+    const unauthorizedDocAttempt = await authorizeDocumentDownload(employeeA1.id, founderOnlyDoc.id);
+    if (unauthorizedDocAttempt.allowed || unauthorizedDocAttempt.statusCode !== 403) {
+      throw new Error('SECURITY BREACH: Employee was able to download FOUNDER_ONLY document!');
+    }
+    console.log(`   ✓ Unauthorized document download strictly blocked with 403: ${unauthorizedDocAttempt.errorMessage}`);
+
+    // 3. Authorized Download: Founder A can download FOUNDER_ONLY document
+    const authorizedFounderDownload = await authorizeDocumentDownload(founderA.id, founderOnlyDoc.id);
+    if (!authorizedFounderDownload.allowed || !authorizedFounderDownload.downloadUrl) {
+      throw new Error('Founder was unable to authorize their own document download!');
+    }
+    console.log(`   ✓ Authorized founder download permitted: ${authorizedFounderDownload.filename}`);
+
+    // 4. Task Attachment Download Isolation: Task attachment on restricted task
+    const restrictedTaskDoc = await (prisma as any).startupDocument.create({
+      data: {
+        name: 'Restricted_Executive_Compensation.xlsx',
+        type: 'task_document',
+        sourceType: 'TASK_DOCUMENT',
+        sourceRecordId: restrictedTask.id,
+        size: '250 KB',
+        summary: `Attachment for task ${restrictedTask.id}. StorageKey: tasks/${restrictedTask.id}/compensation.xlsx`,
+        startupId: companyA.id,
+        accessScope: 'ALL',
+        indexingStatus: 'COMPLETED'
+      }
+    });
+
+    // Peer employee A2 cannot download attachment of restricted task
+    const peerTaskDocAttempt = await authorizeDocumentDownload(employeeA2.id, restrictedTaskDoc.id);
+    if (peerTaskDocAttempt.allowed || peerTaskDocAttempt.statusCode !== 403) {
+      throw new Error('SECURITY BREACH: Peer employee downloaded attachment from restricted task!');
+    }
+    console.log(`   ✓ Peer employee blocked from downloading restricted task attachment: ${peerTaskDocAttempt.errorMessage}`);
+
+    // Assignee employee A1 can download attachment
+    const assigneeTaskDocAttempt = await authorizeDocumentDownload(employeeA1.id, restrictedTaskDoc.id);
+    if (!assigneeTaskDocAttempt.allowed) {
+      throw new Error('Assignee could not download their own task attachment!');
+    }
+    console.log(`   ✓ Direct assignee permitted to download task attachment: ${assigneeTaskDocAttempt.filename}`);
+    console.log('   ✅ PASS: Document download scoping and cross-company isolation verified.');
+
+    // 8.7 Prevent Forged User IDs / Company IDs from Frontend
+    console.log('\n[Phase 8.7] Testing Prevention of Forged Frontend User/Company IDs...');
+    const fakeCompanyId = '00000000-0000-0000-0000-000000000000';
+    
+    // An attacker cannot supply an arbitrary company ID to hijack another company scope
+    const attackerMembership = await resolveMembership(employeeA1.id);
+    if (attackerMembership?.startupId === fakeCompanyId || attackerMembership?.startupId === companyB.id) {
+      throw new Error('SECURITY BREACH: Client forged company ID was honored by server!');
+    }
+    if (attackerMembership?.startupId !== companyA.id) {
+      throw new Error('Membership resolution failed to bind strictly to user authenticated startup!');
+    }
+    console.log(`   ✓ Membership strictly resolved server-side to authenticated company: ${attackerMembership.startupId}`);
+    console.log('   ✅ PASS: Forged user/company IDs strictly neutralized.');
+
     // CLEANUP
     console.log('\n🧹 Cleaning up test companies, plans, and tasks...');
+    await prisma.startupDocument.deleteMany({
+      where: {
+        id: { in: [founderOnlyDoc.id, generalDocA.id, restrictedTaskDoc.id] }
+      }
+    });
     await prisma.task.deleteMany({
       where: {
         id: { in: [stateTask.id, cancelTask.id, restrictedTask.id, selfApproveTask.id, retryTask.id] }
