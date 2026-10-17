@@ -177,6 +177,53 @@ export const SUPPORTED_CAPABILITIES: Record<string, CapabilityRegistryEntry> = {
 };
 
 // ============================================================================
+// RESILIENT GEMINI CALL HELPER (LLM INTEGRATION)
+// ============================================================================
+
+async function callGemini(
+  prompt: string,
+  options?: { json?: boolean; temperature?: number; timeoutMs?: number }
+): Promise<string | null> {
+  if (!ai) return null;
+  const candidatePool = Array.from(new Set([
+    process.env.GEMINI_MODEL,
+    'gemini-3.8-flash',
+    'gemini-3.5-flash',
+    'gemini-3.5-flash-lite'
+  ])).filter(Boolean) as string[];
+
+  const timeoutMs = options?.timeoutMs ?? 6000;
+
+  for (const model of candidatePool) {
+    try {
+      const config: any = {
+        temperature: options?.temperature ?? (options?.json ? 0.1 : 0.3)
+      };
+      if (options?.json) {
+        config.responseMimeType = 'application/json';
+      }
+
+      const generatePromise = ai.models.generateContent({
+        model,
+        contents: prompt,
+        config
+      });
+
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error(`Model ${model} request timed out after ${timeoutMs}ms`)), timeoutMs);
+      });
+
+      const res = await Promise.race([generatePromise, timeoutPromise]);
+      const text = res.text?.trim();
+      if (text) return text;
+    } catch (err: any) {
+      console.warn(`[MultiLevelOrchestrator AI] Model ${model} notice: ${err.message}`);
+    }
+  }
+  return null;
+}
+
+// ============================================================================
 // MULTI-LEVEL ORCHESTRATOR CLASS
 // ============================================================================
 
@@ -242,7 +289,7 @@ export class MultiLevelOrchestrator {
     const startupId = canonical!.startupId;
 
     // 2. Intent Analysis & Level 1 Routing
-    const intentAnalysis = this.classifyDirectiveIntent(directive);
+    const intentAnalysis = await this.classifyDirectiveIntent(directive);
     console.log(`[Orchestrator L1] Intent classified as "${intentAnalysis.intent}" (Objective: "${intentAnalysis.objective}")`);
     onEvent?.({
       type: 'intent_classified',
@@ -350,14 +397,14 @@ export class MultiLevelOrchestrator {
   // INTENT CLASSIFICATION
   // --------------------------------------------------------------------------
 
-  private classifyDirectiveIntent(directive: string): {
+  private async classifyDirectiveIntent(directive: string): Promise<{
     intent: DirectiveIntent;
     objective: string;
     isSimpleQuery: boolean;
-  } {
+  }> {
     const lower = directive.toLowerCase().trim();
 
-    // Check unsupported capabilities first (Test 4)
+    // 1. High-priority deterministic guard for unsupported capabilities (Test 4)
     if (
       lower.includes('not installed') ||
       lower.includes('not supported') ||
@@ -372,12 +419,96 @@ export class MultiLevelOrchestrator {
       };
     }
 
-    // Greetings
-    if (lower === 'hi' || lower === 'hello' || lower === 'hey' || lower.startsWith('hello ') || lower.startsWith('good morning')) {
+    // 2. Dynamic LLM Intent Classification
+    if (ai) {
+      try {
+        const classificationPrompt = `You are the executive semantic intent classifier for CatalystOS, an AI executive orchestration platform for startups.
+Founder input: "${directive}"
+
+Analyze the founder's input and classify it into EXACTLY ONE of the following intents:
+- "greeting": Casual conversational greeting, identity questions, check-ins, or small talk (e.g., "How are you?", "What's up?", "Who am I talking to?", "Who are you?", "Tell me about yourself", "Hello", "Good morning").
+- "general_question": General operational questions about how CatalystOS operates or non-company inquiries.
+- "knowledge_query": Questions asking for factual information about the company, its current product or strategic priorities, team members, mission, or uploaded documents (e.g., "What are our current product priorities?", "Who is our lead engineer?", "Summarize the pitch deck").
+- "financial_scenario": Questions regarding financial metrics, cash balance, runway, monthly burn rate, or runway safety (e.g., "What is our current runway?", "How much time do we have before we run out of cash?", "Are we financially safe for the next six months?", "What is our monthly burn?").
+- "task_creation": Explicit instructions to create, divide, distribute, or assign concrete tasks/work items (e.g., "Create three tasks from this approved product plan", "Divide the landing page work across the team").
+- "approval_action": Consequential executive commitments requiring founder approval sign-off, such as hiring decisions, major expenditures, or wire transfers (e.g., "Authorize hiring a senior platform engineer", "Commit ₹50L to vendor contract").
+- "cross_domain_directive": Multi-domain strategic campaigns or cross-functional execution initiatives (e.g., "Prepare a 30-day go-to-market plan and assess the budget").
+- "planning": Multi-step strategic project planning or workflow roadmapping directives.
+
+Rules for "isSimpleQuery":
+- Set "isSimpleQuery": true for direct conversational greetings/identity, factual company knowledge queries, and direct financial information questions (like current runway, burn rate, 6-month safety check) that can be answered directly without launching a multi-agent execution DAG or creating database tasks.
+- Set "isSimpleQuery": false for directives requiring multi-agent execution, database task persistence, formal approval generation, or complex scenario modeling.
+
+Return strictly valid JSON:
+{
+  "intent": "greeting" | "general_question" | "knowledge_query" | "financial_scenario" | "task_creation" | "approval_action" | "cross_domain_directive" | "planning" | "unsupported_capability",
+  "objective": "<concise single-sentence summary of the user's objective>",
+  "isSimpleQuery": boolean
+}`;
+
+        const rawJson = await callGemini(classificationPrompt, { json: true, temperature: 0.1 });
+        if (rawJson) {
+          const parsed = JSON.parse(rawJson);
+          const validIntents: DirectiveIntent[] = [
+            'greeting', 'general_question', 'knowledge_query', 'financial_scenario',
+            'task_creation', 'approval_action', 'cross_domain_directive', 'planning', 'unsupported_capability'
+          ];
+          if (validIntents.includes(parsed.intent)) {
+            // Guard: ensure test invariants remain solid
+            const isTaskDirective = (lower.includes('divide') || lower.includes('assign') || lower.includes('delegate') || lower.includes('split') || lower.includes('distribute') || (lower.includes('create') && lower.includes('task')));
+            const isApprovalDirective = lower.includes('authorize') || lower.includes('sign off') || lower.includes('commit') || (lower.includes('hire') && (lower.includes('engineer') || lower.includes('plan')));
+            
+            let finalIntent: DirectiveIntent = parsed.intent;
+            let finalSimple = Boolean(parsed.isSimpleQuery);
+            
+            if (isTaskDirective) {
+              finalIntent = 'task_creation';
+              finalSimple = false;
+            } else if (isApprovalDirective) {
+              finalIntent = 'approval_action';
+              finalSimple = false;
+            } else if (lower.includes('go-to-market') || lower.includes('gtm')) {
+              finalIntent = 'cross_domain_directive';
+              finalSimple = false;
+            }
+
+            return {
+              intent: finalIntent,
+              objective: parsed.objective || `Executive directive: ${directive.slice(0, 60)}`,
+              isSimpleQuery: finalSimple
+            };
+          }
+        }
+      } catch (err: any) {
+        console.warn('[Orchestrator L1] LLM classification error, falling back to semantic rules:', err.message);
+      }
+    }
+
+    // 3. Fallback Semantic Classifier (used if AI is unavailable or offline)
+    // Conversational & Identity
+    if (
+      lower === 'hi' || lower === 'hello' || lower === 'hey' || lower.startsWith('hello ') || lower.startsWith('good morning') ||
+      lower.includes('how are you') || lower.includes("what's up") || lower.includes('who are you') || lower.includes('who am i talking to') ||
+      lower.includes('tell me about yourself')
+    ) {
       return {
         intent: 'greeting',
-        objective: 'Founder greeting & operational telemetry status',
+        objective: 'Acknowledge founder and provide executive situational briefing',
         isSimpleQuery: true
+      };
+    }
+
+    // Financial queries (runway, burn, cash, runway safety)
+    if (
+      lower.includes('runway') || lower.includes('cash burn') || lower.includes('burn rate') ||
+      lower.includes('run out of cash') || lower.includes('financially safe') ||
+      (lower.includes('cash') && (lower.includes('how much') || lower.includes('what is') || lower.includes('balance')))
+    ) {
+      const isInformational = lower.includes('what') || lower.includes('how') || lower.includes('are we') || lower.includes('is our') || lower.includes('tell me');
+      return {
+        intent: 'financial_scenario',
+        objective: 'Analyze liquid reserves, monthly burn rate, and deterministic runway safety',
+        isSimpleQuery: isInformational
       };
     }
 
@@ -398,23 +529,18 @@ export class MultiLevelOrchestrator {
 
     // Direct Knowledge Query / Product Priorities Question (Test 1)
     if (
-      lower.startsWith('what are') ||
-      lower.startsWith('what is') ||
-      lower.startsWith('who is') ||
-      lower.startsWith('summarize') ||
-      lower.startsWith('tell me about') ||
       lower.includes('current product priorities') ||
+      lower.includes('company priorities') ||
+      lower.includes('product priorities') ||
       lower.includes('biggest risks') ||
-      lower.includes('company priorities')
+      ((lower.startsWith('what are') || lower.startsWith('what is') || lower.startsWith('who is') || lower.startsWith('summarize') || lower.startsWith('tell me about')) &&
+       !lower.includes('prepare a') && !lower.includes('create a') && !lower.includes('execute') && !lower.includes('launch') && !lower.includes('plan'))
     ) {
-      // If it's a simple informational inquiry about current priorities / info:
-      if (!lower.includes('prepare a') && !lower.includes('create a') && !lower.includes('execute') && !lower.includes('launch')) {
-        return {
-          intent: 'knowledge_query',
-          objective: 'Retrieve factual company knowledge and strategic priorities',
-          isSimpleQuery: true
-        };
-      }
+      return {
+        intent: 'knowledge_query',
+        objective: 'Retrieve factual company knowledge and strategic priorities',
+        isSimpleQuery: true
+      };
     }
 
     // Consequential Approval Directive (Test 7)
@@ -432,27 +558,10 @@ export class MultiLevelOrchestrator {
       };
     }
 
-    // Financial Runway Scenario
-    if (
-      lower.includes('runway') ||
-      lower.includes('cash burn') ||
-      lower.includes('afford to hire') ||
-      lower.includes('budget') && !lower.includes('go-to-market')
-    ) {
-      return {
-        intent: 'financial_scenario',
-        objective: 'Analyze runway preservation, burn rate scenarios, and treasury impact',
-        isSimpleQuery: false
-      };
-    }
-
     // Multi-domain Go-To-Market / Cross-domain Directive (Test 2)
     if (
       lower.includes('go-to-market') ||
       lower.includes('gtm') ||
-      lower.includes('launch') ||
-      lower.includes('30-day') ||
-      lower.includes('growth plan') ||
       lower.includes('marketing and budget')
     ) {
       return {
@@ -486,6 +595,8 @@ export class MultiLevelOrchestrator {
     const burn = canonical.financials.monthlyBurn;
     const runway = canonical.financials.runwayMonths;
 
+    const isDemo = canonical.startup.name === 'NovaTech' || canonical.startupId.includes('test') || canonical.startupId.includes('demo');
+
     // Retrieve relevant company documents via RAG
     let retrievedChunks: any[] = [];
     try {
@@ -505,35 +616,143 @@ export class MultiLevelOrchestrator {
       onEvent?.({ type: 'evidence_retrieved', evidence });
     }
 
-    // Greetings
-    if (intent === 'greeting') {
-      const summary = `Hello! I am Sophia Vance, your Executive Directive Dispatcher for **${startupName}**.`;
+    // ------------------------------------------------------------------------
+    // SUB-CASE 1: Financial Inquiries & Runway Calculations
+    // ------------------------------------------------------------------------
+    const lower = directive.toLowerCase();
+    const isFinancialInquiry = intent === 'financial_scenario' || lower.includes('runway') || lower.includes('burn') || lower.includes('cash') || lower.includes('safe');
+
+    if (isFinancialInquiry) {
+      const runwayResult = financialEngine.calculateRunway(cash, burn);
+      const inrCash = `₹${(cash / 100000).toLocaleString('en-IN', { maximumFractionDigits: 1 })} Lakhs`;
+      const usdCash = `$${Math.round(cash / 83.5).toLocaleString('en-US')}`;
+      const inrBurn = `₹${(burn / 100000).toLocaleString('en-IN', { maximumFractionDigits: 1 })} Lakhs/mo`;
+      const usdBurn = `$${Math.round(burn / 83.5).toLocaleString('en-US')}/mo`;
+
+      const cashFormatted = `${inrCash} (~${usdCash} USD)`;
+      const burnFormatted = `${inrBurn} (~${usdBurn} USD)`;
+      const runwayFormatted = `${runwayResult.runwayMonths} Months`;
+      const isSixMonthsSafe = runwayResult.runwayMonths >= 6.0;
+
+      const calculations = [
+        { metric: 'Liquid Cash Reserves', value: cashFormatted, source: isDemo ? 'Demo Treasury Profile' : 'PostgreSQL Treasury' },
+        { metric: 'Net Monthly Burn Rate', value: burnFormatted, source: 'Operating Expenses' },
+        { metric: 'Deterministic Runway Horizon', value: runwayFormatted, source: 'Deterministic Runway Calculator (Cash ÷ Monthly Burn)' }
+      ];
+
+      const keyFindings = [
+        `**Runway Horizon:** ${runwayFormatted} (${runwayResult.runwayStatus})`,
+        `**Liquid Treasury Reserves:** ${cashFormatted}`,
+        `**Net Monthly Burn:** ${burnFormatted}`,
+        `**6-Month Safety Assessment:** ${isSixMonthsSafe ? 'Financially secure (runway exceeds 6-month buffer under baseline burn).' : 'Runway warning: below minimum 6-month safety buffer.'}`
+      ];
+      if (isDemo) {
+        keyFindings.push('*Note: Figures reflect NovaTech demo company baseline records.*');
+      }
+
+      // Generate dynamic LLM explanation
+      let summary = '';
+      const financialPrompt = `You are Sophia Vance, Executive AI Dispatcher for ${startupName} on CatalystOS.
+Founder question: "${directive}"
+
+Verified Treasury Figures:
+- Liquid Cash Reserves: ${cashFormatted}
+- Net Monthly Burn: ${burnFormatted}
+- Deterministic Runway: ${runwayFormatted} (${runwayResult.runwayStatus})
+- Safe for next 6 months: ${isSixMonthsSafe ? 'Yes (runway exceeds 6 months)' : 'No (runway is below 6 months)'}
+${isDemo ? '- Data notice: These figures are from NovaTech demo baseline records.' : '- Data notice: Live canonical company treasury.'}
+
+Instructions:
+- Provide a direct, concise executive response (2-3 sentences) answering the founder's specific question.
+- If asking about runway, state the runway horizon and burn clearly.
+- If asking if the company is safe for 6 months or when cash runs out, answer directly using the figures above.
+- Mention both INR and USD values if appropriate.
+- If this is demo data, clearly note it.
+- Do NOT alter numbers or invent unauthorized financial assumptions.`;
+
+      const aiText = await callGemini(financialPrompt, { temperature: 0.2 });
+      if (aiText) {
+        summary = aiText;
+      } else {
+        // Deterministic fallback
+        summary = `Based on verified treasury records for **${startupName}**, our deterministic runway is **${runwayFormatted}** with **${cashFormatted}** in liquid reserves and a net burn of **${burnFormatted}**. ` +
+          (isSixMonthsSafe ? `We are financially safe for the next six months under baseline operations.` : `Our runway is below our 6-month safety threshold.`) +
+          (isDemo ? ` *(Note: Figures reflect demo baseline data)*` : '');
+      }
+
       return {
         summary,
-        completedWork: ['Synchronized canonical startup profile', 'Verified operating telemetry'],
-        keyFindings: [
-          `**Treasury Reserves:** $${cash.toLocaleString()} liquid cash.`,
-          `**Runway Horizon:** ${runway} months at $${burn.toLocaleString()}/mo burn rate.`,
-          `**Stage & Industry:** ${canonical.startup.stage || 'Seed'} · ${canonical.startup.industry || 'Technology'}.`
-        ],
-        calculations: [
-          { metric: 'Cash Reserves', value: `$${cash.toLocaleString()}`, source: 'PostgreSQL Treasury' },
-          { metric: 'Monthly Net Burn', value: `$${burn.toLocaleString()}/mo`, source: 'Operating Expenses' },
-          { metric: 'Runway Horizon', value: `${runway} Months`, source: 'Deterministic Runway Calculator (Cash / Burn)' }
-        ],
-        assumptions: ['Operating under baseline monthly expense rates.'],
+        completedWork: ['Audited treasury reserves and monthly burn rate', 'Calculated deterministic runway horizon', 'Avoided launching unnecessary multi-agent DAG'],
+        keyFindings,
+        calculations,
+        assumptions: ['Operating within baseline monthly burn rate.', isDemo ? 'Based on demo baseline profile.' : 'Based on canonical database records.'],
         createdRecords: [],
         failedOrBlockedSteps: [],
         founderDecisions: [],
         recommendedActions: [
-          { label: 'Issue Multi-Domain Directive', action: 'focus_directive_input' },
-          { label: 'Review Treasury Scenarios', action: 'navigate_scenarios' }
+          { label: 'Review Treasury Scenarios', action: 'navigate_scenarios' },
+          { label: 'Model Headcount Hiring', action: 'model_hiring' }
         ],
         evidence
       };
     }
 
-    // Product Priorities or Knowledge Inquiry (Test 1)
+    // ------------------------------------------------------------------------
+    // SUB-CASE 2: Conversational, Identity & Status (Sophia Vance Persona)
+    // ------------------------------------------------------------------------
+    if (intent === 'greeting' || intent === 'general_question') {
+      let summary = '';
+      const conversationalPrompt = `You are Sophia Vance, Executive AI Directive Dispatcher and Chief of Staff for ${startupName} on CatalystOS.
+User's message: "${directive}"
+
+Company Profile:
+- Name: ${startupName}
+- Stage: ${canonical.startup.stage || 'Seed'}
+- Industry: ${canonical.startup.industry || 'Technology'}
+
+Guidelines:
+- Answer naturally, warmly, and concisely (2-3 sentences).
+- If the user asks who you are, who they are talking to, or to tell about yourself: introduce yourself as Sophia Vance, the Executive AI Dispatcher for CatalystOS, explaining your role orchestrating domain specialist agents (Finance, Product, Engineering, Growth, Operations, Legal) to analyze company data and execute workflows.
+- If the user asks "How are you?", "What's up?", or checks in: respond professionally and cheerfully as the AI dispatcher, confirming system operations are running smoothly and you are ready to assist.
+- Do NOT claim to have planned or executed a 30-day go-to-market plan, multi-agent workflows, or telemetry audits for casual greetings.
+- Keep the tone executive, capable, and polished.`;
+
+      const aiText = await callGemini(conversationalPrompt, { temperature: 0.3 });
+      if (aiText) {
+        summary = aiText;
+      } else {
+        const isIdentity = lower.includes('who are you') || lower.includes('who am i') || lower.includes('tell me about yourself');
+        if (isIdentity) {
+          summary = `I am Sophia Vance, your Executive Directive Dispatcher and AI Chief of Staff on CatalystOS for **${startupName}**. I coordinate specialized domain agents across Finance, Product, Engineering, Growth, Operations, and Legal to turn your strategic directives into structured, verified execution.`;
+        } else {
+          summary = `Hello! I am Sophia Vance, your Executive AI Dispatcher for **${startupName}**. All orchestration systems and autonomous specialist agents are online and ready for your directives.`;
+        }
+      }
+
+      return {
+        summary,
+        completedWork: ['Validated executive dispatcher operational status', 'Avoided launching unnecessary multi-agent DAG'],
+        keyFindings: [
+          `**Operational Status:** CatalystOS executive dispatcher active and ready.`,
+          `**Company Scope:** Operating within ${startupName} (${canonical.startup.stage || 'Seed'} · ${canonical.startup.industry || 'Technology'}).`,
+          `**Specialist Fleet:** Finance (Aura), Growth (Vector), Talent (Echo), Operations (Helix), Product (Atlas), Legal (Nexus).`
+        ],
+        calculations: [],
+        assumptions: ['Operating within baseline corporate governance parameters.'],
+        createdRecords: [],
+        failedOrBlockedSteps: [],
+        founderDecisions: [],
+        recommendedActions: [
+          { label: 'Issue Multi-Domain Directive', action: 'focus_directive_input' },
+          { label: 'Check Treasury Runway', action: 'query_runway' }
+        ],
+        evidence
+      };
+    }
+
+    // ------------------------------------------------------------------------
+    // SUB-CASE 3: Company Knowledge & Strategic Priorities (Test 1)
+    // ------------------------------------------------------------------------
     const hasPrioritiesInGoals = goals.length > 0;
     const hasEvidence = evidence.length > 0;
 
@@ -541,7 +760,29 @@ export class MultiLevelOrchestrator {
     const keyFindings: string[] = [];
 
     if (hasPrioritiesInGoals || hasEvidence) {
-      summary = `Based on verified company records for **${startupName}**, our primary product and strategic priorities are:`;
+      const knowledgePrompt = `You are Sophia Vance, Executive AI Dispatcher for ${startupName} on CatalystOS.
+User question: "${directive}"
+
+Verified Company Records:
+- Company: ${startupName} (${canonical.startup.industry || 'Technology'}, ${canonical.startup.stage || 'Seed'})
+- Recorded Strategic Goals:
+${goals.map(g => `• ${g}`).join('\n') || 'None recorded'}
+- Verified Knowledge Passages:
+${evidence.map(e => `[${e.documentName}]: ${e.excerpt}`).join('\n\n') || 'None retrieved'}
+
+Instructions:
+- Answer the user's question directly, accurately, and concisely based strictly on the verified records above.
+- If the user asked about product priorities or company priorities, summarize them clearly.
+- If specific information is missing or not covered by the records, state that honestly without inventing facts.
+- Do NOT generate an unrequested 30-day execution plan or claim tasks were completed.`;
+
+      const aiText = await callGemini(knowledgePrompt, { temperature: 0.2 });
+      if (aiText) {
+        summary = aiText;
+      } else {
+        summary = `Based on verified company records for **${startupName}**, our primary product and strategic priorities are:`;
+      }
+
       if (hasPrioritiesInGoals) {
         goals.forEach(g => {
           const cleanGoal = (g || '').replace(/\*+/g, '').trim();
@@ -555,8 +796,8 @@ export class MultiLevelOrchestrator {
           const docName = (e.documentName || 'Company Knowledge Document').replace(/\*+/g, '').trim();
           const cleanExcerpt = (e.excerpt || '')
             .replace(/^#+\s+/gm, '')
-            .replace(/\*\*([^*]+)\*\*/g, '$1') // unwrap bold inside excerpts to avoid fragmented or unclosed asterisks
-            .replace(/\*+/g, '') // remove any stray unclosed asterisks
+            .replace(/\*\*([^*]+)\*\*/g, '$1')
+            .replace(/\*+/g, '')
             .replace(/[\r\n]+/g, ' ')
             .replace(/\s+/g, ' ')
             .trim();
@@ -564,7 +805,7 @@ export class MultiLevelOrchestrator {
         });
       }
     } else {
-      // Truthfully report missing information without fabricating!
+      // Truthfully report missing information without fabricating
       summary = `No specific product priority records or strategy documents have been uploaded for **${startupName}** yet.`;
       keyFindings.push('Strategic priorities have not been explicitly defined in your company profile.');
       keyFindings.push('Upload a product roadmap, pitch deck, or PRD in the Knowledge Center to ground autonomous execution.');
@@ -581,7 +822,7 @@ export class MultiLevelOrchestrator {
       founderDecisions: [],
       recommendedActions: [
         { label: 'Upload Roadmap to Knowledge Base', action: 'navigate_knowledge' },
-        { label: 'Formulate 30-Day Execution Plan', action: 'prepare_gtm_directive' }
+        { label: 'Check Treasury Runway', action: 'query_runway' }
       ],
       evidence
     };
@@ -1102,6 +1343,45 @@ export class MultiLevelOrchestrator {
           };
         }
 
+        // Dynamic Product Roadmap Planning via Gemini
+        let dynamicPlan: any = null;
+        if (ai) {
+          try {
+            const planPrompt = `You are Atlas, Head of Product & Engineering for ${canonical.startup.name}.
+Founder Directive: "${run.directive}".
+Upstream Budget Output: ${JSON.stringify(budgetOutput)}.
+Upstream Market Research Output: ${JSON.stringify(marketOutput)}.
+
+Synthesize a tailored execution roadmap in strictly valid JSON format:
+{
+  "sprintDurationDays": <number, e.g. 30>,
+  "allocatedBudget": <number, safe budget amount>,
+  "targetDeliverable": "<concise title of deliverable>",
+  "milestones": [
+    { "day": "Day 1–7", "focus": "<focus>", "owner": "<Agent or role>" },
+    { "day": "Day 8–18", "focus": "<focus>", "owner": "<Agent or role>" },
+    { "day": "Day 19–25", "focus": "<focus>", "owner": "<Agent or role>" },
+    { "day": "Day 26–30", "focus": "<focus>", "owner": "<Agent or role>" }
+  ]
+}`;
+            const planJson = await callGemini(planPrompt, { json: true, temperature: 0.2 });
+            if (planJson) {
+              dynamicPlan = JSON.parse(planJson);
+            }
+          } catch (e: any) {
+            console.warn('[Orchestrator] Dynamic product planning fallback:', e.message);
+          }
+        }
+
+        if (dynamicPlan && dynamicPlan.milestones && Array.isArray(dynamicPlan.milestones)) {
+          return {
+            sprintDurationDays: dynamicPlan.sprintDurationDays || 30,
+            allocatedBudget: dynamicPlan.allocatedBudget || budgetOutput.maximumSafeGrowthBudget || 15000,
+            milestones: dynamicPlan.milestones,
+            targetDeliverable: dynamicPlan.targetDeliverable || 'Go-To-Market Execution Charter'
+          };
+        }
+
         return {
           sprintDurationDays: 30,
           allocatedBudget: budgetOutput.maximumSafeGrowthBudget || 15000,
@@ -1548,7 +1828,24 @@ export class MultiLevelOrchestrator {
         summary = `I have decomposed your directive into ${run.createdRecords.tasks.length} actionable tasks and dispatched them to verified owners in your company workspace.`;
       }
     } else {
-      summary = `Executive directive "${run.directive}" has been planned, executed across ${completedTasks.length} domain tasks, and verified against ${startupName}'s operating telemetry.`;
+      // Dynamic executive brief synthesis via Gemini
+      let dynamicSummary = '';
+      if (ai) {
+        try {
+          const synthesisPrompt = `You are Sophia Vance, Executive AI Dispatcher for ${startupName} on CatalystOS.
+The founder issued this directive: "${run.directive}".
+Specialist agents completed the following tasks:
+${completedTasks.map(t => `- Task "${t.title}" (${t.domain}) by ${t.assignedAgent.name} (${t.assignedAgent.role}): ${JSON.stringify(t.output)}`).join('\n')}
+
+Synthesize a 2-3 sentence executive brief summarizing what the specialist agents analyzed or formulated, and the strategic takeaway for ${startupName}.
+Do NOT use formulaic phrases like "verified against operating telemetry". Be concise, executive, and sharp.`;
+          dynamicSummary = (await callGemini(synthesisPrompt, { temperature: 0.2 })) || '';
+        } catch (sErr: any) {
+          console.warn('[Orchestrator] AI synthesis fallback:', sErr.message);
+        }
+      }
+
+      summary = dynamicSummary || `I have coordinated the execution of "${run.directive}" across ${completedTasks.length} domain tasks including ${completedTasks.map(t => t.assignedAgent.name).join(', ')}. All deliverable artifacts and milestones have been registered in your workspace.`;
     }
 
     return {
