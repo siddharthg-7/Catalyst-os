@@ -345,3 +345,128 @@ export async function runRetrievalQualityEvaluation(
     results
   };
 }
+
+export interface ModelHitEvaluationCase {
+  id: string;
+  query: string;
+  expectedSourceKeyword: string;
+  startupId: string;
+  userRole?: string;
+}
+
+export interface ModelHitEvaluationReport {
+  modelName: string;
+  totalQueries: number;
+  hitAt1Count: number;
+  hitAt1Percent: number;
+  hitAt3Count: number;
+  hitAt3Percent: number;
+  meanReciprocalRank: number;
+  avgLatencyMs: number;
+  queryResults: Array<{
+    id: string;
+    query: string;
+    expectedKeyword: string;
+    hitAt1: boolean;
+    hitAt3: boolean;
+    rank: number;
+    topRetrievedSource: string;
+    latencyMs: number;
+  }>;
+}
+
+/**
+ * Evaluates an embedding model against a golden test set.
+ * Specifically checks whether the right chunk lands in the top 3 (Hit@3) and top 1 (Hit@1).
+ * "Check whether the right chunk landed in the top 3. Switch only after it lands consistently."
+ */
+export async function evaluateModelHitAtK(
+  modelName: string,
+  testCases: ModelHitEvaluationCase[],
+  options?: { printReport?: boolean; k?: number }
+): Promise<ModelHitEvaluationReport> {
+  const k = options?.k || 3;
+  let hitAt1Count = 0;
+  let hitAt3Count = 0;
+  let totalReciprocalRank = 0;
+  let totalLatency = 0;
+  const queryResults: ModelHitEvaluationReport['queryResults'] = [];
+
+  for (const tc of testCases) {
+    const t0 = performance.now();
+    const chunks = await performHybridSearch(tc.query, tc.startupId, Math.max(k, 5), 0.7, {
+      userRole: tc.userRole || 'FOUNDER',
+      embeddingModel: modelName
+    });
+    const elapsed = performance.now() - t0;
+    totalLatency += elapsed;
+
+    const lowerExpected = tc.expectedSourceKeyword.toLowerCase();
+    const matchIndex = chunks.findIndex(c =>
+      (c.documentName || '').toLowerCase().includes(lowerExpected) ||
+      (c.content || '').toLowerCase().includes(lowerExpected)
+    );
+
+    const hitAt1 = matchIndex === 0;
+    const hitAt3 = matchIndex >= 0 && matchIndex < 3;
+    const rank = matchIndex >= 0 ? matchIndex + 1 : 0;
+    const reciprocalRank = matchIndex >= 0 ? 1 / (matchIndex + 1) : 0;
+
+    if (hitAt1) hitAt1Count++;
+    if (hitAt3) hitAt3Count++;
+    totalReciprocalRank += reciprocalRank;
+
+    queryResults.push({
+      id: tc.id,
+      query: tc.query,
+      expectedKeyword: tc.expectedSourceKeyword,
+      hitAt1,
+      hitAt3,
+      rank,
+      topRetrievedSource: chunks[0]?.documentName || 'None',
+      latencyMs: Math.round(elapsed)
+    });
+  }
+
+  const total = testCases.length || 1;
+  const hitAt1Percent = Math.round((hitAt1Count / total) * 100);
+  const hitAt3Percent = Math.round((hitAt3Count / total) * 100);
+  const meanReciprocalRank = Math.round((totalReciprocalRank / total) * 100) / 100;
+  const avgLatencyMs = Math.round(totalLatency / total);
+
+  const report: ModelHitEvaluationReport = {
+    modelName,
+    totalQueries: testCases.length,
+    hitAt1Count,
+    hitAt1Percent,
+    hitAt3Count,
+    hitAt3Percent,
+    meanReciprocalRank,
+    avgLatencyMs,
+    queryResults
+  };
+
+  if (options?.printReport !== false) {
+    console.log(`\n================== [EMBEDDING MODEL RETRIEVAL BENCHMARK] ==================`);
+    console.log(`Model: ${modelName} | Total Test Cases: ${testCases.length}`);
+    console.log(`Hit@1: ${hitAt1Percent}% (${hitAt1Count}/${total})`);
+    console.log(`Hit@3: ${hitAt3Percent}% (${hitAt3Count}/${total})`);
+    console.log(`Mean Reciprocal Rank (MRR): ${meanReciprocalRank}`);
+    console.log(`Average Retrieval Latency: ${avgLatencyMs}ms`);
+    console.log(`---------------------------------------------------------------------------`);
+    try {
+      console.table(queryResults.map(q => ({
+        Query: q.query.length > 30 ? q.query.slice(0, 27) + '...' : q.query,
+        Expected: q.expectedKeyword,
+        Rank: q.rank > 0 ? `#${q.rank}` : 'MISS',
+        'Hit@1': q.hitAt1 ? '✅' : '❌',
+        'Hit@3': q.hitAt3 ? '✅' : '❌',
+        TopSource: q.topRetrievedSource
+      })));
+    } catch {}
+    console.log(`===========================================================================\n`);
+  }
+
+  return report;
+}
+

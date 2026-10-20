@@ -44,6 +44,9 @@ export interface IngestDocumentOptions {
   accessScope?: string;
   chunkSize?: number;
   chunkOverlap?: number;
+  embeddingModel?: string;
+  embeddingDimensions?: number;
+  chunkingStrategy?: string;
 }
 
 export interface HybridSearchOptions {
@@ -52,7 +55,33 @@ export interface HybridSearchOptions {
   sourceRecordId?: string | null;
   accessScope?: string;
   minSimilarity?: number;
+  inspect?: boolean;
+  embeddingModel?: string;
 }
+
+export interface RetrievalDebugTelemetry {
+  query: string;
+  startupId: string;
+  userRole: string;
+  embeddingModel: string;
+  dimensions: number;
+  totalCandidatesEvaluated: number;
+  retrievedCount: number;
+  topChunks: Array<{
+    rank: number;
+    chunkId: string;
+    documentName: string;
+    similarityScore: number;
+    keywordScore: number;
+    hybridScore: number;
+    preview: string;
+  }>;
+  hitSummary: string;
+}
+
+export const CURRENT_EMBEDDING_MODEL = process.env.EMBEDDING_MODEL || 'gemini-embedding-2-preview';
+export const CURRENT_CHUNKING_STRATEGY = process.env.CHUNKING_STRATEGY || 'fixed_tokens_500_overlap_50';
+export const EMBEDDING_DIMENSIONS = Number(process.env.EMBEDDING_DIMENSIONS) || 768;
 
 /**
  * Splits document text into clean, contextual overlapping chunks.
@@ -115,18 +144,23 @@ export function chunkText(text: string, chunkSize = 1000, chunkOverlap = 200): s
 }
 
 /**
- * Generates high-fidelity embedding vectors using 'gemini-embedding-2-preview'.
+ * Generates high-fidelity embedding vectors using configured model.
+ * Defaults to 'gemini-embedding-2-preview' (or process.env.EMBEDDING_MODEL).
  * Integrates an elegant unit-normalized deterministic pseudo-vector fallback
- * to maintain 100% service uptime when offline or when keys are omitted.
+ * to maintain 100% service uptime when offline or when testing different models.
  */
-export async function generateEmbedding(text: string): Promise<number[]> {
-  if (ai) {
+export async function generateEmbedding(
+  text: string,
+  modelName: string = CURRENT_EMBEDDING_MODEL,
+  dimensions: number = EMBEDDING_DIMENSIONS
+): Promise<number[]> {
+  if (ai && modelName === 'gemini-embedding-2-preview') {
     try {
       const response = await ai.models.embedContent({
         model: 'gemini-embedding-2-preview',
         contents: text,
         config: {
-          outputDimensionality: 768
+          outputDimensionality: dimensions
         }
       });
 
@@ -138,8 +172,8 @@ export async function generateEmbedding(text: string): Promise<number[]> {
       }
 
       if (vector && Array.isArray(vector) && vector.length > 0) {
-        if (vector.length > 768) {
-          vector = vector.slice(0, 768);
+        if (vector.length > dimensions) {
+          vector = vector.slice(0, dimensions);
           const norm = Math.sqrt(vector.reduce((s, v) => s + v * v, 0));
           if (norm > 0) vector = vector.map(v => v / norm);
         }
@@ -151,18 +185,19 @@ export async function generateEmbedding(text: string): Promise<number[]> {
     }
   }
 
-  return generatePseudoVector(text, 768);
+  return generatePseudoVector(text, dimensions, modelName);
 }
 
 /**
- * Deterministic unit-normalized pseudo-vector generator based on the text hash.
- * This guarantees stable and queryable vectors in simulated environments.
+ * Deterministic unit-normalized pseudo-vector generator based on text and model salt.
+ * Ensures different models yield distinct vector spaces, simulating real-world embedding variance.
  */
-function generatePseudoVector(text: string, dimensions = 768): number[] {
+export function generatePseudoVector(text: string, dimensions = 768, modelSalt = 'gemini-embedding-2-preview'): number[] {
   const vector: number[] = [];
   let hash = 0;
-  for (let i = 0; i < text.length; i++) {
-    hash = (hash << 5) - hash + text.charCodeAt(i);
+  const combined = `${modelSalt}:${text}`;
+  for (let i = 0; i < combined.length; i++) {
+    hash = (hash << 5) - hash + combined.charCodeAt(i);
     hash |= 0;
   }
 
@@ -188,6 +223,86 @@ function generatePseudoVector(text: string, dimensions = 768): number[] {
   }
 
   return vector;
+}
+
+/**
+ * Formats and prints a clear CLI table of retrieved chunks for immediate developer debugging.
+ * "Debug retrieval before you debug the prompt. Print the chunks."
+ */
+export function printRetrievalTable(telemetry: RetrievalDebugTelemetry): void {
+  console.log(`\n================== [RAG RETRIEVAL INSPECTOR] ==================`);
+  console.log(`Query: "${telemetry.query}"`);
+  console.log(`Startup: ${telemetry.startupId} | Role: ${telemetry.userRole} | Model: ${telemetry.embeddingModel} (${telemetry.dimensions}d)`);
+  console.log(`Candidates Evaluated: ${telemetry.totalCandidatesEvaluated} | Top Retrieved: ${telemetry.retrievedCount}`);
+  console.log(`--------------------------------------------------------------------------------`);
+  if (telemetry.topChunks.length === 0) {
+    console.log(`  [NO CHUNKS RETRIEVED] -> LLM would answer with NO context or hallucinate!`);
+  } else {
+    try {
+      console.table(telemetry.topChunks.map(c => ({
+        Rank: c.rank,
+        Document: c.documentName.length > 25 ? c.documentName.slice(0, 22) + '...' : c.documentName,
+        SimScore: c.similarityScore.toFixed(4),
+        KWScore: c.keywordScore.toFixed(4),
+        Hybrid: c.hybridScore.toFixed(4),
+        ChunkId: c.chunkId,
+        Preview: c.preview
+      })));
+    } catch {
+      telemetry.topChunks.forEach(c => {
+        console.log(`  #${c.rank} [${c.documentName}] Sim:${c.similarityScore.toFixed(3)} KW:${c.keywordScore.toFixed(3)} Hyb:${c.hybridScore.toFixed(3)} | ${c.preview}`);
+      });
+    }
+  }
+  console.log(`================================================================\n`);
+}
+
+/**
+ * High-observability retrieval function that executes hybrid search,
+ * packages granular debug telemetry, and optionally outputs a visual console table.
+ */
+export async function retrieveAndInspectChunks(
+  query: string,
+  startupId: string,
+  options?: HybridSearchOptions & { limit?: number; printTable?: boolean }
+): Promise<{ chunks: RetrievedChunk[]; debug: RetrievalDebugTelemetry }> {
+  const limit = options?.limit || 3;
+  const userRole = (options?.userRole || 'EMPLOYEE').toUpperCase();
+  const model = options?.embeddingModel || CURRENT_EMBEDDING_MODEL;
+
+  const chunks = await performHybridSearch(query, startupId, limit, 0.7, {
+    ...options,
+    userRole,
+    embeddingModel: model
+  });
+
+  const debug: RetrievalDebugTelemetry = {
+    query,
+    startupId,
+    userRole,
+    embeddingModel: model,
+    dimensions: EMBEDDING_DIMENSIONS,
+    totalCandidatesEvaluated: chunks.length,
+    retrievedCount: chunks.length,
+    topChunks: chunks.map((c, idx) => ({
+      rank: idx + 1,
+      chunkId: c.id,
+      documentName: c.documentName || 'Unknown Document',
+      similarityScore: Number((c.similarityScore || 0).toFixed(4)),
+      keywordScore: Number((c.keywordScore || 0).toFixed(4)),
+      hybridScore: Number((c.hybridScore || 0).toFixed(4)),
+      preview: (c.content || '').slice(0, 90).replace(/\s+/g, ' ').trim() + '...'
+    })),
+    hitSummary: chunks.length > 0
+      ? `Top chunk: "${chunks[0].documentName}" (Score: ${(chunks[0].hybridScore || 0).toFixed(4)})`
+      : 'No relevant chunks found in top results.'
+  };
+
+  if (options?.printTable !== false) {
+    printRetrievalTable(debug);
+  }
+
+  return { chunks, debug };
 }
 
 /**
@@ -367,10 +482,38 @@ export async function performHybridSearch(
   const userRole = (opts.userRole || 'EMPLOYEE').toUpperCase();
   const isFounderOrAdmin = userRole === 'FOUNDER' || userRole === 'ADMIN';
   const filterSourceType = opts.sourceType || null;
+  const activeModel = opts.embeddingModel || CURRENT_EMBEDDING_MODEL;
 
-  console.log(`[RAG Engine] Tenant-scoped hybrid search for: "${query}" (startupId: ${startupId}, role: ${userRole}, sourceType: ${filterSourceType || 'ALL'})`);
+  console.log(`[RAG Engine] Tenant-scoped hybrid search for: "${query}" (startupId: ${startupId}, role: ${userRole}, model: ${activeModel}, sourceType: ${filterSourceType || 'ALL'})`);
 
-  const queryEmbedding = await generateEmbedding(query);
+  const finalizeChunks = (chunks: RetrievedChunk[], candidateCount: number): RetrievedChunk[] => {
+    const finalSelection = chunks.slice(0, limit);
+    if (opts.inspect || process.env.DEBUG_RAG === 'true') {
+      const telemetry: RetrievalDebugTelemetry = {
+        query,
+        startupId,
+        userRole,
+        embeddingModel: activeModel,
+        dimensions: EMBEDDING_DIMENSIONS,
+        totalCandidatesEvaluated: candidateCount,
+        retrievedCount: finalSelection.length,
+        topChunks: finalSelection.map((c, idx) => ({
+          rank: idx + 1,
+          chunkId: c.id,
+          documentName: c.documentName || 'Unknown Document',
+          similarityScore: Number((c.similarityScore || 0).toFixed(4)),
+          keywordScore: Number((c.keywordScore || 0).toFixed(4)),
+          hybridScore: Number((c.hybridScore || 0).toFixed(4)),
+          preview: (c.content || '').slice(0, 90).replace(/\s+/g, ' ').trim() + '...'
+        })),
+        hitSummary: finalSelection.length > 0 ? `Top: "${finalSelection[0].documentName}"` : 'No chunks retrieved'
+      };
+      printRetrievalTable(telemetry);
+    }
+    return finalSelection;
+  };
+
+  const queryEmbedding = await generateEmbedding(query, activeModel);
 
   // 1. Attempt Native PostgreSQL pgvector cosine similarity search with HNSW index and query-level authorization
   try {
@@ -420,7 +563,7 @@ export async function performHybridSearch(
         };
       });
 
-      return reRankHeuristic(query, candidates).slice(0, limit);
+      return finalizeChunks(reRankHeuristic(query, candidates), candidates.length);
     }
   } catch (err: any) {
     console.warn('[RAG Engine] Native pgvector query warning, falling back to Prisma query:', err.message);
@@ -492,7 +635,7 @@ export async function performHybridSearch(
     candidates.sort((a, b) => b.hybridScore - a.hybridScore);
     const topCandidates = candidates.slice(0, limit * 3);
     const reRanked = reRankHeuristic(query, topCandidates);
-    return reRanked.slice(0, limit);
+    return finalizeChunks(reRanked, candidates.length);
   }
 
   // 3. In-memory simulated tenant records fallback
@@ -505,7 +648,7 @@ export async function performHybridSearch(
 
   if (memoryDocs.length === 0) {
     console.log(`[RAG Engine] No corporate document chunks exist for startup: ${startupId}`);
-    return [];
+    return finalizeChunks([], 0);
   }
 
   const memoryCandidates: RetrievedChunk[] = [];
@@ -558,7 +701,7 @@ export async function performHybridSearch(
   memoryCandidates.sort((a, b) => b.hybridScore - a.hybridScore);
   const topMem = memoryCandidates.slice(0, limit * 3);
   const reRankedMem = reRankHeuristic(query, topMem);
-  return reRankedMem.slice(0, limit);
+  return finalizeChunks(reRankedMem, memoryCandidates.length);
 }
 
 /**
@@ -580,6 +723,9 @@ export async function ingestDocument(
   let sourceRecordId = options?.sourceRecordId || null;
   let version = options?.version || 1;
   let accessScope = (options?.accessScope || 'ALL').toUpperCase();
+  const targetModel = options?.embeddingModel || CURRENT_EMBEDDING_MODEL;
+  const targetDimensions = options?.embeddingDimensions || EMBEDDING_DIMENSIONS;
+  const targetStrategy = options?.chunkingStrategy || CURRENT_CHUNKING_STRATEGY;
 
   if (hasValidDbUrl && prisma) {
     try {
@@ -611,11 +757,12 @@ export async function ingestDocument(
            ) VALUES (
              $1, $2, $3, $4, $5, ARRAY[]::text[], $6,
              $7, $8, $9, $10,
-             'INDEXING', 'gemini-embedding-2-preview', 768,
-             'fixed_tokens_500_overlap_50', NOW(), NOW()
+             'INDEXING', $11, $12,
+             $13, NOW(), NOW()
            )
            ON CONFLICT (id) DO UPDATE SET
-             name = $2, "updatedAt" = NOW(), "indexingStatus" = 'INDEXING';`,
+             name = $2, "updatedAt" = NOW(), "indexingStatus" = 'INDEXING',
+             "embeddingModel" = $11, "embeddingDimensions" = $12, "chunkingStrategy" = $13;`,
           documentId,
           name,
           type,
@@ -625,7 +772,10 @@ export async function ingestDocument(
           sourceType,
           sourceRecordId,
           version,
-          accessScope
+          accessScope,
+          targetModel,
+          targetDimensions,
+          targetStrategy
         ));
       }
     } catch (err: any) {
@@ -680,7 +830,7 @@ export async function ingestDocument(
         const tokenCount = Math.max(1, Math.ceil(chunkTextContent.length / 4));
 
         try {
-          const embeddingVector = await generateEmbedding(chunkTextContent);
+          const embeddingVector = await generateEmbedding(chunkTextContent, targetModel, targetDimensions);
 
           await safeDbQuery(() => (prisma.knowledgeChunk as any).create({
             data: {
@@ -711,10 +861,12 @@ export async function ingestDocument(
             ));
             await safeDbQuery(() => prisma.$executeRawUnsafe(
               `UPDATE "KnowledgeChunk"
-               SET "embeddingModel" = 'gemini-embedding-2-preview',
-                   "chunkingStrategy" = 'fixed_tokens_500_overlap_50',
+               SET "embeddingModel" = $1,
+                   "chunkingStrategy" = $2,
                    "isActive" = TRUE
-               WHERE id = $1;`,
+               WHERE id = $3;`,
+              targetModel,
+              targetStrategy,
               stableChunkId
             ));
           } catch (pgvErr: any) {
@@ -752,10 +904,13 @@ export async function ingestDocument(
         }));
         await safeDbQuery(() => prisma.$executeRawUnsafe(
           `UPDATE "StartupDocument"
-           SET "embeddingModel" = 'gemini-embedding-2-preview',
-               "embeddingDimensions" = 768,
-               "chunkingStrategy" = 'fixed_tokens_500_overlap_50'
-           WHERE id = $1;`,
+           SET "embeddingModel" = $1,
+               "embeddingDimensions" = $2,
+               "chunkingStrategy" = $3
+           WHERE id = $4;`,
+          targetModel,
+          targetDimensions,
+          targetStrategy,
           documentId
         ));
       } catch {}

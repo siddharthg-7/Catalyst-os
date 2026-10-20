@@ -8,6 +8,7 @@
     "dev:frontend": "npm run dev --prefix frontend",
     "dev:backend": "npm run dev --prefix backend",
     "test": "tsx --test --test-concurrency=1 tests/multiLevelOrchestration.test.ts tests/authSecurity.test.ts tests/financialEngine.test.ts tests/multiAgentCouncil.test.ts tests/productionVerification.test.ts tests/approvalContext.test.ts tests/companyContext.test.ts tests/membershipInvitations.test.ts tests/membershipRemoval.test.ts tests/accountAccessControl.test.ts tests/taskDelegation.test.ts tests/round2Hardening.test.ts tests/founderCommandPipeline.test.ts tests/companyKnowledgeRag.test.ts tests/taskDecompositionA4.test.ts tests/employeeWorkspaceB1B2.test.ts tests/missingAiCapabilityA6.test.ts tests/executiveCouncilPhaseB.test.ts tests/agentRulesAndActivityAudit.test.ts tests/smtpMailer.test.ts tests/multiAgentOrchestrator5Steps.test.ts",
+    "test:rag": "tsx --test tests/ragRetrievalAndMigration.test.ts",
     "build": "npm run build --prefix frontend && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs && npm run build --prefix backend",
     "build:frontend": "npm run build --prefix frontend",
     "build:backend": "npm run build --prefix backend",

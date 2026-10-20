@@ -67,7 +67,7 @@ describe('CATALYST OS — PHASE 8: Retrieval Quality & Performance Evaluation', 
   before(async () => {
     if (hasValidDbUrl && prisma) {
       try {
-        const defaultUser = await safeDbQuery(() => (prisma as any).user.findFirst());
+        const defaultUser: any = await safeDbQuery(() => (prisma as any).user.findFirst());
         const ownerId = defaultUser?.id || 'usr_eval_default';
         await safeDbQuery(() => (prisma as any).startup.createMany({
           data: [

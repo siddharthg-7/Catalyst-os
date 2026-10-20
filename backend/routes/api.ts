@@ -5,7 +5,7 @@ import { prisma, safeDbQuery } from '../services/dbService';
 import { sendVerificationEmail, sendPasswordResetEmail } from '../services/invitationMailer';
 import vaultService from '../services/vaultService';
 import { extractTextFromFile } from '../services/documentParser';
-import { ingestDocument, performHybridSearch, retrieveHybridKnowledge, buildContext, Citation, RetrievedChunk } from '../services/ragEngine';
+import { ingestDocument, performHybridSearch, retrieveHybridKnowledge, buildContext, Citation, RetrievedChunk, retrieveAndInspectChunks } from '../services/ragEngine';
 import { classifyQuery, executeStructuredQuery } from '../services/structuredQueryEngine';
 import { 
   startupProfile, 
@@ -5330,6 +5330,102 @@ router.post('/activities', authenticateJWT, async (req: AuthenticatedRequest, re
   } catch (err: any) {
     console.error('[Post Activity API] Error:', err.message);
     res.status(500).json({ error: 'Failed to record activity log.' });
+  }
+});
+
+// =========================================================================
+// RAG OBSERVABILITY & EMBEDDING MODEL MIGRATION PIPELINE
+// "Debug retrieval before you debug the prompt. Print the chunks."
+// =========================================================================
+
+/**
+ * POST /api/knowledge/inspect
+ * Diagnostic endpoint for inspecting top-K retrieved chunks, similarity scores,
+ * keyword scores, and prompt context before passing to LLM.
+ */
+router.post('/knowledge/inspect', authenticateJWT, async (req: AuthenticatedRequest, res) => {
+  try {
+    const { query, limit = 3, sourceType, embeddingModel } = req.body || {};
+    if (!query || typeof query !== 'string') {
+      return res.status(400).json({ error: 'Query string is required.' });
+    }
+
+    const startupId = await resolveCallerStartupId(req, res);
+    if (!startupId) return;
+
+    const userRole = (req.user?.role || 'EMPLOYEE').toUpperCase();
+    const result = await retrieveAndInspectChunks(query, startupId, {
+      limit: Math.max(1, Math.min(Number(limit) || 3, 20)),
+      userRole,
+      sourceType,
+      embeddingModel,
+      printTable: true
+    });
+
+    res.json({
+      success: true,
+      query,
+      startupId,
+      userRole,
+      modelUsed: result.debug.embeddingModel,
+      dimensions: result.debug.dimensions,
+      retrievedCount: result.chunks.length,
+      chunks: result.chunks,
+      debug: result.debug
+    });
+  } catch (err: any) {
+    console.error('[Knowledge Inspect API] Error:', err.message);
+    res.status(500).json({ error: 'Failed to inspect retrieval chunks.', details: err.message });
+  }
+});
+
+/**
+ * GET /api/knowledge/model-status
+ * Returns current embedding model, active dimension, and breakdown of documents by model.
+ */
+router.get('/knowledge/model-status', authenticateJWT, async (req: AuthenticatedRequest, res) => {
+  try {
+    const startupId = await resolveCallerStartupId(req, res);
+    if (!startupId) return;
+
+    const breakdown = await ingestionPipelineService.getModelBreakdown(startupId);
+    res.json({
+      success: true,
+      startupId,
+      ...breakdown
+    });
+  } catch (err: any) {
+    console.error('[Knowledge Model Status API] Error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch embedding model status.' });
+  }
+});
+
+/**
+ * POST /api/knowledge/migrate-model
+ * Triggers Blue-Green model re-indexing for all documents in the company workspace.
+ * Requires Founder or Admin role.
+ */
+router.post('/knowledge/migrate-model', authenticateJWT, requireRole(['FOUNDER', 'ADMIN']), async (req: AuthenticatedRequest, res) => {
+  try {
+    const { targetModel, targetDimensions } = req.body || {};
+    if (!targetModel || typeof targetModel !== 'string') {
+      return res.status(400).json({ error: 'targetModel string is required (e.g. qwen-embed-1.5, gemini-embedding-2-preview).' });
+    }
+
+    const startupId = await resolveCallerStartupId(req, res);
+    if (!startupId) return;
+
+    const dims = Number(targetDimensions) || 768;
+    const result = await ingestionPipelineService.migrateEmbeddingModel(startupId, targetModel, dims);
+
+    res.json({
+      success: true,
+      message: `Successfully migrated documents to ${targetModel}`,
+      migration: result
+    });
+  } catch (err: any) {
+    console.error('[Knowledge Migrate Model API] Error:', err.message);
+    res.status(500).json({ error: 'Failed to migrate embedding model.', details: err.message });
   }
 });
 
