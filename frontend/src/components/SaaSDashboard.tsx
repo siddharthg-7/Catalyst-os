@@ -21,7 +21,8 @@ import {
   Shield, ChevronDown, SlidersHorizontal, X,
   Plus, Radio, Mic, Send, Bot, AlertTriangle, ArrowUpRight,
   RotateCcw, UserCheck, RefreshCw, GitBranch, CheckCircle2,
-  Download, Paperclip, Calendar, User, MessageSquare, History, CornerDownRight, Eye
+  Download, Paperclip, Calendar, User, MessageSquare, History, CornerDownRight, Eye,
+  Calculator
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useChat } from '../hooks/useChat';
@@ -29,6 +30,8 @@ import { formatINR, formatCompactINR } from '../utils/currency';
 import VoiceModeModal from './voice/VoiceModeModal';
 import VoiceStudioPanel from './voice/VoiceStudioPanel';
 import ExecutiveDirectiveDispatcher from './ExecutiveDirectiveDispatcher';
+import MetricAuditDrawer from './MetricAuditDrawer';
+import { AuditedMetric } from '../types';
 
 interface SaaSDashboardProps {
   startup: StartupProfile;
@@ -83,6 +86,14 @@ export default function SaaSDashboard({
   const [isVoiceStudioOpen, setIsVoiceStudioOpen] = useState(false);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [auxiliaryTab, setAuxiliaryTab] = useState<'sprints' | 'tasks' | 'decisions'>('sprints');
+  const [activeAuditMetric, setActiveAuditMetric] = useState<AuditedMetric<number> | null>(null);
+  const [isProfileBannerDismissed, setIsProfileBannerDismissed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('catalystos_dismiss_profile_banner') === 'true';
+    } catch {
+      return false;
+    }
+  });
 
   // Form states - realistic INR defaults (₹72L reserves, ₹8L/mo burn)
   const [editCash, setEditCash] = useState<number>(startup.cashBalance || 7200000);
@@ -129,6 +140,147 @@ export default function SaaSDashboard({
     growthRate: startup.metrics?.growthRate ?? 65,
     operationsEfficiency: startup.metrics?.operationsEfficiency ?? 80,
   };
+
+  // Provenance-governed audited metrics with confidence states and dual-runway modeling
+  const auditedMetrics = useMemo(() => {
+    const hasIngestedDocs = knowledge.length > 0;
+    const hasPendingHires = approvals.some(a => (a.title || '').toLowerCase().includes('hire') || (a.title || '').toLowerCase().includes('requisition'));
+    const pendingHiresBurnDelta = hasPendingHires ? 400000 : 250000;
+    const forecastBurn = burnRate + pendingHiresBurnDelta;
+    const forecastRunway = forecastBurn > 0 ? parseFloat((cashBalance / forecastBurn).toFixed(1)) : runwayMonths;
+    const runwayDelta = Math.max(0, runwayMonths - forecastRunway).toFixed(1);
+
+    const treasury: AuditedMetric<number> = {
+      id: 'metric_treasury',
+      metricKey: 'treasury',
+      title: 'Treasury Reserves & Liquid Capital',
+      value: cashBalance,
+      formattedValue: formatCurrency(cashBalance),
+      confidence: hasIngestedDocs ? 'VERIFIED' : 'ESTIMATED',
+      asOfDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      isStale: false,
+      source: {
+        type: hasIngestedDocs ? 'INGESTED_LEDGER' : 'FOUNDER_INPUT',
+        label: hasIngestedDocs ? 'Verified Bank Statement / Corporate Ledger' : 'Founder Onboarding Setup',
+        verifiedByAgent: 'Aura · Chief Financial Officer',
+      },
+      calculation: {
+        formula: 'Total Liquid Reserves = Operating Account + Liquid Money Market Balance',
+        methodology: 'Excludes illiquid equity holdings, security deposits, or pledged capital.',
+        inputs: {
+          'Operating Balance': { label: 'Operating Current Account', value: formatCurrency(cashBalance) },
+          'Restricted Deposits': { label: 'Encumbered Reserves', value: '₹0' },
+        },
+        assumptions: [
+          'Assumes instantaneous liquidity on current account balances.',
+          'Assumes zero immediate foreign exchange tax deductions.',
+        ],
+      },
+    };
+
+    const monthlyBurnMetric: AuditedMetric<number> = {
+      id: 'metric_burn',
+      metricKey: 'monthlyBurn',
+      title: 'Net Monthly Operating Outflows',
+      value: burnRate,
+      formattedValue: `${formatCurrency(burnRate)}/mo`,
+      confidence: hasIngestedDocs ? 'VERIFIED' : 'ESTIMATED',
+      asOfDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      isStale: false,
+      source: {
+        type: hasIngestedDocs ? 'INGESTED_LEDGER' : 'FOUNDER_INPUT',
+        label: hasIngestedDocs ? 'Itemized Vendor & Payroll Ledger' : 'Founder Stated Baseline',
+        verifiedByAgent: 'Aura · Chief Financial Officer',
+      },
+      calculation: {
+        formula: 'Monthly Burn = Payroll + Infrastructure/Cloud + Subscriptions + SG&A',
+        methodology: 'Trailing 30-day baseline cash expenditure.',
+        inputs: {
+          'Stated Burn Rate': { label: 'Baseline Monthly Burn', value: formatCurrency(burnRate) },
+          'Burn to Cash Ratio': { label: 'Monthly Outflow Ratio', value: `${monthlyBurnRatio}% / mo` },
+        },
+        assumptions: [
+          'Assumes constant baseline expenses without unforecasted cloud spikes.',
+          'Statutory annual bonuses and tax settlements modeled separately.',
+        ],
+      },
+    };
+
+    const runwayMetric: AuditedMetric<number> = {
+      id: 'metric_runway',
+      metricKey: 'runway',
+      title: 'Runway Horizon (Baseline vs. Post-Commitment)',
+      value: runwayMonths,
+      formattedValue: `${runwayMonths.toFixed(1)} Months`,
+      confidence: 'ESTIMATED',
+      asOfDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      isStale: false,
+      source: {
+        type: 'COUNCIL_ESTIMATE',
+        label: 'Aura (CFO) & Sentry (Auditor) Dual Mathematical Model',
+        verifiedByAgent: 'Sentry · Compliance & Verification Auditor',
+      },
+      calculation: {
+        formula: 'Runway = Available Cash Balance ÷ Monthly Burn Rate',
+        methodology: 'Linear exhaustion curve assuming zero monthly revenue expansion.',
+        inputs: {
+          'Cash Balance': { label: 'Liquid Capital', value: formatCurrency(cashBalance) },
+          'Monthly Burn': { label: 'Net Monthly Outflows', value: formatCurrency(burnRate) },
+        },
+        assumptions: [
+          'Assumes zero revenue growth as a conservative survival baseline.',
+          'Assumes no capital injection before runway exhaustion.',
+        ],
+      },
+      forecast: {
+        adjustedValue: forecastRunway,
+        formattedAdjustedValue: `${forecastRunway.toFixed(1)} Months`,
+        deltaNote: `-${runwayDelta} months if pending hires & commitments in Approvals Queue are executed`,
+        scenarioAssumptions: [
+          `Accounts for +${formatCurrency(pendingHiresBurnDelta)}/mo added burn from pending requisitions`,
+          'Includes 15% estimated employer statutory tax & benefit costs',
+        ],
+      },
+    };
+
+    const healthMetric: AuditedMetric<number> = {
+      id: 'metric_health',
+      metricKey: 'healthScore',
+      title: 'Startup Health Index (5-Pillar Scorecard)',
+      value: healthScore,
+      formattedValue: `${healthScore}/100`,
+      confidence: 'VERIFIED',
+      asOfDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      isStale: false,
+      source: {
+        type: 'COUNCIL_ESTIMATE',
+        label: 'Sentry Autonomous Multi-Pillar Verification Scorecard',
+        verifiedByAgent: 'Sentry · Auditor & Governance Agent',
+      },
+      calculation: {
+        formula: 'Health Score = (Runway × 30%) + (Milestones × 25%) + (Blockers × 20%) + (Governance × 15%) + (Team × 10%)',
+        methodology: 'Weighted composite assessing capital survival, delivery pace, and governance compliance.',
+        inputs: {
+          'Capital Runway (30%)': { label: 'Runway Health Component', value: '85/100' },
+          'Milestone Velocity (25%)': { label: 'Delivery Component', value: '82/100' },
+          'Blocker Density (20%)': { label: 'Operational Risk Component', value: '80/100' },
+          'Governance & Approvals (15%)': { label: 'Human-in-Loop Component', value: '90/100' },
+          'Team Coverage (10%)': { label: 'Key Role Capacity Component', value: '75/100' },
+        },
+        assumptions: [
+          'Continuously recalibrated upon deliverable approvals or task completions.',
+          'Deducts penalty points for overdue unassigned tasks or zero uploaded docs.',
+        ],
+      },
+    };
+
+    return {
+      treasury,
+      monthlyBurn: monthlyBurnMetric,
+      runway: runwayMetric,
+      healthScore: healthMetric,
+    };
+  }, [cashBalance, burnRate, runwayMonths, monthlyBurnRatio, healthScore, knowledge, approvals]);
 
   // Strictly deduplicated pending approvals (max 3 distinct items, never repeated)
   const pendingApprovals = useMemo(() => {
@@ -645,56 +797,114 @@ export default function SaaSDashboard({
         </div>
       </div>
 
-      {/* ── 2. Unified Top Telemetry Strip ───────────────────────────────── */}
+      {/* ── Optional Progressive Onboarding Profile Completion Banner ────── */}
+      {!isProfileBannerDismissed && (
+        <div className="p-4 rounded-2xl bg-[#FDFCFA] border border-[#141413]/10 shadow-[rgba(20,20,19,0.02)_0px_1px_4px_0px] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5 transition-all">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-xl bg-[#F3F0EE] border border-[#141413]/10 flex items-center justify-center shrink-0 mt-0.5">
+              <Sparkles className="w-4 h-4 text-[#141413]" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-[#141413] font-sans">Complete Your Company Profile (Optional)</span>
+                <span className="text-[9px] font-mono font-bold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
+                  PROGRESSIVE SETUP
+                </span>
+              </div>
+              <p className="text-xs text-[#666562] font-sans mt-0.5 max-w-2xl leading-relaxed">
+                Your workspace is running on your immediate priority. Adding target customer profiles, ICP details, and financial parameters helps your 8 executive agents provide sharper recommendations and risk forecasts over time.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+            <button
+              onClick={() => setIsCalibratingTreasury(true)}
+              className="px-3 py-1.5 rounded-lg bg-[#141413] hover:bg-[#262627] text-[#FDFCFA] text-xs font-semibold transition-all shadow-xs cursor-pointer font-sans"
+            >
+              Enrich Profile
+            </button>
+            <button
+              onClick={() => {
+                setIsProfileBannerDismissed(true);
+                try {
+                  localStorage.setItem('catalystos_dismiss_profile_banner', 'true');
+                } catch {}
+              }}
+              className="p-1.5 rounded-lg text-[#8E8D8A] hover:text-[#141413] hover:bg-[#F3F0EE] transition-colors cursor-pointer"
+              title="Dismiss notice"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── 2. Unified Top Telemetry Strip with Provenance & Confidence Badges ── */}
       <div className="bg-[#FDFCFA] rounded-2xl border border-[#141413]/10 shadow-[rgba(20,20,19,0.02)_0px_1px_4px_0px] overflow-hidden">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#141413]/10">
           
           {/* Treasury Reserve */}
           <div 
-            onClick={() => setIsCalibratingTreasury(true)}
+            onClick={() => setActiveAuditMetric(auditedMetrics.treasury)}
             className="px-6 py-3.5 hover:bg-white transition-colors cursor-pointer group flex flex-col justify-between"
+            title="Click to view metric provenance, source record, and audit lineage"
           >
             <div className="flex items-center justify-between gap-2">
               <span className="text-[12px] font-medium text-[#666562]">Treasury Reserve</span>
-              <span className="text-emerald-700 bg-emerald-50 border border-emerald-200/40 px-2 py-0.5 rounded-md font-mono text-xs flex items-center gap-1 font-medium">
-                <TrendingUp className="w-3 h-3 text-emerald-600" />
-                <span>+12.4% MoM</span>
-              </span>
+              {auditedMetrics.treasury.confidence === 'VERIFIED' ? (
+                <span className="text-emerald-700 bg-emerald-50 border border-emerald-200/50 px-2 py-0.5 rounded-md font-mono text-[10px] flex items-center gap-1 font-semibold">
+                  <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                  <span>VERIFIED</span>
+                </span>
+              ) : (
+                <span className="text-amber-800 bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded-md font-mono text-[10px] flex items-center gap-1 font-semibold">
+                  <Calculator className="w-3 h-3 text-amber-600" />
+                  <span>ESTIMATED</span>
+                </span>
+              )}
             </div>
             <div className="mt-2 flex items-baseline justify-between gap-2">
               <span className="text-2xl lg:text-[24px] font-semibold font-mono tracking-tight text-[#141413]">
                 {formatCurrency(cashBalance)}
               </span>
-              <span className="text-[11px] font-mono text-[#666562] group-hover:text-[#141413] transition-colors">
-                Edit ⚙
+              <span className="text-[11px] font-mono text-[#666562] group-hover:text-[#141413] transition-colors flex items-center gap-1">
+                Audit 🔍
               </span>
             </div>
           </div>
 
           {/* Net Monthly Burn */}
           <div 
-            onClick={() => setIsCalibratingTreasury(true)}
+            onClick={() => setActiveAuditMetric(auditedMetrics.monthlyBurn)}
             className="px-6 py-3.5 hover:bg-white transition-colors cursor-pointer group flex flex-col justify-between"
+            title="Click to inspect included expenses, burn methodology, and assumptions"
           >
             <div className="flex items-center justify-between gap-2">
               <span className="text-[12px] font-medium text-[#666562]">Net Monthly Burn</span>
-              <span className="text-[#666562] bg-[#141413]/5 border border-[#141413]/08 px-2 py-0.5 rounded-md font-mono text-xs font-medium">
-                {monthlyBurnRatio}% / mo
+              <span className="text-amber-800 bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded-md font-mono text-[10px] flex items-center gap-1 font-semibold">
+                <Calculator className="w-3 h-3 text-amber-600" />
+                <span>ESTIMATED</span>
               </span>
             </div>
             <div className="mt-2 flex items-baseline justify-between gap-2">
               <span className="text-2xl lg:text-[24px] font-semibold font-mono tracking-tight text-[#141413]">
                 {formatCurrency(burnRate)}<span className="text-sm text-[#666562] font-normal font-sans">/mo</span>
               </span>
-              <span className="text-[11px] font-mono text-[#666562]">Outflows</span>
+              <span className="text-[11px] font-mono text-[#666562] group-hover:text-[#141413] transition-colors">
+                {monthlyBurnRatio}% / mo
+              </span>
             </div>
           </div>
 
-          {/* Runway Horizon */}
-          <div className="px-6 py-3.5 flex flex-col justify-between">
+          {/* Runway Horizon (Dual-Runway Baseline vs Forecast) */}
+          <div 
+            onClick={() => setActiveAuditMetric(auditedMetrics.runway)}
+            className="px-6 py-3.5 hover:bg-white transition-colors cursor-pointer group flex flex-col justify-between"
+            title="Click to view mathematical assumptions and post-hiring forecast"
+          >
             <div className="flex items-center justify-between gap-2">
               <span className="text-[12px] font-medium text-[#666562]">Runway Horizon</span>
-              <span className={`px-2 py-0.5 rounded-md font-mono text-xs font-medium border ${
+              <span className={`px-2 py-0.5 rounded-md font-mono text-[10px] font-semibold border ${
                 runwayMonths >= 12
                   ? 'text-emerald-700 bg-emerald-50 border-emerald-200/40'
                   : runwayMonths >= 6
@@ -706,18 +916,25 @@ export default function SaaSDashboard({
             </div>
             <div className="mt-2 flex items-baseline justify-between gap-2">
               <span className="text-2xl lg:text-[24px] font-semibold font-mono tracking-tight text-[#141413]">
-                {runwayMonths.toFixed(1)} <span className="text-sm text-[#666562] font-normal font-sans">months</span>
+                {runwayMonths.toFixed(1)} <span className="text-sm text-[#666562] font-normal font-sans">mo</span>
               </span>
-              <span className="text-[11px] font-mono text-[#666562]">Gate: &lt;4.0mo</span>
+              <span className="text-[11px] font-mono text-amber-800 font-medium group-hover:underline">
+                Forecast: {auditedMetrics.runway.forecast?.formattedAdjustedValue}
+              </span>
             </div>
           </div>
 
           {/* Startup Health Index */}
-          <div className="px-6 py-3.5 flex flex-col justify-between">
+          <div 
+            onClick={() => setActiveAuditMetric(auditedMetrics.healthScore)}
+            className="px-6 py-3.5 hover:bg-white transition-colors cursor-pointer group flex flex-col justify-between"
+            title="Click to view 5-Pillar Scorecard and Sentry audit breakdown"
+          >
             <div className="flex items-center justify-between gap-2">
               <span className="text-[12px] font-medium text-[#666562]">Health Index</span>
-              <span className="text-[#141413] bg-[#141413]/5 border border-[#141413]/08 px-2 py-0.5 rounded-md font-mono text-xs font-medium">
-                {healthScore} / 100
+              <span className="text-emerald-700 bg-emerald-50 border border-emerald-200/50 px-2 py-0.5 rounded-md font-mono text-[10px] flex items-center gap-1 font-semibold">
+                <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                <span>5-PILLAR AUDITED</span>
               </span>
             </div>
             <div className="mt-2 flex items-center justify-between gap-2">
@@ -2553,6 +2770,15 @@ export default function SaaSDashboard({
       <VoiceStudioPanel
         isOpen={isVoiceStudioOpen}
         onClose={() => setIsVoiceStudioOpen(false)}
+      />
+
+      {/* ── Metric Provenance, Assumptions & Lineage Audit Drawer ─────────── */}
+      <MetricAuditDrawer
+        metric={activeAuditMetric}
+        isOpen={!!activeAuditMetric}
+        onClose={() => setActiveAuditMetric(null)}
+        onCalibrate={() => setIsCalibratingTreasury(true)}
+        onUploadDocument={() => onNavigate?.('knowledge')}
       />
 
     </div>

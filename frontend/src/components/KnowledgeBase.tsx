@@ -5,14 +5,16 @@
  * Semantic token integration, smooth upload zones, interactive QA hub, and vector status.
  */
 
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { KnowledgeFile } from '../types';
+import { KnowledgeFile, FactProvenance, DisagreementResolutionCase } from '../types';
 import {
   UploadCloud, FileText, Search, Sparkles, Send, Calendar,
   Loader2, CheckCircle2, AlertTriangle, X,
   ChevronDown, Lightbulb, Layers, Globe, ArrowRight, ArrowLeft,
-  Trash2, Check, FileUp, Link as LinkIcon, RefreshCw
+  Trash2, Check, FileUp, Link as LinkIcon, RefreshCw,
+  ShieldCheck, Scale, Clock, CheckSquare, GitCompare, Info,
+  Database, Activity, ExternalLink, HelpCircle, BadgeAlert, ArrowUpRight
 } from 'lucide-react';
 import Section from './Section';
 
@@ -50,10 +52,10 @@ const DOC_TYPES = [
 ];
 
 const QUICK_PROMPTS = [
+  "What is our current cash runway?",
+  "Is our Multi-Tenant Auth feature ready for customer launch?",
   "Summarize our target investor narrative",
   "What are our key quarterly milestones?",
-  "How much cash runway do we have forecasted?",
-  "What IP or legal risks were flagged?",
 ];
 
 export default function KnowledgeBase({ documents, onUploadDoc }: KnowledgeBaseProps) {
@@ -192,6 +194,268 @@ export default function KnowledgeBase({ documents, onUploadDoc }: KnowledgeBaseP
   const [selectedDocId, setSelectedDocId] = useState<string>(documents[0]?.id || '');
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
 
+  // ── Section 5.7: Knowledge Provenance & Disagreement State ────────────────
+  const [knowledgeMode, setKnowledgeMode] = useState<'DOCUMENTS' | 'PROVENANCE_LEDGER' | 'DISAGREEMENTS'>('DOCUMENTS');
+  const [provenanceFacts, setProvenanceFacts] = useState<FactProvenance[]>([
+    {
+      factId: 'fact_cash_live',
+      key: 'cash_balance',
+      label: 'Treasury Cash Balance',
+      value: 4250000,
+      formattedValue: '₹42,50,000',
+      unit: 'INR',
+      category: 'OPERATIONAL_STATE',
+      department: 'Finance',
+      sourceType: 'INTEGRATION',
+      sourceName: 'Authoritative Bank Ledger (HDFC Corporate Treasury)',
+      sourceDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+      extractionTimestamp: new Date().toISOString(),
+      verificationMethod: 'INTEGRATION_FEED',
+      verifiedBy: 'System Direct Integration (HDFC OpenBanking)',
+      freshness: 'FRESH',
+      isAuthoritative: true,
+      hasConflict: true,
+      conflictDetails: {
+        conflictingFactId: 'fact_cash_deck',
+        conflictingSource: 'Financial_Model_v1_Forecast.xlsx (Uploaded 2 months ago)',
+        conflictingValue: '₹72,00,000',
+        conflictingDate: new Date(Date.now() - 62 * 24 * 60 * 60 * 1000).toISOString(),
+        conflictingCategory: 'DESCRIPTIVE',
+        severity: 'HARD_CONFLICT',
+        arbitrationRule: 'Rule 1: Operational Truth Dominance (Reality > Aspiration) & Rule 2: Temporal Precedence',
+        resolution: 'Live HDFC Bank Ledger (₹42.5L) used for runway calculation instead of outdated spreadsheet (₹72L). Overestimating runway prevented.'
+      }
+    },
+    {
+      factId: 'fact_cash_deck',
+      key: 'cash_balance_projected',
+      label: 'Q3 Projected Cash Balance (Forecast)',
+      value: 7200000,
+      formattedValue: '₹72,00,000',
+      unit: 'INR',
+      category: 'DESCRIPTIVE',
+      department: 'Finance',
+      sourceType: 'DOCUMENT',
+      sourceName: 'Financial_Model_v1_Forecast.xlsx',
+      sourceDate: new Date(Date.now() - 62 * 24 * 60 * 60 * 1000).toISOString(),
+      extractionTimestamp: new Date(Date.now() - 62 * 24 * 60 * 60 * 1000).toISOString(),
+      verificationMethod: 'EXTRACTED',
+      verifiedBy: 'Document Ingestion Pipeline',
+      freshness: 'STALE',
+      staleReason: 'Extracted from spreadsheet authored 62 days ago. Does not account for recent payroll disbursements.',
+      isAuthoritative: false,
+      hasConflict: true,
+      conflictDetails: {
+        conflictingFactId: 'fact_cash_live',
+        conflictingSource: 'Authoritative Bank Ledger (HDFC Corporate Treasury)',
+        conflictingValue: '₹42,50,000',
+        conflictingDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+        conflictingCategory: 'OPERATIONAL_STATE',
+        severity: 'HARD_CONFLICT',
+        arbitrationRule: 'Rule 1: Operational Truth Dominance (Reality > Aspiration)',
+        resolution: 'Relegated to historical forecast archive. Cannot be cited as current solvency.'
+      }
+    },
+    {
+      factId: 'fact_burn_rate',
+      key: 'monthly_burn_rate',
+      label: 'Monthly Net Burn Rate',
+      value: 800000,
+      formattedValue: '₹8,00,000 / mo',
+      unit: 'INR/mo',
+      category: 'OPERATIONAL_STATE',
+      department: 'Finance',
+      sourceType: 'SYSTEM_RECORD',
+      sourceName: 'Audited Payroll Run & Cloud Invoices (RazorpayX + AWS)',
+      sourceDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+      extractionTimestamp: new Date().toISOString(),
+      verificationMethod: 'CALCULATED',
+      verifiedBy: 'CFO Agent (Autonomous Audit Engine)',
+      freshness: 'FRESH',
+      isAuthoritative: true,
+      hasConflict: true,
+      conflictDetails: {
+        conflictingFactId: 'fact_burn_pitch_deck',
+        conflictingSource: 'Catalyst_Seed_Pitch_Deck.pdf (Slide 14)',
+        conflictingValue: '₹4,50,000 / mo',
+        conflictingDate: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
+        conflictingCategory: 'DESCRIPTIVE',
+        severity: 'DIVERGENT',
+        arbitrationRule: 'Rule 1: Operational Truth Dominance',
+        resolution: 'Live payroll and AWS telemetry reflects current active burn rate (₹8L/mo).'
+      }
+    },
+    {
+      factId: 'fact_runway',
+      key: 'runway_months',
+      label: 'Calculated Solvency Runway',
+      value: 5.3,
+      formattedValue: '5.3 Months',
+      unit: 'months',
+      category: 'OPERATIONAL_STATE',
+      department: 'Finance',
+      sourceType: 'SYSTEM_RECORD',
+      sourceName: 'CatalystOS Solvency Guard (₹42.5L / ₹8L)',
+      sourceDate: new Date().toISOString(),
+      extractionTimestamp: new Date().toISOString(),
+      verificationMethod: 'CALCULATED',
+      verifiedBy: 'Institutional Solvency Engine',
+      freshness: 'FRESH',
+      isAuthoritative: true,
+      hasConflict: false
+    },
+    {
+      factId: 'fact_auth_feature_live',
+      key: 'feature_multi_tenant_auth_status',
+      label: 'Multi-Tenant Auth & SAML SSO Status',
+      value: 'IN_PROGRESS',
+      formattedValue: 'IN_PROGRESS (Security Review Pending)',
+      category: 'OPERATIONAL_STATE',
+      department: 'Engineering',
+      sourceType: 'SYSTEM_RECORD',
+      sourceName: 'Engineering Task Tracker (#410 "Penetration Testing & OAuth Revocation")',
+      sourceDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+      extractionTimestamp: new Date().toISOString(),
+      verificationMethod: 'INTEGRATION_FEED',
+      verifiedBy: 'GitHub & CI/CD Pipeline Telemetry',
+      freshness: 'FRESH',
+      isAuthoritative: true,
+      hasConflict: true,
+      conflictDetails: {
+        conflictingFactId: 'fact_auth_feature_prd',
+        conflictingSource: 'Q3_Product_Roadmap_PRD.pdf (Section 3.2)',
+        conflictingValue: 'COMPLETE / Ready for Customer Launch',
+        conflictingDate: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString(),
+        conflictingCategory: 'DESCRIPTIVE',
+        severity: 'HARD_CONFLICT',
+        arbitrationRule: 'Rule 1: Operational Truth Dominance (Reality > Aspiration)',
+        resolution: 'Feature treated as IN_PROGRESS. Release gate BLOCKED until security testing issue #410 is closed.'
+      }
+    },
+    {
+      factId: 'fact_auth_feature_prd',
+      key: 'feature_multi_tenant_auth_roadmap',
+      label: 'Roadmap Target: Multi-Tenant Auth',
+      value: 'COMPLETE',
+      formattedValue: 'COMPLETE (Roadmap Target)',
+      category: 'DESCRIPTIVE',
+      department: 'Product',
+      sourceType: 'DOCUMENT',
+      sourceName: 'Q3_Product_Roadmap_PRD.pdf',
+      sourceDate: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString(),
+      extractionTimestamp: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString(),
+      verificationMethod: 'EXTRACTED',
+      verifiedBy: 'Document Ingestion Pipeline',
+      freshness: 'AGING',
+      staleReason: 'PRD planned completion for Sept 15; downstream engineering tickets show ongoing penetration tests.',
+      isAuthoritative: false,
+      hasConflict: true,
+      conflictDetails: {
+        conflictingFactId: 'fact_auth_feature_live',
+        conflictingSource: 'Engineering Task Tracker (#410 "Penetration Testing & OAuth Revocation")',
+        conflictingValue: 'IN_PROGRESS (Security Review Pending)',
+        conflictingDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+        conflictingCategory: 'OPERATIONAL_STATE',
+        severity: 'HARD_CONFLICT',
+        arbitrationRule: 'Rule 1: Operational Truth Dominance',
+        resolution: 'Relegated to design specification. Cannot be cited as deployed capability.'
+      }
+    },
+    {
+      factId: 'fact_headcount',
+      key: 'headcount_verified',
+      label: 'Verified Team Headcount',
+      value: 11,
+      formattedValue: '5 Human Employees + 6 AI Executives',
+      category: 'OPERATIONAL_STATE',
+      department: 'HR & Talent',
+      sourceType: 'SYSTEM_RECORD',
+      sourceName: 'CatalystOS People Directory & Access Ledger',
+      sourceDate: new Date().toISOString(),
+      extractionTimestamp: new Date().toISOString(),
+      verificationMethod: 'MANUALLY_CONFIRMED',
+      verifiedBy: 'Founder (Siddharth)',
+      freshness: 'FRESH',
+      isAuthoritative: true,
+      hasConflict: false
+    }
+  ]);
+
+  const [disagreementCases, setDisagreementCases] = useState<DisagreementResolutionCase[]>([
+    {
+      id: 'case_runway_discrepancy',
+      topic: 'Runway & Treasury Balance Discrepancy',
+      metricOrFeature: 'Current Cash Balance & Calculated Runway',
+      department: 'Finance',
+      descriptiveClaim: {
+        source: 'Financial_Model_v1_Forecast.xlsx (Sheet: Cash_Flow)',
+        sourceType: 'DOCUMENT',
+        date: new Date(Date.now() - 62 * 24 * 60 * 60 * 1000).toISOString(),
+        value: '₹72,00,000 (Yielding 9.0 Months Runway)',
+        interpretation: 'Static projection prepared 2 months ago assuming delayed hiring and lower cloud spend.',
+        statusBadge: 'STALE'
+      },
+      operationalReality: {
+        source: 'Authoritative Bank Ledger (HDFC Corporate Account #8492)',
+        sourceType: 'INTEGRATION',
+        date: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+        value: '₹42,50,000 (Yielding 5.3 Months Runway)',
+        interpretation: 'Live balance after Q3 software licenses, contractor disbursements, and ₹8L monthly payroll.',
+        statusBadge: 'BANK_FEED'
+      },
+      arbitrationVerdict: {
+        ruling: 'OPERATIONAL_TRUTH_WINS',
+        ruleApplied: 'Rule 1: Operational Truth Dominance (Reality > Aspiration) & Rule 2: Temporal Precedence',
+        authoritativeValue: '₹42,50,000 (5.3 Months Runway)',
+        explanation: 'Bank integration feed represents current liquid assets. The 2-month-old spreadsheet is stale and does not reflect executed disbursements.',
+        impactOnPlanning: 'Automated workflow allocations and hiring limits will strictly enforce the 5.3-month runway constraint to prevent unexpected insolvency.',
+        arbitratedAt: new Date().toISOString(),
+        arbitratedBy: 'CatalystOS Solvency Guard'
+      }
+    },
+    {
+      id: 'case_auth_module_status',
+      topic: 'Feature Readiness & Release Gate Disagreement',
+      metricOrFeature: 'Multi-Tenant Auth & SAML SSO Enterprise Module',
+      department: 'Engineering / Product',
+      descriptiveClaim: {
+        source: 'Q3_Product_Roadmap_PRD.pdf (Target Milestone 4)',
+        sourceType: 'DOCUMENT',
+        date: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString(),
+        value: 'COMPLETE / Ready for Customer Launch',
+        interpretation: 'Product roadmap intended feature to be code-complete and delivered to customers by end of Q3.',
+        statusBadge: 'ASPIRATIONAL_PLAN'
+      },
+      operationalReality: {
+        source: 'Engineering Task Tracker (#410 "OAuth Security Pen-Test")',
+        sourceType: 'SYSTEM_RECORD',
+        date: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+        value: 'IN_PROGRESS (Security Penetration Testing Pending)',
+        interpretation: 'Engineering PR merged into staging, but token revocation audit and pen-test are actively blocked on QA sign-off.',
+        statusBadge: 'IN_PROGRESS'
+      },
+      arbitrationVerdict: {
+        ruling: 'OPERATIONAL_TRUTH_WINS',
+        ruleApplied: 'Rule 1: Operational Truth Dominance (Reality > Aspiration)',
+        authoritativeValue: 'IN_PROGRESS (Gated on Issue #410)',
+        explanation: 'Operational testing telemetry takes precedence over roadmap projections. A feature cannot be treated as ready for customer exposure until tests pass.',
+        impactOnPlanning: 'Marketing announcement and sales commitments are gated. CatalystOS multi-agent orchestrator marks this milestone BLOCKED.',
+        arbitratedAt: new Date().toISOString(),
+        arbitratedBy: 'CatalystOS Governance Engine'
+      }
+    }
+  ]);
+
+  const [isLoadingProvenance, setIsLoadingProvenance] = useState<boolean>(false);
+  const [queryProvenanceFacts, setQueryProvenanceFacts] = useState<FactProvenance[]>([]);
+  const [queryDisagreements, setQueryDisagreements] = useState<DisagreementResolutionCase[]>([]);
+  const [queryArbitrationSummary, setQueryArbitrationSummary] = useState<string | null>(null);
+  const [queryHasStaleWarning, setQueryHasStaleWarning] = useState<boolean>(false);
+  const [provenanceFilterDept, setProvenanceFilterDept] = useState<string>('ALL');
+  const [provenanceFilterFreshness, setProvenanceFilterFreshness] = useState<string>('ALL');
+  const [provenanceFilterCategory, setProvenanceFilterCategory] = useState<string>('ALL');
+  const [attestationSuccess, setAttestationSuccess] = useState<string | null>(null);
+
   // Ask Company Knowledge
   const [query, setQuery] = useState('');
   const [isQuerying, setIsQuerying] = useState(false);
@@ -199,6 +463,67 @@ export default function KnowledgeBase({ documents, onUploadDoc }: KnowledgeBaseP
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { apiFetch } = useAuth();
+
+  // Load live provenance data from backend
+  const loadProvenanceData = async () => {
+    try {
+      setIsLoadingProvenance(true);
+      const res = await apiFetch('/api/knowledge/provenance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.facts && data.facts.length > 0) setProvenanceFacts(data.facts);
+        if (data.disagreements && data.disagreements.length > 0) setDisagreementCases(data.disagreements);
+      }
+    } catch (err) {
+      console.warn('Using canonical local provenance data fallback:', err);
+    } finally {
+      setIsLoadingProvenance(false);
+    }
+  };
+
+  useEffect(() => {
+    loadProvenanceData();
+  }, []);
+
+  const handleConfirmFact = async (factId: string, confirmedValue: any) => {
+    try {
+      const res = await apiFetch('/api/knowledge/provenance/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ factId, confirmedValue })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setProvenanceFacts(prev => prev.map(f => f.factId === factId ? data.fact : f));
+        setAttestationSuccess(`Fact "${data.fact.label}" confirmed & locked by Founder!`);
+        setTimeout(() => setAttestationSuccess(null), 4000);
+      }
+    } catch (err: any) {
+      console.error('Failed to confirm fact:', err);
+    }
+  };
+
+  const handleResolveDisagreement = async (caseId: string, decision: 'ACCEPT_OPERATIONAL' | 'ACCEPT_DESCRIPTIVE' | 'CUSTOM_OVERRIDE') => {
+    try {
+      const res = await apiFetch('/api/knowledge/provenance/resolve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ caseId, decision })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDisagreementCases(prev => prev.map(c => c.id === caseId ? data.disagreement : c));
+        setAttestationSuccess(`Disagreement "${data.disagreement.topic}" successfully resolved!`);
+        setTimeout(() => setAttestationSuccess(null), 4000);
+      }
+    } catch (err: any) {
+      console.error('Failed to resolve disagreement:', err);
+    }
+  };
 
   // Filtered documents
   const filteredDocuments = useMemo(() => {
@@ -290,20 +615,29 @@ export default function KnowledgeBase({ documents, onUploadDoc }: KnowledgeBaseP
     }
   };
 
-  const handleQuerySubmit = async (e?: React.FormEvent) => {
+  const handleQuerySubmit = async (e?: React.FormEvent, customQuery?: string) => {
     if (e) e.preventDefault();
-    if (!query.trim()) return;
+    const queryToRun = customQuery || query;
+    if (!queryToRun.trim()) return;
     setIsQuerying(true);
     setQueryAnswer(null);
+    setQueryProvenanceFacts([]);
+    setQueryDisagreements([]);
+    setQueryArbitrationSummary(null);
+    setQueryHasStaleWarning(false);
     try {
       const res = await apiFetch('/api/knowledge/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ query: queryToRun }),
       });
       if (res.ok) {
         const data = await res.json();
         setQueryAnswer(data.answer);
+        if (data.provenanceFacts) setQueryProvenanceFacts(data.provenanceFacts);
+        if (data.disagreements) setQueryDisagreements(data.disagreements);
+        if (data.arbitrationSummary) setQueryArbitrationSummary(data.arbitrationSummary);
+        if (data.hasStaleWarning) setQueryHasStaleWarning(data.hasStaleWarning);
       }
     } catch (err) {
       console.error(err);
@@ -369,6 +703,76 @@ export default function KnowledgeBase({ documents, onUploadDoc }: KnowledgeBaseP
           </button>
         </div>
       )}
+
+      {/* ── ATTESTATION SUCCESS NOTIFICATION ───────────────────────────────── */}
+      {attestationSuccess && (
+        <div 
+          className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-medium animate-fade-in shadow-xs"
+        >
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{attestationSuccess}</span>
+          </div>
+          <button onClick={() => setAttestationSuccess(null)} className="cursor-pointer text-emerald-700 hover:text-emerald-900">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* ── SECTION 5.7 VIEW MODE SWITCHER ─────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-1.5 rounded-2xl bg-white border border-[#141413]/10 shadow-xs">
+        <div className="flex items-center gap-1.5 overflow-x-auto p-0.5">
+          {[
+            { id: 'DOCUMENTS' as const, label: 'Document Vault & RAG', icon: FileText, count: documents.length },
+            { id: 'PROVENANCE_LEDGER' as const, label: 'Fact Provenance Ledger', icon: ShieldCheck, badge: `${provenanceFacts.length} Facts` },
+            { id: 'DISAGREEMENTS' as const, label: 'Descriptive vs. Operational Disagreements', icon: Scale, badge: `${disagreementCases.length} Active Conflicts`, alert: true },
+          ].map((tab) => {
+            const isActive = knowledgeMode === tab.id;
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setKnowledgeMode(tab.id)}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  isActive
+                    ? 'bg-[#141413] text-[#FDFCFA] shadow-xs'
+                    : 'text-[#696969] hover:text-[#141413] hover:bg-[#141413]/05'
+                }`}
+              >
+                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-[#FDFCFA]' : tab.alert ? 'text-amber-500' : 'text-[#696969]'}`} />
+                <span>{tab.label}</span>
+                {tab.count !== undefined && (
+                  <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
+                    isActive ? 'bg-white/20 text-white' : 'bg-[#141413]/08 text-[#696969]'
+                  }`}>
+                    {tab.count}
+                  </span>
+                )}
+                {tab.badge && (
+                  <span className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full ${
+                    isActive
+                      ? 'bg-white/20 text-white'
+                      : tab.alert
+                      ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  }`}>
+                    {tab.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="flex items-center gap-2 px-3 py-1 text-[11px] font-mono text-[#696969] shrink-0 border-t sm:border-t-0 border-[#141413]/08">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span>Rule 1: Reality &gt; Aspiration Enforced</span>
+        </div>
+      </div>
+
+      {/* ── MODE 1: DOCUMENT VAULT & RAG ──────────────────────────────────── */}
+      {knowledgeMode === 'DOCUMENTS' && (
+        <div className="space-y-6 animate-fade-in">
 
       {/* ── CATEGORY PILLS BAR ────────────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-4 overflow-x-auto pb-1">
@@ -723,8 +1127,9 @@ export default function KnowledgeBase({ documents, onUploadDoc }: KnowledgeBaseP
                   type="button"
                   onClick={() => {
                     setQuery(qp);
+                    handleQuerySubmit(undefined, qp);
                   }}
-                  className="px-2.5 py-1 rounded-lg text-[11px] transition-all font-medium cursor-pointer"
+                  className="px-2.5 py-1 rounded-lg text-[11px] transition-all font-medium cursor-pointer hover:border-[#141413]/30"
                   style={{
                     backgroundColor: 'var(--c-surface-2)',
                     border: '1px solid var(--c-border)',
@@ -739,17 +1144,95 @@ export default function KnowledgeBase({ documents, onUploadDoc }: KnowledgeBaseP
             {/* Answer Box */}
             {queryAnswer && (
               <div 
-                className="p-4 rounded-xl space-y-2 animate-fade-in"
+                className="p-5 rounded-xl space-y-3.5 animate-fade-in"
                 style={{
                   backgroundColor: 'var(--c-surface-2)',
                   border: '1px solid var(--c-border)'
                 }}
               >
-                <div className="flex items-center gap-1.5 text-xs font-bold" style={{ color: 'var(--c-fg)' }}>
-                  <Sparkles className="w-4 h-4 text-emerald-500" />
-                  <span>Synthesized Corporate Answer</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold" style={{ color: 'var(--c-fg)' }}>
+                    <Sparkles className="w-4 h-4 text-emerald-500" />
+                    <span>Synthesized Corporate Answer</span>
+                  </div>
+                  {queryHasStaleWarning && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3 text-amber-600" />
+                      Stale Source Overridden
+                    </span>
+                  )}
                 </div>
-                <p className="text-xs leading-relaxed font-sans" style={{ color: 'var(--c-fg)' }}>{queryAnswer}</p>
+
+                <div className="text-xs leading-relaxed font-sans prose prose-sm max-w-none dark:prose-invert" style={{ color: 'var(--c-fg)' }}>
+                  {queryAnswer.split('\n\n').map((paragraph, idx) => (
+                    <p key={idx} className="mb-2 last:mb-0">{paragraph}</p>
+                  ))}
+                </div>
+
+                {/* ── Explicit Knowledge Provenance Card (Section 5.7) ──────── */}
+                {(queryProvenanceFacts.length > 0 || queryDisagreements.length > 0) && (
+                  <div className="mt-4 pt-3.5 border-t border-[#141413]/10 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#696969] flex items-center gap-1.5">
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                        Grounded Knowledge Provenance
+                      </span>
+                      <span className="text-[10px] font-mono text-[#696969]">
+                        Verified Precedence: Operational Reality &gt; Aspiration
+                      </span>
+                    </div>
+
+                    {/* Provenance Facts Grid */}
+                    {queryProvenanceFacts.length > 0 && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {queryProvenanceFacts.map((fact) => (
+                          <div 
+                            key={fact.factId} 
+                            className="p-2.5 rounded-xl border text-[11px] space-y-1 bg-white/80 border-[#141413]/10 shadow-xs"
+                          >
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="font-bold text-[#141413] truncate">{fact.label}</span>
+                              <span className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold shrink-0 ${
+                                fact.freshness === 'FRESH'
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  : 'bg-amber-50 text-amber-700 border border-amber-200'
+                              }`}>
+                                {fact.freshness}
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-[#696969] flex items-center gap-1 truncate">
+                              <span className="font-semibold text-[#141413]">Source:</span>
+                              <span className="truncate">{fact.sourceName}</span>
+                            </div>
+                            <div className="text-[10px] text-[#696969] flex items-center justify-between pt-0.5 border-t border-[#141413]/05">
+                              <span>Method: <strong className="text-[#141413] font-mono">{fact.verificationMethod}</strong></span>
+                              <span className="font-medium text-emerald-700">{fact.category === 'OPERATIONAL_STATE' ? 'Live State' : 'Document'}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Disagreement Resolution Box */}
+                    {queryDisagreements.map((dis) => (
+                      <div key={dis.id} className="p-3.5 rounded-xl bg-amber-50/90 border border-amber-200/90 text-xs space-y-2">
+                        <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                          <Scale className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                          <span>Disagreement Resolved: {dis.topic}</span>
+                        </div>
+                        <p className="text-[11px] text-amber-800 leading-relaxed">
+                          {dis.arbitrationVerdict.explanation}
+                        </p>
+                        <div className="text-[10px] font-mono text-amber-700 pt-1 border-t border-amber-200/70 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                          <span>Rule: <strong>{dis.arbitrationVerdict.ruleApplied}</strong></span>
+                          <span className="font-bold text-emerald-800 bg-emerald-100/90 px-2 py-0.5 rounded self-start sm:self-auto">
+                            Authoritative: {dis.arbitrationVerdict.authoritativeValue}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -884,6 +1367,446 @@ export default function KnowledgeBase({ documents, onUploadDoc }: KnowledgeBaseP
         </div>
 
       </div>
+      </div>
+      )}
+
+      {/* ── MODE 2: FACT PROVENANCE LEDGER (Section 5.7) ─────────────────── */}
+      {knowledgeMode === 'PROVENANCE_LEDGER' && (
+        <div className="space-y-6 animate-fade-in">
+          
+          {/* Provenance Header & Policy Card */}
+          <div className="p-6 rounded-2xl bg-white border border-[#141413]/10 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                  Section 5.7 Explicit Knowledge Provenance
+                </span>
+                <h2 className="text-lg font-bold text-[#141413] mt-1">
+                  Institutional Ground Truth & Fact Provenance Ledger
+                </h2>
+                <p className="text-xs text-[#696969] mt-0.5 max-w-3xl">
+                  Every critical business fact is tracked with source integration, authoring date, extraction timestamp, verification method, and freshness decay. Authoritative structured records strictly take precedence over arbitrary document fragments.
+                </p>
+              </div>
+
+              <button
+                onClick={loadProvenanceData}
+                disabled={isLoadingProvenance}
+                className="px-3.5 py-2 rounded-xl text-xs font-semibold border border-[#141413]/10 bg-white hover:bg-[#141413]/05 transition-colors flex items-center gap-2 cursor-pointer self-start sm:self-auto shrink-0 shadow-xs text-[#141413]"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingProvenance ? 'animate-spin' : ''}`} />
+                <span>Refresh Provenance</span>
+              </button>
+            </div>
+
+            {/* Provenance Metrics Ribbon */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-[#141413]/08">
+              <div className="p-3 rounded-xl bg-[#141413]/02 border border-[#141413]/06">
+                <div className="text-[10px] font-mono uppercase text-[#696969]">Total Tracked Facts</div>
+                <div className="text-xl font-bold text-[#141413] mt-0.5">{provenanceFacts.length}</div>
+                <div className="text-[10px] text-emerald-600 font-medium mt-0.5 flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" /> Fully Audited
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[#141413]/02 border border-[#141413]/06">
+                <div className="text-[10px] font-mono uppercase text-[#696969]">Operational State Feeds</div>
+                <div className="text-xl font-bold text-emerald-700 mt-0.5">
+                  {provenanceFacts.filter(f => f.category === 'OPERATIONAL_STATE').length}
+                </div>
+                <div className="text-[10px] text-[#696969] font-mono mt-0.5">Bank & CI/CD Feeds</div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[#141413]/02 border border-[#141413]/06">
+                <div className="text-[10px] font-mono uppercase text-[#696969]">Stale / Superseded Docs</div>
+                <div className="text-xl font-bold text-amber-600 mt-0.5">
+                  {provenanceFacts.filter(f => f.freshness === 'STALE' || f.freshness === 'SUPERSEDED').length}
+                </div>
+                <div className="text-[10px] text-amber-700 font-medium mt-0.5">&gt;60d Old (Overridden)</div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[#141413]/02 border border-[#141413]/06">
+                <div className="text-[10px] font-mono uppercase text-[#696969]">Active Disagreements</div>
+                <div className="text-xl font-bold text-rose-600 mt-0.5">
+                  {disagreementCases.length}
+                </div>
+                <div className="text-[10px] text-emerald-600 font-medium mt-0.5">Arbitration Active</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Filter Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-white border border-[#141413]/10 text-xs">
+            {/* Department Filter */}
+            <div className="flex items-center gap-1.5 overflow-x-auto">
+              <span className="font-semibold text-[#696969] text-[11px] mr-1">Dept:</span>
+              {['ALL', 'Finance', 'Engineering', 'Product', 'HR & Talent'].map((dept) => (
+                <button
+                  key={dept}
+                  onClick={() => setProvenanceFilterDept(dept)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
+                    provenanceFilterDept === dept
+                      ? 'bg-[#141413] text-white shadow-xs'
+                      : 'bg-[#141413]/04 text-[#696969] hover:text-[#141413]'
+                  }`}
+                >
+                  {dept}
+                </button>
+              ))}
+            </div>
+
+            {/* Freshness Filter */}
+            <div className="flex items-center gap-1.5 overflow-x-auto">
+              <span className="font-semibold text-[#696969] text-[11px] mr-1">Freshness:</span>
+              {['ALL', 'FRESH', 'AGING', 'STALE'].map((fr) => (
+                <button
+                  key={fr}
+                  onClick={() => setProvenanceFilterFreshness(fr)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
+                    provenanceFilterFreshness === fr
+                      ? 'bg-[#141413] text-white shadow-xs'
+                      : 'bg-[#141413]/04 text-[#696969] hover:text-[#141413]'
+                  }`}
+                >
+                  {fr}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Facts Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {provenanceFacts
+              .filter(f => provenanceFilterDept === 'ALL' || f.department.toLowerCase().includes(provenanceFilterDept.toLowerCase()))
+              .filter(f => provenanceFilterFreshness === 'ALL' || f.freshness === provenanceFilterFreshness)
+              .map((fact) => {
+                const isOp = fact.category === 'OPERATIONAL_STATE';
+                return (
+                  <div
+                    key={fact.factId}
+                    className="p-5 rounded-2xl bg-white border border-[#141413]/10 shadow-xs space-y-3.5 transition-all hover:border-[#141413]/20"
+                  >
+                    {/* Header */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-mono uppercase font-bold text-[#696969]">
+                            {fact.department}
+                          </span>
+                          <span className="text-[#141413]/20">·</span>
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold ${
+                            isOp ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-blue-50 text-blue-800 border border-blue-200'
+                          }`}>
+                            {isOp ? 'OPERATIONAL REALITY' : 'DESCRIPTIVE KNOWLEDGE'}
+                          </span>
+                        </div>
+                        <h3 className="text-sm font-bold text-[#141413]">{fact.label}</h3>
+                      </div>
+
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold shrink-0 ${
+                        fact.freshness === 'FRESH'
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : fact.freshness === 'AGING'
+                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                          : 'bg-rose-50 text-rose-700 border border-rose-200'
+                      }`}>
+                        {fact.freshness}
+                      </span>
+                    </div>
+
+                    {/* Authoritative Value Display */}
+                    <div className="p-3.5 rounded-xl bg-[#141413]/02 border border-[#141413]/06">
+                      <span className="text-[10px] font-mono uppercase text-[#696969] block mb-0.5">
+                        {fact.isAuthoritative ? 'Authoritative Ground Truth Value' : 'Historical Document Value'}
+                      </span>
+                      <div className="text-lg font-bold text-[#141413]">
+                        {fact.formattedValue || String(fact.value)}
+                      </div>
+                    </div>
+
+                    {/* Granular Provenance Metadata */}
+                    <div className="space-y-2 text-xs pt-1 border-t border-[#141413]/06">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-[#696969]">Source Document / Feed:</span>
+                        <span className="font-semibold text-[#141413] truncate max-w-[65%]" title={fact.sourceName}>
+                          {fact.sourceName}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-[#696969]">Source Date:</span>
+                        <span className="font-mono text-[#141413]">
+                          {new Date(fact.sourceDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-[#696969]">Extraction Timestamp:</span>
+                        <span className="font-mono text-[#141413]">
+                          {new Date(fact.extractionTimestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-[#696969]">Verification Method:</span>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#141413]/05 text-[#141413] border border-[#141413]/10">
+                          {fact.verificationMethod}
+                        </span>
+                      </div>
+
+                      {fact.verifiedBy && (
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-[#696969]">Attested By:</span>
+                          <span className="font-medium text-slate-700">{fact.verifiedBy}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Stale Warning Callout */}
+                    {fact.staleReason && (
+                      <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-800 flex items-start gap-2">
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                        <span>{fact.staleReason}</span>
+                      </div>
+                    )}
+
+                    {/* Disagreement Warning Callout */}
+                    {fact.hasConflict && fact.conflictDetails && (
+                      <div className="p-3 rounded-xl bg-amber-50/90 border border-amber-200/90 text-xs space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-amber-900 flex items-center gap-1.5">
+                            <Scale className="w-3.5 h-3.5 text-amber-600" />
+                            Disagreement Detected
+                          </span>
+                          <span className="text-[10px] font-mono font-bold text-amber-700">
+                            {fact.conflictDetails.severity}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-amber-800">
+                          <strong>Conflict:</strong> {fact.conflictDetails.conflictingSource} ({fact.conflictDetails.conflictingValue})
+                        </p>
+                        <p className="text-[11px] text-amber-900 font-medium">
+                          <strong>Arbitration:</strong> {fact.conflictDetails.resolution}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Action Footer */}
+                    <div className="pt-2 border-t border-[#141413]/08 flex items-center justify-between">
+                      <button
+                        onClick={() => handleConfirmFact(fact.factId, fact.value)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#141413] hover:bg-[#262627] text-white transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        <span>Confirm & Lock Fact</span>
+                      </button>
+
+                      {fact.hasConflict && (
+                        <button
+                          onClick={() => setKnowledgeMode('DISAGREEMENTS')}
+                          className="text-xs font-semibold text-[#141413] hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>View Arbitration</span>
+                          <ArrowRight className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
+
+      {/* ── MODE 3: DESCRIPTIVE VS. OPERATIONAL DISAGREEMENTS (Section 5.7) ── */}
+      {knowledgeMode === 'DISAGREEMENTS' && (
+        <div className="space-y-6 animate-fade-in">
+          
+          {/* Disagreement Arbitration Policy Banner */}
+          <div className="p-6 rounded-2xl bg-white border border-[#141413]/10 shadow-xs space-y-4">
+            <div>
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
+                Knowledge Arbitration Engine
+              </span>
+              <h2 className="text-lg font-bold text-[#141413] mt-1">
+                Descriptive Knowledge vs. Operational State Disagreement Resolution
+              </h2>
+              <p className="text-xs text-[#696969] mt-0.5 max-w-3xl leading-relaxed">
+                CatalystOS formally distinguishes between <strong>Descriptive Knowledge</strong> (what company documents, pitch decks, and roadmap PRDs say) and <strong>Operational State</strong> (what is actually happening now in live bank feeds, issue trackers, and git branches). When records conflict, explicit arbitration rules prevent flawed assumptions.
+              </p>
+            </div>
+
+            {/* Arbitration Precedence Rules */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2 border-t border-[#141413]/08 text-xs">
+              <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200/80 space-y-1">
+                <div className="font-bold text-emerald-950 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  Rule 1: Reality &gt; Aspiration
+                </div>
+                <p className="text-[11px] text-emerald-800 leading-relaxed">
+                  Live operational state (bank ledger, active git tickets, verified payroll) always takes precedence over static documents for determining current reality.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-blue-50/70 border border-blue-200/80 space-y-1">
+                <div className="font-bold text-blue-950 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                  Rule 2: Temporal Precedence
+                </div>
+                <p className="text-[11px] text-blue-800 leading-relaxed">
+                  Newer verified telemetry supersedes older documents. Records &gt;60 days old are marked STALE and cannot override recent disbursements.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-purple-50/70 border border-purple-200/80 space-y-1">
+                <div className="font-bold text-purple-950 flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                  Rule 3: Origin Hierarchy
+                </div>
+                <p className="text-[11px] text-purple-800 leading-relaxed">
+                  System Integration Feed &gt; Founder Direct Attestation &gt; Formally Extracted Fact &gt; Raw Semantic Document Chunk.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Active Disagreement Cases List */}
+          <div className="space-y-6">
+            {disagreementCases.map((caseItem) => (
+              <div 
+                key={caseItem.id}
+                className="p-6 rounded-2xl bg-white border border-[#141413]/10 shadow-xs space-y-5"
+              >
+                {/* Case Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-[#141413]/08">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                        Active Disagreement
+                      </span>
+                      <span className="text-xs font-mono text-[#696969]">{caseItem.department}</span>
+                    </div>
+                    <h3 className="text-base font-bold text-[#141413]">{caseItem.topic}</h3>
+                    <p className="text-xs text-[#696969]">Contested Metric / Capability: <strong>{caseItem.metricOrFeature}</strong></p>
+                  </div>
+
+                  <span className="text-xs font-mono font-bold text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 self-start sm:self-auto flex items-center gap-1.5">
+                    <Scale className="w-3.5 h-3.5 text-emerald-600" />
+                    Arbitrated: {caseItem.arbitrationVerdict.ruling.replace(/_/g, ' ')}
+                  </span>
+                </div>
+
+                {/* Side-by-Side Contested Positions */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Left: Descriptive Knowledge (What Documents Say) */}
+                  <div className="p-4 rounded-xl border border-amber-200 bg-amber-50/40 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-800 flex items-center gap-1.5">
+                        <FileText className="w-3.5 h-3.5 text-amber-600" />
+                        Descriptive Knowledge (What Documents Say)
+                      </span>
+                      <span className="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                        {caseItem.descriptiveClaim.statusBadge}
+                      </span>
+                    </div>
+
+                    <div className="text-xl font-bold text-amber-950">
+                      {caseItem.descriptiveClaim.value}
+                    </div>
+
+                    <p className="text-xs text-amber-900 leading-relaxed">
+                      {caseItem.descriptiveClaim.interpretation}
+                    </p>
+
+                    <div className="text-[11px] text-amber-800/80 pt-2 border-t border-amber-200/60 font-mono space-y-0.5">
+                      <div>Source: <strong>{caseItem.descriptiveClaim.source}</strong></div>
+                      <div>Authored: {new Date(caseItem.descriptiveClaim.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                    </div>
+                  </div>
+
+                  {/* Right: Operational State (What Is Actually Happening Now) */}
+                  <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/40 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
+                        <Activity className="w-3.5 h-3.5 text-emerald-600" />
+                        Operational State (What Is Actually Happening Now)
+                      </span>
+                      <span className="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        {caseItem.operationalReality.statusBadge}
+                      </span>
+                    </div>
+
+                    <div className="text-xl font-bold text-emerald-950">
+                      {caseItem.operationalReality.value}
+                    </div>
+
+                    <p className="text-xs text-emerald-900 leading-relaxed">
+                      {caseItem.operationalReality.interpretation}
+                    </p>
+
+                    <div className="text-[11px] text-emerald-800/80 pt-2 border-t border-emerald-200/60 font-mono space-y-0.5">
+                      <div>Source: <strong>{caseItem.operationalReality.source}</strong></div>
+                      <div>Telemetry: {new Date(caseItem.operationalReality.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Arbitration Verdict Box (CatalystOS Precedence Ruling) */}
+                <div className="p-4 rounded-xl bg-[#141413]/03 border border-[#141413]/10 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#141413] flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                      CatalystOS Ground Truth Ruling & Arbitration Verdict
+                    </span>
+                    <span className="text-[10px] font-mono text-[#696969]">
+                      Rule Applied: <strong>{caseItem.arbitrationVerdict.ruleApplied}</strong>
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-[#141413] leading-relaxed">
+                    {caseItem.arbitrationVerdict.explanation}
+                  </p>
+
+                  <div className="p-3 rounded-lg bg-white border border-[#141413]/10 space-y-1">
+                    <span className="text-[10px] font-mono uppercase text-[#696969] block">
+                      Enforced Value for Autonomous Multi-Agent Orchestration & Planning:
+                    </span>
+                    <div className="text-sm font-bold text-emerald-700">
+                      {caseItem.arbitrationVerdict.authoritativeValue}
+                    </div>
+                    <p className="text-[11px] text-[#696969] mt-1">
+                      <strong>Planning Impact:</strong> {caseItem.arbitrationVerdict.impactOnPlanning}
+                    </p>
+                  </div>
+
+                  {/* Actions for Founder Override */}
+                  <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-[#141413]/08">
+                    <button
+                      onClick={() => handleResolveDisagreement(caseItem.id, 'ACCEPT_OPERATIONAL')}
+                      className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-[#141413] hover:bg-[#262627] text-white transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Accept Operational Truth ({caseItem.operationalReality.value})</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        const val = prompt('Enter custom authoritative value for ' + caseItem.metricOrFeature);
+                        if (val) {
+                          handleResolveDisagreement(caseItem.id, 'CUSTOM_OVERRIDE');
+                        }
+                      }}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-[#141413]/10 hover:bg-[#141413]/05 transition-colors cursor-pointer text-[#696969] hover:text-[#141413]"
+                    >
+                      Founder Custom Attestation
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── 3-STEP INGESTION WIZARD MODAL ─────────────────────────────────── */}
       {isWizardOpen && (

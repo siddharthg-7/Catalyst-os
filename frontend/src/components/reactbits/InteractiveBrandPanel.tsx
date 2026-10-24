@@ -160,12 +160,12 @@ export default function InteractiveBrandPanel() {
           className="max-w-md w-full space-y-4 sm:space-y-5"
         >
           <h1 className="text-3xl sm:text-4xl xl:text-[40px] font-extrabold tracking-tight leading-[1.18] font-sans text-[#141413]">
-            The Autonomous Executive OS for Startups.
+            Run Your Startup Without Losing Track.
           </h1>
           <p className="text-sm sm:text-[15px] text-[#666562] leading-relaxed font-sans max-w-sm sm:max-w-md mx-auto">
             <DecryptedText
-              text="Deploy 8 coordinated AI executives. From strategy to cash runway, run your company with autonomous precision."
-              speed={25}
+              text="Connect priorities, blockers, and team dependencies in one clear workspace. Calibrate your executive council in 60 seconds."
+              speed={22}
               maxIterations={8}
               sequential={true}
               animateOn="view"
@@ -179,14 +179,15 @@ export default function InteractiveBrandPanel() {
       <div className="relative z-10 pt-6 border-t border-[rgba(20,20,19,0.08)] flex items-center justify-between text-[11px] text-[#8E8D8A] font-mono">
         <div className="flex items-center gap-2">
           <span className="w-1.5 h-1.5 rounded-full bg-[#141413]" />
-          <span className="text-[#666562]">CatalystOS Protocol 2026</span>
+          <span className="text-[#666562]">PostgreSQL Data Isolation</span>
         </div>
-        <div className="flex items-center gap-4 text-[#8E8D8A]">
-          <span className="hover:text-[#141413] transition-colors cursor-pointer">Enterprise Security</span>
+        <div className="flex items-center gap-3 text-[#8E8D8A]">
+          <span className="hover:text-[#141413] transition-colors">Role-Based Access</span>
           <span>•</span>
-          <span className="hover:text-[#141413] transition-colors cursor-pointer">Privacy First</span>
+          <span className="hover:text-[#141413] transition-colors">Founder Oversight</span>
         </div>
       </div>
     </div>
   );
 }
+

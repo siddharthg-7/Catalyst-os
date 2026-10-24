@@ -93,8 +93,8 @@ export default function AcceptInvitation() {
       localStorage.setItem('catalystos_token', data.token);
       localStorage.setItem('catalystos_user', JSON.stringify(data.user));
       const roleUpper = (data.user?.role || data.role || '').toUpperCase();
-      const isEmployee = !['FOUNDER', 'ADMIN'].includes(roleUpper);
-      window.location.replace(isEmployee ? '/employee' : '/dashboard');
+      const isEmployee = !(roleUpper.includes('FOUNDER') || roleUpper.includes('ADMIN') || roleUpper.includes('CEO') || roleUpper.includes('OWNER'));
+      window.location.replace(isEmployee ? '/employee/overview?tab=overview' : '/dashboard');
     } catch {
       setError('The invitation could not be accepted. Please retry.');
     } finally {

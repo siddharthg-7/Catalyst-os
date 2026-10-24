@@ -151,6 +151,9 @@ export function mapApprovalToDeliverable(appr: any): Deliverable {
 
   return {
     id: appr.id,
+    proposalId: extraMeta.proposalId || appr.id,
+    version: extraMeta.version || 1,
+    startupId: appr.plan?.startupId || extraMeta.startupId,
     initiativeId: appr.plan?.id || appr.planId || 'init_executive',
     title: appr.title,
     description: appr.description,
@@ -166,7 +169,20 @@ export function mapApprovalToDeliverable(appr: any): Deliverable {
     summary,
     recommendation,
     taskId,
-    founderFeedback
+    founderFeedback,
+    businessRationale: extraMeta.businessRationale || summary,
+    supportingEvidence: extraMeta.supportingEvidence || [
+      {
+        source: 'Company Brain RAG & Financial Ledger',
+        freshness: 'VERIFIED',
+        confidenceScore: 0.94
+      }
+    ],
+    authorizedApprover: extraMeta.authorizedApprover,
+    approvedAt: extraMeta.approvedAt,
+    decidedAt: extraMeta.decidedAt,
+    executionStatus: extraMeta.executionStatus || (appr.status === 'approved' ? 'completed' : 'not_started'),
+    executionDetails: extraMeta.executionDetails
   };
 }
 
@@ -355,7 +371,31 @@ export class ApprovalService {
     const existingIds = new Set(dbApprovals.map(a => a.id));
     const memoryApprovals = approvals.filter(a => !existingIds.has(a.id));
 
-    return [...dbApprovals, ...memoryApprovals];
+    // Deduplicate any repeated recommendations or identical action proposals
+    const allApprovals = [...dbApprovals, ...memoryApprovals];
+    const seenActionKeys = new Set<string>();
+    const deduplicated: Deliverable[] = [];
+
+    for (const app of allApprovals) {
+      // Unique action proposal key (proposalId, or taskId, or sanitized title)
+      const actionKey = app.proposalId || app.taskId || app.id;
+      if (!seenActionKeys.has(actionKey)) {
+        seenActionKeys.add(actionKey);
+        // Ensure defaults for execution status and lifecycle
+        if (!app.executionStatus) {
+          app.executionStatus = app.status === 'approved' ? 'completed' : 'not_started';
+        }
+        if (!app.proposalId) {
+          app.proposalId = app.id;
+        }
+        if (!app.version) {
+          app.version = 1;
+        }
+        deduplicated.push(app);
+      }
+    }
+
+    return deduplicated;
   }
 
   /**

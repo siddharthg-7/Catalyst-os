@@ -334,18 +334,26 @@ export async function listCompanyMeetings(userId: string): Promise<{
       }
     ];
 
-    for (const item of initialMeetings) {
-      try {
-        const created: any = await (prisma as any).memory.create({
-          data: {
-            category: 'COMPANY_MEETING',
-            title: item.title,
-            description: JSON.stringify(item),
-            startupId: membership.startupId
-          }
-        });
-        meetings.push({ ...item, id: created.id });
-      } catch {}
+    const existingStartup = await safeDbQuery(() => prisma.startup.findUnique({ where: { id: membership.startupId } })).catch(() => null);
+    if (existingStartup) {
+      for (const item of initialMeetings) {
+        try {
+          const created: any = await safeDbQuery(() => (prisma as any).memory.create({
+            data: {
+              category: 'COMPANY_MEETING',
+              title: item.title,
+              description: JSON.stringify(item),
+              startupId: membership.startupId
+            }
+          })).catch(() => null);
+          if (created) meetings.push({ ...item, id: created.id });
+          else meetings.push({ ...item, id: `meeting-init-${Date.now()}-${Math.random().toString(36).substr(2, 6)}` });
+        } catch {
+          meetings.push({ ...item, id: `meeting-init-${Date.now()}-${Math.random().toString(36).substr(2, 6)}` });
+        }
+      }
+    } else {
+      meetings.push(...initialMeetings.map((item, idx) => ({ ...item, id: `meeting-init-${idx}-${Date.now()}` })));
     }
   }
 

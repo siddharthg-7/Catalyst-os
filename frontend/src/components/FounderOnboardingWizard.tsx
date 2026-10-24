@@ -1,11 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Building2, Users, Rocket, Target, DollarSign,
-  BarChart3, Flag, ArrowRight, ArrowLeft, CheckCircle2,
-  RefreshCw, Sparkles
+  Rocket, DollarSign, Users, Scale,
+  ArrowRight, ArrowLeft, CheckCircle2,
+  RefreshCw, Sparkles, ShieldCheck, Check
 } from 'lucide-react';
-import CatalystLogo from './CatalystLogo';
 import { User } from '../types';
 
 interface FounderOnboardingWizardProps {
@@ -14,64 +13,49 @@ interface FounderOnboardingWizardProps {
   onCancel: () => void;
 }
 
+export type ImmediateObjective = 'launch' | 'finance' | 'hiring' | 'decision';
+export type FundingStage = 'Pre-seed' | 'Seed' | 'Series A' | 'Bootstrapped';
+
 export default function FounderOnboardingWizard({
   user,
   onComplete,
   onCancel,
 }: FounderOnboardingWizardProps) {
-  // Pathway: 'existing' = Operating Startup, 'new' = New Startup Idea
-  const [onboardingPath, setOnboardingPath] = useState<'existing' | 'new'>('existing');
-
-  // Current Step: 0 = Pathway Selection, 1 = Company/Idea, 2 = Founder, 3 = Business/Problem, 4 = Financial, 5 = Goals, 6 = Checklist
-  const [currentStep, setCurrentStep] = useState(0);
+  // ── Progressive Onboarding Stages ──
+  // Stage 1: Immediate objective (Ask what needs attention, require only company name & stage)
+  // Stage 2: Adaptive context collection (2-3 fields specific to the chosen priority)
+  // Stage 3: Deliverable preview (Interactive preview of first generated output)
+  // Stage 4: Workspace initialization (Smooth 4-step checklist loader)
+  const [currentStep, setCurrentStep] = useState<number>(1);
   const [checkmarkProgress, setCheckmarkProgress] = useState(0);
 
-  // 1. Company / Idea Information
+  // ── Stage 1: Immediate Objective Fields ──
   const [companyName, setCompanyName] = useState('');
-  const [companyIndustry, setCompanyIndustry] = useState('SaaS');
-  const [companyStage, setCompanyStage] = useState('Seed');
-  const [companyDescription, setCompanyDescription] = useState('');
+  const [companyStage, setCompanyStage] = useState<FundingStage>('Pre-seed');
+  const [objective, setObjective] = useState<ImmediateObjective>('launch');
+  const [briefDescription, setBriefDescription] = useState('');
 
-  // 2. Founder Information
-  const [founderName, setFounderName] = useState(user?.name || '');
-  const [founderRole, setFounderRole] = useState('Founder & CEO');
-  const [teamSize, setTeamSize] = useState('Solo Founder');
+  // ── Stage 2: Adaptive Context Fields ──
+  // 1. Launch readiness fields
+  const [launchHorizon, setLaunchHorizon] = useState('In 30 Days');
+  const [launchLead, setLaunchLead] = useState('Lead Integrations Engineer');
+  const [blocker, setBlocker] = useState('Staging integration testing & regression suite incomplete');
 
-  useEffect(() => {
-    if (user?.name && !founderName) {
-      setFounderName(user.name);
-    }
-  }, [user, founderName]);
+  // 2. Cash & runway fields
+  const [cashBalance, setCashBalance] = useState('7200000');
+  const [monthlyBurn, setMonthlyBurn] = useState('800000');
 
-  // 3. Business / Product Information
-  const [primaryProduct, setPrimaryProduct] = useState('');
-  const [targetIcp, setTargetIcp] = useState('');
-  const [coreProblem, setCoreProblem] = useState('');
+  // 3. Hiring & team allocation fields
+  const [hiringRole, setHiringRole] = useState('Senior Backend Engineer');
+  const [hiringTimeline, setHiringTimeline] = useState('Immediate (30 Days)');
+  const [hiringBudget, setHiringBudget] = useState('₹18L–₹24L / year');
 
-  // 4. Financial Baseline
-  const [cashBalance, setCashBalance] = useState('250000');
-  const [monthlyBurn, setMonthlyBurn] = useState('15000');
+  // 4. Strategic decision backlog fields
+  const [decisionTopic, setDecisionTopic] = useState('Self-serve PLG rollout vs enterprise sales assisted onboarding');
+  const [decisionOptions, setDecisionOptions] = useState('Option A: 14-day free trial tier; Option B: High-touch sales demo gate');
+  const [decisionDeadline, setDecisionDeadline] = useState('In 14 Days');
 
-  // 5. Goals & Priorities
-  const [milestoneGoal, setMilestoneGoal] = useState('Scale customer acquisition and secure next funding round');
-  const [biggestChallenge, setBiggestChallenge] = useState('Finding Customers / GTM');
-  const [additionalNotes, setAdditionalNotes] = useState('');
-
-  const handleSelectPath = (path: 'existing' | 'new') => {
-    setOnboardingPath(path);
-    if (path === 'new') {
-      setCompanyStage('Idea');
-      setCashBalance('50000');
-      setMonthlyBurn('5000');
-      setMilestoneGoal('Validate concept with 10 design partners and launch MVP');
-    } else {
-      setCompanyStage('Seed');
-      setCashBalance('250000');
-      setMonthlyBurn('15000');
-      setMilestoneGoal('Scale customer acquisition and secure next funding round');
-    }
-  };
-
+  // Dynamic runway calculation
   const calculatedRunway = useMemo(() => {
     const cash = parseFloat(String(cashBalance).replace(/,/g, '')) || 0;
     const burn = parseFloat(String(monthlyBurn).replace(/,/g, '')) || 0;
@@ -79,63 +63,100 @@ export default function FounderOnboardingWizard({
     return (cash / burn).toFixed(1);
   }, [cashBalance, monthlyBurn]);
 
+  // Validation
   const isNextDisabled = useMemo(() => {
-    if (currentStep === 1 && (!companyName.trim() || !companyDescription.trim())) return true;
-    if (currentStep === 2 && !founderName.trim()) return true;
-    if (currentStep === 3 && (!targetIcp.trim() || !primaryProduct.trim())) return true;
-    if (currentStep === 4 && (!cashBalance || !monthlyBurn)) return true;
-    if (currentStep === 5 && !milestoneGoal.trim()) return true;
+    if (currentStep === 1) {
+      return !companyName.trim();
+    }
+    if (currentStep === 2) {
+      if (objective === 'launch') return !blocker.trim();
+      if (objective === 'finance') return !cashBalance || !monthlyBurn;
+      if (objective === 'hiring') return !hiringRole.trim();
+      if (objective === 'decision') return !decisionTopic.trim();
+    }
     return false;
-  }, [currentStep, companyName, companyDescription, founderName, targetIcp, primaryProduct, cashBalance, monthlyBurn, milestoneGoal]);
+  }, [currentStep, companyName, objective, blocker, cashBalance, monthlyBurn, hiringRole, decisionTopic]);
 
-  const runChecklistAnimation = async () => {
+  // Final Submit & Workspace Transition
+  const handleFinalSubmit = async () => {
+    setCurrentStep(4);
     setCheckmarkProgress(0);
+
     for (let i = 1; i <= 4; i++) {
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise(resolve => setTimeout(resolve, 220));
       setCheckmarkProgress(i);
     }
     await new Promise(resolve => setTimeout(resolve, 200));
 
-    const numCash = parseFloat(String(cashBalance).replace(/,/g, '')) || (onboardingPath === 'new' ? 50000 : 250000);
-    const numBurn = parseFloat(String(monthlyBurn).replace(/,/g, '')) || (onboardingPath === 'new' ? 5000 : 15000);
-    const numRunway = numBurn > 0 ? parseFloat((numCash / numBurn).toFixed(1)) : 999;
+    // Construct unified payload compatible with backend workspaceService
+    const numCash = objective === 'finance'
+      ? (parseFloat(String(cashBalance).replace(/,/g, '')) || 7200000)
+      : (companyStage === 'Pre-seed' || companyStage === 'Bootstrapped' ? 5000000 : 12000000);
+
+    const numBurn = objective === 'finance'
+      ? (parseFloat(String(monthlyBurn).replace(/,/g, '')) || 800000)
+      : (companyStage === 'Pre-seed' || companyStage === 'Bootstrapped' ? 500000 : 1200000);
+
+    const numRunway = numBurn > 0 ? parseFloat((numCash / numBurn).toFixed(1)) : 10;
+
+    const objectiveLabels: Record<ImmediateObjective, string> = {
+      launch: 'Prepare Product Launch',
+      finance: 'Audit Cash Runway & SaaS Spend',
+      hiring: `Make Key Hire: ${hiringRole}`,
+      decision: `Resolve Strategic Decision: ${decisionTopic.slice(0, 45)}`,
+    };
 
     const finalPayload = {
-      path: onboardingPath,
-      startupName: companyName.trim() || (onboardingPath === 'new' ? 'New Venture Project' : 'Catalyst Venture'),
-      industry: companyIndustry,
+      path: 'existing',
+      startupName: companyName.trim() || 'Catalyst Venture',
+      industry: 'Technology / Software',
       stage: companyStage,
       fundingStage: companyStage,
-      description: companyDescription.trim() || `${companyName} software solution`,
-      idea: companyDescription.trim(),
-      founderName: founderName.trim() || user?.name || 'Founder',
-      founderRole,
-      teamSize,
-      primaryProduct: primaryProduct.trim() || companyDescription.trim() || 'Core Platform',
-      targetIcp: targetIcp.trim() || (onboardingPath === 'new' ? 'Early adopters' : `${companyIndustry} clients`),
-      newCustomers: targetIcp.trim(),
-      problem: coreProblem.trim() || 'Market workflow inefficiency',
+      description: briefDescription.trim() || `${companyName} software workspace`,
+      idea: briefDescription.trim() || `${companyName} core venture`,
+      founderName: user?.name || 'Founder',
+      founderRole: 'Founder & CEO',
+      teamSize: '2–5 Members',
+      primaryProduct: briefDescription.trim() || 'Core Product',
+      targetIcp: 'Technology teams & software builders',
+      newCustomers: 'Technology teams & software builders',
+      problem: objective === 'launch' ? blocker.trim() :
+               objective === 'finance' ? 'Cash runway governance' :
+               objective === 'hiring' ? `Hiring pipeline for ${hiringRole}` :
+               `Pending decision: ${decisionTopic.trim()}`,
       cashBalance: numCash,
       monthlyBurn: numBurn,
       budget: numCash,
       burnRate: numBurn,
       runway: `${numRunway} Months`,
-      timeline: onboardingPath === 'new' ? '30 Days' : '90 Days',
-      goals: [milestoneGoal.trim() || (onboardingPath === 'new' ? 'Launch MVP' : 'Scale ARR')],
-      priorities: [biggestChallenge],
-      biggestChallenge,
-      additionalInfo: additionalNotes.trim()
+      timeline: objective === 'launch' ? launchHorizon : '30 Days',
+      goals: [objectiveLabels[objective]],
+      priorities: [
+        objective === 'launch' ? blocker.trim() :
+        objective === 'finance' ? 'Treasury Runway Optimization' :
+        objective === 'hiring' ? `Staffing: ${hiringRole}` :
+        'Executive Decision Governance'
+      ],
+      biggestChallenge: objective === 'launch' ? blocker.trim() : 'Operational Delivery',
+      additionalInfo: `Immediate Priority: ${objectiveLabels[objective]}. Context: ${
+        objective === 'launch' ? `Owner: ${launchLead}, Horizon: ${launchHorizon}` :
+        objective === 'finance' ? `Runway: ${numRunway} mo, Burn: ₹${numBurn.toLocaleString()}/mo` :
+        objective === 'hiring' ? `Budget: ${hiringBudget}, Timeline: ${hiringTimeline}` :
+        `Options: ${decisionOptions}, Deadline: ${decisionDeadline}`
+      }`,
     };
 
     if (user?.id) {
       localStorage.setItem(`catalystos_onboarding_context_${user.id}`, JSON.stringify(finalPayload));
+      localStorage.setItem(`catalystos_onboarding_completed_${user.id}`, 'true');
     }
 
     await onComplete(finalPayload);
   };
 
+  // 1-Click Quick-Launch Demo (Pre-configured DataPulse Labs)
   const handleQuickLaunchDemo = async () => {
-    setCurrentStep(6);
+    setCurrentStep(4);
     setCheckmarkProgress(0);
     for (let i = 1; i <= 4; i++) {
       await new Promise(resolve => setTimeout(resolve, 150));
@@ -145,29 +166,29 @@ export default function FounderOnboardingWizard({
 
     const demoPayload = {
       path: 'existing' as const,
-      startupName: 'Cyberdyne Systems',
+      startupName: 'DataPulse Labs',
       industry: 'AI / Developer Tools',
       stage: 'Seed',
       fundingStage: 'Seed',
-      description: 'Autonomous multi-agent developer infrastructure that validates, tests, and deploys mission-critical microservices with zero downtime and strict compliance boundaries.',
-      idea: 'Autonomous multi-agent developer infrastructure',
+      description: 'Distributed API observability platform tracking staging regressions and team dependencies.',
+      idea: 'Distributed API observability platform',
       founderName: user?.name && user.name !== 'Founder' ? user.name : 'Alex Rivera',
       founderRole: 'Founder & CEO',
       teamSize: '2–5 Members',
-      primaryProduct: 'Autonomous Infrastructure Orchestration Engine',
-      targetIcp: 'Enterprise Series A–C VP of Engineering & DevOps Directors',
-      newCustomers: 'Enterprise Series A–C VP of Engineering & DevOps Directors',
-      problem: 'Engineering teams waste 35% of sprint cycles manually writing, debugging, and auditing deployment pipelines instead of shipping revenue-generating features.',
+      primaryProduct: 'Observability & Integration Engine',
+      targetIcp: 'Engineering Teams & B2B SaaS Builders',
+      newCustomers: 'Engineering Teams & B2B SaaS Builders',
+      problem: 'Staging integration testing incomplete and delayed before public launch announcement.',
       cashBalance: 7200000,
       monthlyBurn: 800000,
       budget: 7200000,
       burnRate: 800000,
       runway: '9.0 Months',
-      timeline: '90 Days',
-      goals: ['Launch Enterprise Beta with 5 design partners and reach ₹15,00,000 MRR'],
-      priorities: ['Finding Customers / GTM'],
-      biggestChallenge: 'Finding Customers / GTM',
-      additionalInfo: 'Atlas (CEO) and Aura (CFO) should prioritize preserving at least 14 months of runway while Vector (Growth) runs targeted outbound pilots.'
+      timeline: '30 Days',
+      goals: ['Prepare Product Launch and unblock staging dependencies'],
+      priorities: ['Product Testing & Launch Readiness'],
+      biggestChallenge: 'Product Testing & Launch Readiness',
+      additionalInfo: 'Atlas (CEO) and Helix (Ops) prioritize unblocking the integration test suite and staging timeline sign-off.'
     };
 
     if (user?.id) {
@@ -178,60 +199,44 @@ export default function FounderOnboardingWizard({
     await onComplete(demoPayload);
   };
 
-  const handleNext = () => {
-    if (currentStep < 5) {
-      setCurrentStep(prev => prev + 1);
-    } else {
-      setCurrentStep(6);
-      runChecklistAnimation();
-    }
-  };
-
-  const handlePrev = () => {
-    if (currentStep > 0) {
-      setCurrentStep(prev => prev - 1);
-    }
-  };
-
-  const inputCls = "w-full bg-white border border-[#141413]/15 rounded-[12px] px-3.5 py-2.5 text-sm text-[#141413] placeholder-[#696969] focus:outline-none focus:border-[#141413] focus:ring-2 focus:ring-[#141413]/06 transition-all font-sans";
-  const labelCls = "block text-[10px] uppercase tracking-widest text-[#696969] mb-1.5 font-bold font-mono";
+  const inputCls = "w-full bg-white border border-[#141413]/15 rounded-[12px] px-3.5 py-2.5 text-sm text-[#141413] placeholder-[#8E8D8A] focus:outline-none focus:border-[#141413] focus:ring-2 focus:ring-[#141413]/06 transition-all font-sans";
+  const labelCls = "block text-[10px] uppercase tracking-widest text-[#666562] mb-1 font-bold font-mono";
 
   return (
-    <div className="w-full max-w-xl bg-white border border-[#141413]/10 rounded-[32px] p-8 md:p-10 shadow-[rgba(0,0,0,0.08)_0px_40px_80px] relative overflow-hidden">
+    <div className="w-full max-w-xl bg-white border border-[#141413]/10 rounded-[32px] p-6 sm:p-8 md:p-10 shadow-[rgba(0,0,0,0.08)_0px_40px_80px] relative overflow-hidden">
       
-      {/* Step Progress Header */}
-      {currentStep > 0 && currentStep <= 5 && (
+      {/* ── Progressive Steps Header ── */}
+      {currentStep <= 3 && (
         <div className="flex items-center justify-between border-b border-[#141413]/10 pb-3.5 mb-6">
           <div>
-            <span className="text-[10px] font-mono font-bold text-[#696969] uppercase tracking-widest block">
-              {onboardingPath === 'existing' ? 'Operating Company' : 'Zero-to-One Idea'} • Phase {currentStep} of 5
+            <span className="text-[10px] font-mono font-bold text-[#666562] uppercase tracking-widest block">
+              PROGRESSIVE ONBOARDING • STAGE {currentStep} OF 3
             </span>
             <span className="text-xs font-bold text-[#141413]">
-              {currentStep === 1 && (onboardingPath === 'existing' ? 'Company Information' : 'Venture Idea & Concept')}
-              {currentStep === 2 && (onboardingPath === 'existing' ? 'Founder & Leadership' : 'Founder & Team Setup')}
-              {currentStep === 3 && (onboardingPath === 'existing' ? 'Market & Target ICP' : 'Problem & Early Customers')}
-              {currentStep === 4 && (onboardingPath === 'existing' ? 'Financial Baseline & Burn' : 'Initial Budget & Runway')}
-              {currentStep === 5 && (onboardingPath === 'existing' ? '90-Day Strategic Priorities' : 'First 30-Day Launch Milestone')}
+              {currentStep === 1 && 'Establish Immediate Goal'}
+              {currentStep === 2 && 'Gather Relevant Context'}
+              {currentStep === 3 && 'Deliverable Preview & Confirmation'}
             </span>
           </div>
+
           <div className="flex gap-2.5 items-center">
             <button
               type="button"
               onClick={handleQuickLaunchDemo}
               className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 text-[10px] font-bold rounded-full transition-colors flex items-center gap-1 cursor-pointer font-sans"
-              title="Skip wizard and launch pre-configured example startup (Cyberdyne Systems)"
+              title="Load pre-configured launch scenario (DataPulse Labs)"
             >
               <Sparkles className="w-3 h-3 text-amber-600" />
               <span>Load Example</span>
             </button>
             <div className="flex gap-1.5 items-center">
-              {Array.from({ length: 5 }).map((_, idx) => (
+              {[1, 2, 3].map((step) => (
                 <div
-                  key={idx}
+                  key={step}
                   className={`h-1.5 rounded-full transition-all duration-300 ${
-                    idx + 1 === currentStep 
+                    step === currentStep 
                       ? 'w-7 bg-[#141413]' 
-                      : idx + 1 < currentStep 
+                      : step < currentStep 
                       ? 'w-2.5 bg-[#141413]/50' 
                       : 'w-2 bg-[#141413]/10'
                   }`}
@@ -242,502 +247,594 @@ export default function FounderOnboardingWizard({
         </div>
       )}
 
-      {/* Questionnaire Content Panels */}
+      {/* ── Progressive Steps Content ── */}
       <AnimatePresence mode="wait">
         
-        {/* ── Step 0: Welcome Screen with Existing vs New Startup Pathway Selection ── */}
-        {currentStep === 0 && (
+        {/* ── STAGE 1: IMMEDIATE OBJECTIVE ── */}
+        {currentStep === 1 && (
           <motion.div
-            key="step-welcome"
-            initial={{ opacity: 0, y: 15 }}
+            key="stage-1"
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -15 }}
-            transition={{ duration: 0.3 }}
-            className="space-y-6 relative"
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.25 }}
+            className="space-y-5"
           >
-            <button
-              onClick={onCancel}
-              className="absolute -top-2 -left-2 p-2 text-[#696969] hover:text-[#141413] hover:bg-[#F3F0EE] rounded-full transition-colors flex items-center justify-center cursor-pointer"
-              title="Cancel & Back"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            
-            <div className="space-y-2 text-center pt-1">
-              <div className="w-12 h-12 rounded-2xl bg-[#F3F0EE] border border-[#141413]/10 flex items-center justify-center mx-auto mb-2 shadow-xs">
-                <CatalystLogo className="w-6 h-6 text-[#141413]" />
-              </div>
-              <h2 className="text-2xl font-bold text-[#141413] font-sans" style={{ letterSpacing: '-0.02em' }}>
-                Welcome to CatalystOS
+            <div>
+              <h2 className="text-xl sm:text-2xl font-bold text-[#141413] font-sans" style={{ letterSpacing: '-0.02em' }}>
+                What is your most pressing priority right now?
               </h2>
-              <p className="text-xs text-[#696969] leading-relaxed max-w-md mx-auto font-sans">
-                Select your startup pathway. CatalystOS calibrates your autonomous executive council to your venture's exact operational stage.
+              <p className="text-xs text-[#666562] font-sans mt-0.5">
+                CatalystOS begins by organizing what needs attention today. Complete company parameters can be enriched later.
               </p>
             </div>
 
+            {/* Company Name & Funding Stage */}
             <div className="space-y-3">
-              <span className="text-[10px] uppercase font-mono tracking-widest text-[#696969] font-bold block text-center">
-                Select Your Venture Pathway
-              </span>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                {/* Pathway 1: Existing Startup */}
-                <div
-                  onClick={() => handleSelectPath('existing')}
-                  className={`p-4 rounded-[20px] border cursor-pointer transition-all ${
-                    onboardingPath === 'existing'
-                      ? 'bg-white border-[#141413] shadow-[rgba(0,0,0,0.08)_0px_8px_24px] ring-2 ring-[#141413]/10'
-                      : 'bg-[#F3F0EE]/60 border-[#141413]/10 hover:border-[#141413]/30 hover:bg-white/60'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-[#141413] text-[#F3F0EE] flex items-center justify-center">
-                      <Building2 className="w-4 h-4" />
-                    </div>
-                    <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                      OPERATING
-                    </span>
-                  </div>
-                  <h3 className="text-xs font-bold text-[#141413] mb-1 font-sans">Existing Startup</h3>
-                  <p className="text-[11px] text-[#696969] leading-relaxed font-sans">
-                    Active operating company with current cash reserves, team structure, monthly burn rate, and defined ICP.
-                  </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className={labelCls}>Company / Project Name *</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Acme HQ, DataPulse, NovaCloud..."
+                    value={companyName}
+                    onChange={e => setCompanyName(e.target.value)}
+                    className={inputCls}
+                    autoFocus
+                  />
                 </div>
 
-                {/* Pathway 2: New Startup Idea */}
-                <div
-                  onClick={() => handleSelectPath('new')}
-                  className={`p-4 rounded-[20px] border cursor-pointer transition-all ${
-                    onboardingPath === 'new'
-                      ? 'bg-white border-[#141413] shadow-[rgba(0,0,0,0.08)_0px_8px_24px] ring-2 ring-[#141413]/10'
-                      : 'bg-[#F3F0EE]/60 border-[#141413]/10 hover:border-[#141413]/30 hover:bg-white/60'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-[#141413] text-[#F3F0EE] flex items-center justify-center">
-                      <Rocket className="w-4 h-4" />
-                    </div>
-                    <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                      ZERO-TO-ONE
-                    </span>
+                <div className="space-y-1">
+                  <label className={labelCls}>Current Funding Stage</label>
+                  <div className="grid grid-cols-4 gap-1">
+                    {(['Pre-seed', 'Seed', 'Series A', 'Bootstrapped'] as FundingStage[]).map(stg => (
+                      <button
+                        key={stg}
+                        type="button"
+                        onClick={() => setCompanyStage(stg)}
+                        className={`py-2 px-1 text-center rounded-[10px] border text-[11px] font-bold transition-all cursor-pointer font-sans truncate ${
+                          companyStage === stg
+                            ? 'bg-[#141413] border-[#141413] text-[#F3F0EE]'
+                            : 'bg-[#F3F0EE] border-[#141413]/10 text-[#666562] hover:text-[#141413]'
+                        }`}
+                        title={stg}
+                      >
+                        {stg === 'Bootstrapped' ? 'Bootstr.' : stg}
+                      </button>
+                    ))}
                   </div>
-                  <h3 className="text-xs font-bold text-[#141413] mb-1 font-sans">New Startup Idea</h3>
-                  <p className="text-[11px] text-[#696969] leading-relaxed font-sans">
-                    Starting a new venture from scratch. Define the problem hypothesis, early adopters, initial budget, and MVP goals.
-                  </p>
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={handleNext}
-                className="w-full py-3.5 px-6 bg-[#141413] hover:bg-[#262627] text-[#F3F0EE] font-bold text-xs rounded-[20px] transition-all flex items-center justify-center gap-2 shadow-[rgba(0,0,0,0.15)_0px_4px_12px] cursor-pointer mt-2"
-              >
-                <span>Continue as {onboardingPath === 'existing' ? 'Existing Startup' : 'New Startup Idea'}</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-
-              <div className="relative py-1 my-1">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-[#141413]/10" />
-                </div>
-                <div className="relative flex justify-center text-[10px] uppercase font-mono tracking-widest text-[#696969]">
-                  <span className="bg-white px-2">Or Direct Demo Access</span>
-                </div>
+              {/* Optional brief venture description */}
+              <div className="space-y-1">
+                <label className={labelCls}>What is your venture building? (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Distributed API observability platform for microservices"
+                  value={briefDescription}
+                  onChange={e => setBriefDescription(e.target.value)}
+                  className={inputCls}
+                />
               </div>
+            </div>
 
-              <button
-                type="button"
-                onClick={handleQuickLaunchDemo}
-                className="w-full py-3 px-6 bg-gradient-to-r from-amber-500/10 via-orange-500/15 to-amber-500/10 hover:from-amber-500/20 hover:to-orange-500/25 border border-amber-500/30 hover:border-amber-500/60 text-amber-950 font-bold text-xs rounded-[20px] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs font-sans group"
-              >
-                <Sparkles className="w-4 h-4 text-amber-600 group-hover:scale-110 transition-transform" />
-                <span>⚡ Quick-Launch Example Startup (Cyberdyne Systems — 1 Click)</span>
-              </button>
+            {/* 4 Objective Cards Matching Specifications */}
+            <div className="space-y-2">
+              <label className={labelCls}>Select Your Immediate Priority</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {[
+                  {
+                    key: 'launch',
+                    label: 'Launch readiness',
+                    sub: 'Ship product on time — blockers, dependencies & release timeline',
+                    icon: Rocket
+                  },
+                  {
+                    key: 'finance',
+                    label: 'Cash & runway analysis',
+                    sub: 'Extend runway & control burn — cash modeling & burn forecast',
+                    icon: DollarSign
+                  },
+                  {
+                    key: 'hiring',
+                    label: 'Hiring & team allocation',
+                    sub: 'Staff key roles — role scope, budget & hiring pipeline',
+                    icon: Users
+                  },
+                  {
+                    key: 'decision',
+                    label: 'Strategic decision backlog',
+                    sub: 'Unblock key decisions — trade-offs, options & execution deadline',
+                    icon: Scale
+                  },
+                ].map(opt => {
+                  const isSelected = objective === opt.key;
+                  const Icon = opt.icon;
+                  return (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => setObjective(opt.key as ImmediateObjective)}
+                      className={`p-3 rounded-[16px] border text-left transition-all cursor-pointer font-sans flex items-start gap-3 ${
+                        isSelected
+                          ? 'bg-[#141413] text-[#F3F0EE] border-[#141413] shadow-md ring-2 ring-[#141413]/10'
+                          : 'bg-[#FCFBFA] border-[#141413]/10 text-[#666562] hover:border-[#141413]/30 hover:bg-white'
+                      }`}
+                    >
+                      <div className={`w-7 h-7 rounded-[10px] flex items-center justify-center shrink-0 mt-0.5 ${
+                        isSelected ? 'bg-white/20 text-[#F3F0EE]' : 'bg-[#F3F0EE] text-[#141413]'
+                      }`}>
+                        <Icon className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className={`text-xs font-bold leading-tight ${isSelected ? 'text-[#F3F0EE]' : 'text-[#141413]'}`}>{opt.label}</div>
+                        <div className={`text-[10px] font-mono mt-0.5 leading-snug ${isSelected ? 'text-[#F3F0EE]/60' : 'text-[#666562]'}`}>{opt.sub}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </motion.div>
         )}
 
-        {/* ── Step 1: Company Information ── */}
-        {currentStep === 1 && (
-          <motion.div
-            key="step-company"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-            className="space-y-4"
-          >
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-[#141413] font-sans flex items-center gap-1.5">
-                <Building2 className="w-3.5 h-3.5 text-[#141413]/60" />
-                {onboardingPath === 'existing' ? 'Company / Startup Name' : 'Project / Startup Name'}
-              </label>
-              <input
-                type="text"
-                placeholder={onboardingPath === 'existing' ? 'e.g. Acme AI, Cyberdyne Systems, PulseHQ...' : 'e.g. NovaCloud, Orbit, Apex AI...'}
-                value={companyName}
-                onChange={e => setCompanyName(e.target.value)}
-                className={inputCls}
-                autoFocus
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className={labelCls}>Industry Sector</label>
-                <select
-                  value={companyIndustry}
-                  onChange={e => setCompanyIndustry(e.target.value)}
-                  className={inputCls}
-                >
-                  {['SaaS', 'AI / Developer Tools', 'FinTech', 'Healthcare', 'E-commerce', 'EdTech', 'Security', 'Other'].map(ind => (
-                    <option key={ind} value={ind}>{ind}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className={labelCls}>Stage</label>
-                <select
-                  value={companyStage}
-                  onChange={e => setCompanyStage(e.target.value)}
-                  className={inputCls}
-                >
-                  {(onboardingPath === 'existing'
-                    ? ['Pre-Seed', 'Seed', 'Series A', 'Series B', 'Bootstrapped', 'Profitable']
-                    : ['Idea', 'Concept Validation', 'Building MVP', 'Pre-Launch Beta']
-                  ).map(stg => (
-                    <option key={stg} value={stg}>{stg}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-[#141413] font-sans">
-                {onboardingPath === 'existing' ? 'What does your operating company do?' : 'What is your startup idea?'}
-              </label>
-              <textarea
-                placeholder={onboardingPath === 'existing' ? 'Describe your product, core proposition, or company mission...' : 'Describe your vision, core hypothesis, and what problem you aim to solve...'}
-                value={companyDescription}
-                onChange={e => setCompanyDescription(e.target.value)}
-                className={`${inputCls} min-h-[110px] resize-none`}
-              />
-            </div>
-          </motion.div>
-        )}
-
-        {/* ── Step 2: Founder Information ── */}
+        {/* ── STAGE 2: ADAPTIVE CONTEXT COLLECTION (2-3 FIELDS SPECIFIC TO PRIORITY) ── */}
         {currentStep === 2 && (
           <motion.div
-            key="step-founder"
-            initial={{ opacity: 0, x: 20 }}
+            key="stage-2"
+            initial={{ opacity: 0, x: 15 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-            className="space-y-4"
+            exit={{ opacity: 0, x: -15 }}
+            transition={{ duration: 0.25 }}
+            className="space-y-5"
           >
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-[#141413] font-sans flex items-center gap-1.5">
-                <Users className="w-3.5 h-3.5 text-[#141413]/60" />
-                Founder / Executive Full Name
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Alex Rivera"
-                value={founderName}
-                onChange={e => setFounderName(e.target.value)}
-                className={inputCls}
-                autoFocus
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className={labelCls}>Founder Role / Title</label>
-              <select
-                value={founderRole}
-                onChange={e => setFounderRole(e.target.value)}
-                className={inputCls}
-              >
-                {['Founder & CEO', 'Co-Founder', 'Technical Founder / CTO', 'Head of Product', 'Executive'].map(r => (
-                  <option key={r} value={r}>{r}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-2 pt-1">
-              <label className="text-xs font-bold text-[#141413] font-sans">
-                {onboardingPath === 'existing' ? 'Current Team Scale' : 'Team / Founding Setup'}
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                {(onboardingPath === 'existing'
-                  ? ['Solo Founder', '2–5 Members', '6–15 Members', '15+ Members']
-                  : ['Solo Founder', '2 Co-Founders', 'Small Founding Team', 'Advisors Only']
-                ).map(ts => (
-                  <button
-                    key={ts}
-                    type="button"
-                    onClick={() => setTeamSize(ts)}
-                    className={`p-3 rounded-[14px] border text-xs font-bold transition-all cursor-pointer font-sans text-center ${
-                      teamSize === ts
-                        ? 'bg-[#141413] border-[#141413] text-[#F3F0EE]'
-                        : 'bg-[#F3F0EE] border-[#141413]/10 hover:border-[#141413]/30 hover:bg-white text-[#141413]'
-                    }`}
-                  >
-                    {ts}
-                  </button>
-                ))}
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#F3F0EE] border border-[#141413]/10 text-[10px] font-mono text-[#141413] font-bold mb-1.5">
+                <span>PRIORITY:</span>
+                <span className="uppercase text-amber-800 font-bold">
+                  {objective === 'launch' ? 'Launch Readiness' :
+                   objective === 'finance' ? 'Cash & Runway' :
+                   objective === 'hiring' ? 'Hiring & Team' :
+                   'Strategic Decision'}
+                </span>
               </div>
+              <h2 className="text-xl sm:text-2xl font-bold text-[#141413] font-sans" style={{ letterSpacing: '-0.02em' }}>
+                {objective === 'launch' && 'Target Launch Date & Critical Blockers'}
+                {objective === 'finance' && 'Current Cash Balance & Monthly Burn'}
+                {objective === 'hiring' && 'Open Role, Timeline & Allocated Budget'}
+                {objective === 'decision' && 'Pending Decision, Options & Deadline'}
+              </h2>
+              <p className="text-xs text-[#666562] font-sans">
+                Only gathering the inputs necessary to coordinate this initial deliverable.
+              </p>
             </div>
+
+            {/* PRIORITY 1: LAUNCH READINESS */}
+            {objective === 'launch' && (
+              <div className="space-y-3.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className={labelCls}>Target Launch Date / Horizon</label>
+                    <div className="grid grid-cols-3 gap-1">
+                      {['In 14 Days', 'In 30 Days', 'In 60 Days'].map(hz => (
+                        <button
+                          key={hz}
+                          type="button"
+                          onClick={() => setLaunchHorizon(hz)}
+                          className={`py-2 px-1 text-center rounded-[10px] border text-[11px] font-bold transition-all cursor-pointer font-sans ${
+                            launchHorizon === hz
+                              ? 'bg-[#141413] border-[#141413] text-[#F3F0EE]'
+                              : 'bg-[#F3F0EE] border-[#141413]/10 text-[#666562] hover:text-[#141413]'
+                          }`}
+                        >
+                          {hz}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className={labelCls}>Primary Technical Owner</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Vikram Malhotra · Lead Eng"
+                      value={launchLead}
+                      onChange={e => setLaunchLead(e.target.value)}
+                      className={inputCls}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className={labelCls}>Critical Blocker or Dependency *</label>
+                    <div className="flex gap-1">
+                      {['Testing incomplete', 'Staging regressions', 'Owner sign-off'].map(chip => (
+                        <button
+                          key={chip}
+                          type="button"
+                          onClick={() => setBlocker(chip)}
+                          className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-[#F3F0EE] hover:bg-[#141413]/10 border border-[#141413]/10 text-[#141413] transition-colors cursor-pointer"
+                        >
+                          + {chip}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <textarea
+                    placeholder="e.g. Staging integration testing and end-to-end regression suite must complete before public launch"
+                    value={blocker}
+                    onChange={e => setBlocker(e.target.value)}
+                    className={`${inputCls} min-h-[85px] resize-none`}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* PRIORITY 2: CASH & RUNWAY ANALYSIS */}
+            {objective === 'finance' && (
+              <div className="space-y-3.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className={labelCls}>Current Cash Balance (₹) *</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 7200000"
+                      value={cashBalance}
+                      onChange={e => setCashBalance(e.target.value)}
+                      className={inputCls}
+                      autoFocus
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className={labelCls}>Monthly Burn Rate (₹) *</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 800000"
+                      value={monthlyBurn}
+                      onChange={e => setMonthlyBurn(e.target.value)}
+                      className={inputCls}
+                    />
+                  </div>
+                </div>
+
+                {/* Live Runway Preview Gauge */}
+                <div className="p-3.5 rounded-[16px] bg-[#FCFBFA] border border-[#141413]/10 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-mono uppercase text-[#666562] block font-bold">Estimated Operational Runway</span>
+                    <span className="text-xl font-black font-mono text-[#141413]">{calculatedRunway} Months</span>
+                  </div>
+                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
+                    parseFloat(calculatedRunway) >= 12
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : 'bg-amber-100 text-amber-800'
+                  }`}>
+                    {parseFloat(calculatedRunway) >= 12 ? 'RUNWAY HEALTHY (>12 mo)' : 'ATTENTION REQUIRED (<12 mo)'}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* PRIORITY 3: HIRING & TEAM ALLOCATION */}
+            {objective === 'hiring' && (
+              <div className="space-y-3.5">
+                <div className="space-y-1">
+                  <label className={labelCls}>Open Role to Fill *</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Senior Backend Engineer (Distributed Systems)"
+                    value={hiringRole}
+                    onChange={e => setHiringRole(e.target.value)}
+                    className={inputCls}
+                    autoFocus
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className={labelCls}>Allocated Budget / Compensation Ceiling</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. ₹18L–₹24L / year or $120k"
+                      value={hiringBudget}
+                      onChange={e => setHiringBudget(e.target.value)}
+                      className={inputCls}
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className={labelCls}>Hiring Timeline</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Immediate (30 Days)"
+                      value={hiringTimeline}
+                      onChange={e => setHiringTimeline(e.target.value)}
+                      className={inputCls}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* PRIORITY 4: STRATEGIC DECISION BACKLOG */}
+            {objective === 'decision' && (
+              <div className="space-y-3.5">
+                <div className="space-y-1">
+                  <label className={labelCls}>Pending Strategic Decision *</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Self-serve PLG rollout vs enterprise sales assisted onboarding"
+                    value={decisionTopic}
+                    onChange={e => setDecisionTopic(e.target.value)}
+                    className={inputCls}
+                    autoFocus
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className={labelCls}>Options Under Consideration</label>
+                  <textarea
+                    placeholder="e.g. Option A: 14-day self-serve trial tier; Option B: Demo request gate with sales qualification"
+                    value={decisionOptions}
+                    onChange={e => setDecisionOptions(e.target.value)}
+                    className={`${inputCls} min-h-[75px] resize-none`}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className={labelCls}>Decision Deadline</label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {['In 7 Days', 'In 14 Days', 'End of Month'].map(dl => (
+                      <button
+                        key={dl}
+                        type="button"
+                        onClick={() => setDecisionDeadline(dl)}
+                        className={`py-2 px-1 text-center rounded-[10px] border text-[11px] font-bold transition-all cursor-pointer font-sans ${
+                          decisionDeadline === dl
+                            ? 'bg-[#141413] border-[#141413] text-[#F3F0EE]'
+                            : 'bg-[#F3F0EE] border-[#141413]/10 text-[#666562] hover:text-[#141413]'
+                        }`}
+                      >
+                        {dl}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </motion.div>
         )}
 
-        {/* ── Step 3: Business Information ── */}
+        {/* ── STAGE 3: DELIVERABLE PREVIEW (THE "AHA!" MOMENT) ── */}
         {currentStep === 3 && (
           <motion.div
-            key="step-business"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
+            key="stage-3"
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            transition={{ duration: 0.25 }}
             className="space-y-4"
           >
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-[#141413] font-sans flex items-center gap-1.5">
-                <Rocket className="w-3.5 h-3.5 text-[#141413]/60" />
-                {onboardingPath === 'existing' ? 'Primary Product Offering' : 'Proposed Product / MVP Concept'}
-              </label>
-              <input
-                type="text"
-                placeholder={onboardingPath === 'existing' ? 'e.g. AI-powered workflow automation platform' : 'e.g. Automated documentation & developer tools platform'}
-                value={primaryProduct}
-                onChange={e => setPrimaryProduct(e.target.value)}
-                className={inputCls}
-                autoFocus
-              />
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[10px] font-mono text-emerald-800 font-bold mb-1">
+                <Check className="w-3 h-3 text-emerald-700" />
+                <span>FIRST DELIVERABLE SYNTHESIZED</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-bold text-[#141413] font-sans" style={{ letterSpacing: '-0.02em' }}>
+                Your First Actionable Deliverable is Ready
+              </h2>
+              <p className="text-xs text-[#666562] font-sans">
+                Atlas (CEO) and your executive council generated this output from your inputs.
+              </p>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-[#141413] font-sans flex items-center gap-1.5">
-                <Target className="w-3.5 h-3.5 text-[#141413]/60" />
-                {onboardingPath === 'existing' ? 'Target Ideal Customer Profile (ICP)' : 'First Target Audience / Early Adopters'}
-              </label>
-              <input
-                type="text"
-                placeholder={onboardingPath === 'existing' ? 'e.g. B2B SaaS engineering managers, Seed-stage founders' : 'e.g. Indie developers, early-stage design agencies, growth teams'}
-                value={targetIcp}
-                onChange={e => setTargetIcp(e.target.value)}
-                className={inputCls}
-              />
+            {/* Generated Deliverable Card Tailored to Chosen Objective */}
+            <div className="p-4 rounded-[18px] bg-[#FCFBFA] border border-[#141413]/10 space-y-3">
+              
+              {/* Header of Deliverable */}
+              <div className="flex items-center justify-between border-b border-[#141413]/08 pb-2">
+                <div>
+                  <span className="text-[10px] font-mono text-[#666562] uppercase font-bold block">
+                    {objective === 'launch' && 'Deliverable: Launch Countdown & Blocker Checklist'}
+                    {objective === 'finance' && 'Deliverable: Runway Forecast & Burn Projection'}
+                    {objective === 'hiring' && 'Deliverable: Headcount Requisition & Evaluation Rubric'}
+                    {objective === 'decision' && 'Deliverable: Strategic Decision Memo Draft'}
+                  </span>
+                  <span className="text-sm font-bold text-[#141413] font-sans">
+                    {objective === 'launch' && `${companyName || 'Venture'} Launch Readiness Sprint`}
+                    {objective === 'finance' && `Treasury Health & Capital Allocation Model`}
+                    {objective === 'hiring' && `Requisition Profile: ${hiringRole}`}
+                    {objective === 'decision' && `Decision Memo: ${decisionTopic.slice(0, 40)}`}
+                  </span>
+                </div>
+                <span className="text-[9px] font-mono font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                  STAGE 1 INITIALIZED
+                </span>
+              </div>
+
+              {/* SPECIFIC DELIVERABLE VIEW 1: LAUNCH READINESS */}
+              {objective === 'launch' && (
+                <div className="space-y-2 text-xs">
+                  <div className="p-3 rounded-[12px] bg-rose-50/60 border border-rose-200/60 flex items-start justify-between">
+                    <div>
+                      <div className="font-bold text-rose-900 flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-rose-600 inline-block animate-pulse" />
+                        Critical Dependency: {blocker}
+                      </div>
+                      <div className="text-[11px] text-rose-700 mt-0.5">
+                        Assigned Owner: <span className="font-semibold">{launchLead}</span> · Target Horizon: {launchHorizon}
+                      </div>
+                    </div>
+                    <span className="text-[9px] font-mono font-bold text-rose-800 bg-rose-100 px-2 py-0.5 rounded-full">
+                      AT RISK
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-mono text-[#666562] uppercase font-bold block">Council Milestones</span>
+                    <div className="p-2.5 rounded-[10px] bg-white border border-[#141413]/08 flex items-center justify-between">
+                      <div>
+                        <div className="font-semibold text-[#141413]">Execute integration regression test suite &amp; verify staging build</div>
+                        <div className="text-[10px] font-mono text-[#666562]">Helix · VP Operations &amp; {launchLead}</div>
+                      </div>
+                      <span className="text-[9px] font-mono font-bold text-[#141413] bg-[#F3F0EE] px-1.5 py-0.5 rounded-md">Immediate</span>
+                    </div>
+                    <div className="p-2.5 rounded-[10px] bg-white border border-[#141413]/08 flex items-center justify-between">
+                      <div>
+                        <div className="font-semibold text-[#141413]">Launch readiness audit &amp; staging gate sign-off</div>
+                        <div className="text-[10px] font-mono text-[#666562]">Sentry · Compliance Auditor</div>
+                      </div>
+                      <span className="text-[9px] font-mono font-bold text-[#141413] bg-[#F3F0EE] px-1.5 py-0.5 rounded-md">T-7 Days</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SPECIFIC DELIVERABLE VIEW 2: CASH & RUNWAY */}
+              {objective === 'finance' && (
+                <div className="space-y-2 text-xs">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="p-3 rounded-[12px] bg-white border border-[#141413]/08">
+                      <span className="text-[10px] font-mono text-[#666562] block">Current Reserves</span>
+                      <span className="text-base font-bold font-mono text-[#141413]">
+                        ₹{parseFloat(String(cashBalance).replace(/,/g, '') || '0').toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="p-3 rounded-[12px] bg-white border border-[#141413]/08">
+                      <span className="text-[10px] font-mono text-[#666562] block">Monthly Burn</span>
+                      <span className="text-base font-bold font-mono text-[#141413]">
+                        ₹{parseFloat(String(monthlyBurn).replace(/,/g, '') || '0').toLocaleString()}/mo
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-mono text-[#666562] uppercase font-bold block">Council Actions</span>
+                    <div className="p-2.5 rounded-[10px] bg-white border border-[#141413]/08 flex items-center justify-between">
+                      <div>
+                        <div className="font-semibold text-[#141413]">Audit cloud and recurring SaaS spend to extend runway by +1.8 mo</div>
+                        <div className="text-[10px] font-mono text-[#666562]">Aura · Chief Financial Officer</div>
+                      </div>
+                      <span className="text-[9px] font-mono font-bold text-[#141413] bg-[#F3F0EE] px-1.5 py-0.5 rounded-md">Immediate</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SPECIFIC DELIVERABLE VIEW 3: HIRING */}
+              {objective === 'hiring' && (
+                <div className="space-y-2 text-xs">
+                  <div className="p-3 rounded-[12px] bg-white border border-[#141413]/08 flex items-center justify-between">
+                    <div>
+                      <div className="font-bold text-[#141413]">{hiringRole}</div>
+                      <div className="text-[11px] text-[#666562]">Timeline: {hiringTimeline} · Budget: {hiringBudget}</div>
+                    </div>
+                    <span className="text-[9px] font-mono font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                      REQUISITION DRAFTED
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-mono text-[#666562] uppercase font-bold block">Screening Rubric</span>
+                    <div className="p-2.5 rounded-[10px] bg-white border border-[#141413]/08 flex items-center justify-between">
+                      <div>
+                        <div className="font-semibold text-[#141413]">Technical screening rubric and take-home benchmark challenge</div>
+                        <div className="text-[10px] font-mono text-[#666562]">Echo · Head of People &amp; Talent</div>
+                      </div>
+                      <span className="text-[9px] font-mono font-bold text-[#141413] bg-[#F3F0EE] px-1.5 py-0.5 rounded-md">Ready</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SPECIFIC DELIVERABLE VIEW 4: STRATEGIC DECISION */}
+              {objective === 'decision' && (
+                <div className="space-y-2 text-xs">
+                  <div className="p-3 rounded-[12px] bg-white border border-[#141413]/08">
+                    <span className="text-[10px] font-mono text-[#666562] block">Decision Topic</span>
+                    <div className="font-bold text-[#141413]">{decisionTopic}</div>
+                    <div className="text-[11px] text-[#666562] mt-1">Options: {decisionOptions}</div>
+                    <div className="text-[10px] font-mono text-amber-800 mt-1">Target Decision Gate: {decisionDeadline}</div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-mono text-[#666562] uppercase font-bold block">Synthesized Executive Memo</span>
+                    <div className="p-2.5 rounded-[10px] bg-white border border-[#141413]/08 flex items-center justify-between">
+                      <div>
+                        <div className="font-semibold text-[#141413]">Trade-off analysis &amp; CAC/LTV projection memo</div>
+                        <div className="text-[10px] font-mono text-[#666562]">Atlas (CEO) &amp; Nexus (Legal)</div>
+                      </div>
+                      <span className="text-[9px] font-mono font-bold text-[#141413] bg-[#F3F0EE] px-1.5 py-0.5 rounded-md">Draft Ready</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Staged in Approvals Callout */}
+              <div className="p-3 rounded-[12px] bg-[#F3F0EE] border border-[#141413]/10 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-[#141413]" />
+                  <div>
+                    <span className="font-bold text-[#141413] block">Staged in Approvals Queue</span>
+                    <span className="text-[10px] text-[#666562]">1 action awaiting founder review before execution</span>
+                  </div>
+                </div>
+                <span className="text-[9px] font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
+                  READY
+                </span>
+              </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-[#141413] font-sans">
-                {onboardingPath === 'existing' ? 'Core Market Problem Solved' : 'Customer Problem or Friction Being Solved'}
-              </label>
-              <textarea
-                placeholder={onboardingPath === 'existing' ? 'What specific friction, cost, or operational inefficiency do you eliminate for your customers?' : 'What core frustration or unmet customer pain point are you validating?'}
-                value={coreProblem}
-                onChange={e => setCoreProblem(e.target.value)}
-                className={`${inputCls} min-h-[100px] resize-none`}
-              />
-            </div>
+            <p className="text-[11px] font-mono text-[#666562] text-center">
+              Additional company parameters can be enriched anytime in your workspace.
+            </p>
           </motion.div>
         )}
 
-        {/* ── Step 4: Financial Baseline ── */}
+        {/* ── STAGE 4: CHECKLIST INITIALIZATION LOADER ── */}
         {currentStep === 4 && (
           <motion.div
-            key="step-financial"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-            className="space-y-4"
-          >
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-[#141413] font-sans flex items-center gap-1.5">
-                <DollarSign className="w-3.5 h-3.5 text-[#141413]/60" />
-                {onboardingPath === 'existing' ? 'Available Cash Reserves (USD)' : 'Initial Budget / Capital to Invest (USD)'}
-              </label>
-              <div className="relative">
-                <span className="absolute left-3.5 top-2.5 text-sm font-bold text-[#696969]">$</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="1000"
-                  placeholder={onboardingPath === 'existing' ? '250000' : '50000'}
-                  value={cashBalance}
-                  onChange={e => setCashBalance(e.target.value)}
-                  className={`${inputCls} pl-7 font-mono font-semibold`}
-                  autoFocus
-                />
-              </div>
-              <span className="text-[10px] text-[#696969]">
-                {onboardingPath === 'existing' ? 'Total active bank balance & venture treasury.' : 'Initial capital allocated to build and validate the MVP.'}
-              </span>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-[#141413] font-sans flex items-center gap-1.5">
-                <BarChart3 className="w-3.5 h-3.5 text-[#141413]/60" />
-                {onboardingPath === 'existing' ? 'Monthly Net Burn Rate (USD / Month)' : 'Estimated Monthly Operating Expense (USD / Month)'}
-              </label>
-              <div className="relative">
-                <span className="absolute left-3.5 top-2.5 text-sm font-bold text-[#696969]">$</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="500"
-                  placeholder={onboardingPath === 'existing' ? '15000' : '5000'}
-                  value={monthlyBurn}
-                  onChange={e => setMonthlyBurn(e.target.value)}
-                  className={`${inputCls} pl-7 font-mono font-semibold`}
-                />
-              </div>
-              <span className="text-[10px] text-[#696969]">
-                {onboardingPath === 'existing' ? 'Monthly operating expenses minus incoming revenue.' : 'Projected monthly spending on software, tools, and contractor fees.'}
-              </span>
-            </div>
-
-            {/* Live Calculated Runway */}
-            <div className="p-3.5 rounded-[16px] bg-[#F3F0EE] border border-[#141413]/10 flex items-center justify-between">
-              <div>
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#696969] block">
-                  Deterministic Operational Runway
-                </span>
-                <span className="text-xs text-[#141413] font-sans">
-                  {onboardingPath === 'existing' ? 'Cash Balance ÷ Monthly Burn' : 'Starting Budget ÷ Monthly Expense'}
-                </span>
-              </div>
-              <div className="text-right">
-                <span className="text-lg font-bold font-mono text-[#141413] block">
-                  {calculatedRunway} Months
-                </span>
-                <span className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full inline-block ${
-                  Number(calculatedRunway) >= 12
-                    ? 'bg-emerald-100 text-emerald-800'
-                    : Number(calculatedRunway) >= 6
-                    ? 'bg-amber-100 text-amber-800'
-                    : 'bg-rose-100 text-rose-800'
-                }`}>
-                  {Number(calculatedRunway) >= 12 ? 'Healthy (>12 mo)' : Number(calculatedRunway) >= 6 ? 'Adequate (6-12 mo)' : 'Critical (<6 mo)'}
-                </span>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* ── Step 5: Goals & Priorities ── */}
-        {currentStep === 5 && (
-          <motion.div
-            key="step-goals"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-            className="space-y-4"
-          >
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-[#141413] font-sans flex items-center gap-1.5">
-                <Flag className="w-3.5 h-3.5 text-[#141413]/60" />
-                {onboardingPath === 'existing' ? 'Primary 90-Day Milestone / Strategic Goal' : 'First 30-Day Milestone (e.g. Launch MVP)'}
-              </label>
-              <input
-                type="text"
-                placeholder={onboardingPath === 'existing' ? 'e.g. Launch MVP and onboard initial 10 paying customers' : 'e.g. Launch MVP on Product Hunt and onboard 10 beta teams'}
-                value={milestoneGoal}
-                onChange={e => setMilestoneGoal(e.target.value)}
-                className={inputCls}
-                autoFocus
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className={labelCls}>
-                {onboardingPath === 'existing' ? 'Top Operational Priority / Challenge' : 'Biggest Immediate Hurdle'}
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {[
-                  'Finding Customers / GTM',
-                  'Product Development & MVP',
-                  'Hiring & Engineering',
-                  'Fundraising & Capital',
-                  'Operations & Compliance'
-                ].map(ch => (
-                  <button
-                    key={ch}
-                    type="button"
-                    onClick={() => setBiggestChallenge(ch)}
-                    className={`p-2.5 rounded-[12px] border text-left text-xs font-bold transition-all cursor-pointer font-sans truncate ${
-                      biggestChallenge === ch
-                        ? 'bg-[#141413] border-[#141413] text-[#F3F0EE]'
-                        : 'bg-[#F3F0EE] border-[#141413]/10 hover:border-[#141413]/30 hover:bg-white text-[#141413]'
-                    }`}
-                  >
-                    {ch}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-[#141413] font-sans block">
-                Additional Directives for AI Executive Council (Optional)
-              </label>
-              <textarea
-                placeholder="Share any special constraints, strategic hypotheses, or domain guidance for the executive agents..."
-                value={additionalNotes}
-                onChange={e => setAdditionalNotes(e.target.value)}
-                className={`${inputCls} min-h-[85px] resize-none`}
-              />
-            </div>
-          </motion.div>
-        )}
-
-        {/* ── Step 6: Checklist Loader ── */}
-        {currentStep === 6 && (
-          <motion.div
-            key="step-checklist"
+            key="stage-4"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             className="py-6 text-center space-y-6"
           >
-            <div className="space-y-2">
+            <div className="space-y-1">
               <h2 className="text-2xl font-bold text-[#141413] font-sans" style={{ letterSpacing: '-0.02em' }}>
-                Initializing CatalystOS Workspace
+                Launching Your Workspace
               </h2>
-              <p className="text-xs text-[#696969] font-sans">
-                Grounding your autonomous executive agents with your company context.
+              <p className="text-xs text-[#666562] font-sans">
+                Calibrating your autonomous executive council around your immediate priority.
               </p>
             </div>
 
             <div className="space-y-2.5 max-w-sm mx-auto text-left">
               {[
-                { label: 'Synthesizing company context & parameters...', step: 1 },
-                { label: 'Deploying autonomous AI executive council...', step: 2 },
-                { label: 'Indexing living company profile into vector RAG...', step: 3 },
-                { label: 'Personalizing your CatalystOS dashboard...', step: 4 },
+                { label: 'Grounding executive council around your priority...', step: 1 },
+                { label: 'Generating first 30-day execution deliverable...', step: 2 },
+                { label: 'Staging initial deliverable in your Approvals Queue...', step: 3 },
+                { label: 'Opening your CatalystOS founder workspace...', step: 4 },
               ].map((item) => (
                 <div
                   key={item.step}
-                  className={`flex items-center gap-3 p-3.5 rounded-[16px] border transition-all duration-500 font-sans ${
+                  className={`flex items-center gap-3 p-3 rounded-[14px] border transition-all duration-300 font-sans ${
                     checkmarkProgress >= item.step
-                      ? 'bg-[#141413] border-[#141413] text-[#F3F0EE] shadow-[rgba(0,0,0,0.1)_0px_4px_12px]'
+                      ? 'bg-[#141413] border-[#141413] text-[#F3F0EE] shadow-sm'
                       : checkmarkProgress === item.step - 1
-                      ? 'bg-[#F3F0EE] border-[#141413]/15 text-[#696969]'
+                      ? 'bg-[#F3F0EE] border-[#141413]/15 text-[#666562]'
                       : 'bg-white border-[#141413]/05 text-[#141413]/20'
                   }`}
                 >
                   {checkmarkProgress >= item.step ? (
-                    <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="flex-shrink-0">
+                    <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="shrink-0">
                       <CheckCircle2 className="w-4 h-4 text-[#F3F0EE]" />
                     </motion.div>
                   ) : checkmarkProgress === item.step - 1 ? (
-                    <RefreshCw className="w-3.5 h-3.5 text-[#696969] animate-spin flex-shrink-0" />
+                    <RefreshCw className="w-3.5 h-3.5 text-[#666562] animate-spin shrink-0" />
                   ) : (
-                    <div className="w-3.5 h-3.5 rounded-full border border-[#141413]/10 flex-shrink-0" />
+                    <div className="w-3.5 h-3.5 rounded-full border border-[#141413]/10 shrink-0" />
                   )}
                   <span className="text-xs font-semibold">{item.label}</span>
                 </div>
@@ -747,27 +844,49 @@ export default function FounderOnboardingWizard({
         )}
       </AnimatePresence>
 
-      {/* Wizard Navigation Footer */}
-      {currentStep > 0 && currentStep <= 5 && (
-        <div className="flex items-center justify-between border-t border-[#141413]/10 pt-4 mt-8">
-          <button
-            type="button"
-            onClick={handlePrev}
-            className="flex items-center gap-1 text-xs text-[#696969] hover:text-[#141413] transition-colors cursor-pointer font-sans"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            Back
-          </button>
+      {/* ── Navigation Footer ── */}
+      {currentStep <= 3 && (
+        <div className="flex items-center justify-between border-t border-[#141413]/10 pt-4 mt-6">
+          {currentStep > 1 ? (
+            <button
+              type="button"
+              onClick={() => setCurrentStep(prev => prev - 1)}
+              className="flex items-center gap-1 text-xs text-[#666562] hover:text-[#141413] transition-colors cursor-pointer font-sans"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Back
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="flex items-center gap-1 text-xs text-[#666562] hover:text-[#141413] transition-colors cursor-pointer font-sans"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Exit
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={handleNext}
-            disabled={isNextDisabled}
-            className="flex items-center gap-1.5 px-6 py-2.5 bg-[#141413] hover:bg-[#262627] text-[#F3F0EE] text-xs font-bold transition-all rounded-[20px] disabled:opacity-40 cursor-pointer font-sans animate-fade-in"
-          >
-            <span>{currentStep === 5 ? 'Finish Setup & Deploy' : 'Continue'}</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
+          {currentStep < 3 ? (
+            <button
+              type="button"
+              onClick={() => setCurrentStep(prev => prev + 1)}
+              disabled={isNextDisabled}
+              className="flex items-center gap-1.5 px-6 py-2.5 bg-[#141413] hover:bg-[#262627] text-[#F3F0EE] text-xs font-bold transition-all rounded-[20px] disabled:opacity-40 cursor-pointer font-sans"
+            >
+              <span>Continue</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleFinalSubmit}
+              className="flex items-center gap-1.5 px-6 py-2.5 bg-[#141413] hover:bg-[#262627] text-[#F3F0EE] text-xs font-bold transition-all rounded-[20px] cursor-pointer font-sans shadow-md"
+            >
+              <span>Enter Workspace &amp; Review Deliverable</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       )}
     </div>

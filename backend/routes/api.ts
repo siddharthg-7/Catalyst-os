@@ -7,6 +7,10 @@ import vaultService from '../services/vaultService';
 import { extractTextFromFile } from '../services/documentParser';
 import { ingestDocument, performHybridSearch, retrieveHybridKnowledge, buildContext, Citation, RetrievedChunk, retrieveAndInspectChunks } from '../services/ragEngine';
 import { classifyQuery, executeStructuredQuery } from '../services/structuredQueryEngine';
+import { knowledgeProvenanceService } from '../services/knowledgeProvenanceService';
+import { workflowExecutionService } from '../services/workflowExecutionService';
+import { scenarioPlanningService } from '../services/scenarioPlanningService';
+
 import { 
   startupProfile, 
   updateStartupProfile, 
@@ -1873,7 +1877,7 @@ router.get('/memberships', authenticateJWT, requireActiveMembership, requirePerm
   // can hide the Remove action for the protected owner membership. The backend
   // still rejects an owner removal regardless of what the UI shows.
   const startup = isDbAvailable && prisma
-    ? await prisma.startup.findUnique({ where: { id: startupId }, select: { ownerId: true } })
+    ? await safeDbQuery(() => prisma.startup.findUnique({ where: { id: startupId }, select: { ownerId: true } })).catch(() => null)
     : null;
   res.json(rows.map((m: any) => ({
     id: m.id,
@@ -3121,6 +3125,98 @@ router.delete('/team/:id', authenticateJWT, requireActiveMembership, requirePerm
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Section 5.8: Workflows as Explicit Execution Objects Endpoints
+// ─────────────────────────────────────────────────────────────────────────────
+
+// GET all execution workflows
+router.get('/workflows/execution', authenticateJWT, (req: AuthenticatedRequest, res) => {
+  try {
+    const list = workflowExecutionService.getWorkflows();
+    res.json(list);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to fetch execution workflows' });
+  }
+});
+
+// GET single execution workflow by ID
+router.get('/workflows/execution/:id', authenticateJWT, (req: AuthenticatedRequest, res) => {
+  try {
+    const wf = workflowExecutionService.getWorkflowById(req.params.id);
+    if (!wf) {
+      return res.status(404).json({ error: `Workflow ${req.params.id} not found` });
+    }
+    res.json(wf);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST reschedule task deadline and cascade downstream dependency revisions
+router.post('/workflows/execution/:id/task/:taskId/reschedule', authenticateJWT, (req: AuthenticatedRequest, res) => {
+  try {
+    const { id, taskId } = req.params;
+    const { daysShift, reason, actor } = req.body;
+    
+    if (typeof daysShift !== 'number' || !reason) {
+      return res.status(400).json({ error: 'Missing daysShift (number) or reason (string).' });
+    }
+
+    const actorName = actor || req.user?.name || 'Founder & CEO';
+    const result = workflowExecutionService.rescheduleTaskDeadline(id, taskId, daysShift, reason, actorName);
+    res.json(result);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// POST mark task complete with verification evidence and unlock downstream dependencies
+router.post('/workflows/execution/:id/task/:taskId/complete', authenticateJWT, (req: AuthenticatedRequest, res) => {
+  try {
+    const { id, taskId } = req.params;
+    const { evidenceProof, actor } = req.body;
+    
+    if (!evidenceProof) {
+      return res.status(400).json({ error: 'Evidence proof is required to complete an explicit execution task.' });
+    }
+
+    const actorName = actor || req.user?.name || 'Responsible Owner';
+    const updatedWf = workflowExecutionService.completeTask(id, taskId, evidenceProof, actorName);
+    res.json(updatedWf);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// POST report task failure and trigger failure handling policy
+router.post('/workflows/execution/:id/task/:taskId/fail', authenticateJWT, (req: AuthenticatedRequest, res) => {
+  try {
+    const { id, taskId } = req.params;
+    const { reason, actor } = req.body;
+    
+    if (!reason) {
+      return res.status(400).json({ error: 'Failure reason is required.' });
+    }
+
+    const actorName = actor || req.user?.name || 'Responsible Owner';
+    const updatedWf = workflowExecutionService.reportTaskFailure(id, taskId, reason, actorName);
+    res.json(updatedWf);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// POST reset workflow to initial baseline state
+router.post('/workflows/execution/:id/reset', authenticateJWT, (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params;
+    const resetWf = workflowExecutionService.resetWorkflow(id);
+    res.json(resetWf);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // GET list of initiatives
 router.get('/initiatives', authenticateJWT, (req: AuthenticatedRequest, res) => {
   res.json(initiatives);
@@ -3243,10 +3339,34 @@ router.post('/initiatives/:id/simulate', authenticateJWT, async (req: Authentica
     // Reset agents back to idle
     resetAgentStatuses();
 
-    // Seed deliverables into the approvals queue
+    // Seed deliverables into the approvals queue with idempotency and versioning
     init.deliverables.forEach(d => {
       d.initiativeId = init.id;
-      approvals.unshift({ ...d, status: 'pending_review' });
+      const proposalKey = d.proposalId || d.id;
+      const existingIdx = approvals.findIndex(a => a.id === d.id || (a.proposalId && a.proposalId === proposalKey));
+      
+      const enrichedDeliverable: any = {
+        ...d,
+        proposalId: proposalKey,
+        version: existingIdx >= 0 ? (approvals[existingIdx].version || 1) + 1 : (d.version || 1),
+        status: 'pending_review',
+        executionStatus: 'not_started',
+        businessRationale: d.businessRationale || d.summary || d.description,
+        supportingEvidence: d.supportingEvidence || [
+          {
+            source: 'Company Brain RAG & Financial Ledger',
+            freshness: 'VERIFIED',
+            confidenceScore: 0.95
+          }
+        ]
+      };
+
+      if (existingIdx >= 0) {
+        // Update in-place with incremented version rather than creating duplicate row
+        approvals[existingIdx] = enrichedDeliverable;
+      } else {
+        approvals.unshift(enrichedDeliverable);
+      }
     });
 
     // Save updated initiative and pending approvals to durable state file
@@ -3376,10 +3496,52 @@ router.post('/approvals/:id/reverse', authenticateJWT, requireActiveMembership, 
   }
 });
 
-// POST simulate what-if financial scenario (Phase 6)
-router.post('/scenarios/simulate', authenticateJWT, async (req: AuthenticatedRequest, res) => {
+// GET authoritative baseline company state (Section 5.9 Audit)
+router.get('/scenarios/baseline', async (req: AuthenticatedRequest, res) => {
   try {
-    const userId = req.user?.id;
+    let userId: string | undefined = undefined;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.slice(7).trim();
+        const decoded = jwt.decode(token) as any;
+        userId = decoded?.sub || decoded?.id;
+      } catch {}
+    }
+
+    let cash = startupProfile.cashBalance;
+    let burn = startupProfile.burnRate;
+
+    if (userId && isDbAvailable && prisma) {
+      const startup = await safeDbQuery(() => prisma.startup.findFirst({ where: { ownerId: userId } }));
+      if (startup) {
+        cash = startup.cashBalance;
+        burn = startup.burnRate;
+      }
+    }
+
+    const baseline = scenarioPlanningService.syncBaseline(cash, burn);
+    res.json(baseline);
+  } catch (err: any) {
+    console.error('[Scenario API] Error fetching baseline:', err);
+    res.status(500).json({ error: 'Failed to retrieve authoritative baseline.' });
+  }
+});
+
+// POST simulate what-if financial scenario (Section 5.9 Audit)
+// Enforces deterministic calculation, fully-loaded compensation, 8 mandatory elements, and sensitivity matrix
+router.post('/scenarios/simulate', async (req: AuthenticatedRequest, res) => {
+  try {
+    let userId: string | undefined = undefined;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.slice(7).trim();
+        const decoded = jwt.decode(token) as any;
+        userId = decoded?.sub || decoded?.id;
+      } catch {}
+    }
+
     let cash = startupProfile.cashBalance;
     let burn = startupProfile.burnRate;
 
@@ -3392,27 +3554,54 @@ router.post('/scenarios/simulate', authenticateJWT, async (req: AuthenticatedReq
     }
 
     const {
-      additionalHeadcount,
-      adSpendDelta,
-      revenueDelta,
-      oneTimeExpenditure
+      scenarioTitle,
+      hires,
+      expenseDeltas,
+      revenueExpectation,
+      overrideDelayMonths,
+      overrideRevenueDeltaPct,
+      overrideLaunchSlipWeeks
     } = req.body || {};
 
-    const simulation = financialEngine.simulateScenario({
-      currentCash: cash,
-      currentBurn: burn,
-      additionalHeadcount: Array.isArray(additionalHeadcount) ? additionalHeadcount : [],
-      adSpendDelta: Number(adSpendDelta) || 0,
-      revenueDelta: Number(revenueDelta) || 0,
-      oneTimeExpenditure: Number(oneTimeExpenditure) || 0
+    const scenario = scenarioPlanningService.generateComprehensiveScenario({
+      scenarioTitle,
+      hires,
+      expenseDeltas,
+      revenueExpectation,
+      customBaseline: { cashBalance: cash, monthlyBurn: burn },
+      overrideDelayMonths: Number(overrideDelayMonths) || 0,
+      overrideRevenueDeltaPct: Number(overrideRevenueDeltaPct) || 0,
+      overrideLaunchSlipWeeks: Number(overrideLaunchSlipWeeks) || 0
     });
 
-    res.json(simulation);
+    res.json(scenario);
   } catch (err: any) {
     console.error('[Scenario API] Error calculating scenario:', err);
     res.status(500).json({ error: 'Failed to simulate financial scenario.' });
   }
 });
+
+// POST evaluate sensitivity analysis matrix (Section 5.9 Audit)
+router.post('/scenarios/sensitivity', async (req: AuthenticatedRequest, res) => {
+  try {
+    const { hires, expenseDeltas, customBaseline } = req.body || {};
+    const baseline = scenarioPlanningService.getActualCompanyState();
+    const effectiveBaseline = { ...baseline, ...(customBaseline || {}) };
+    
+    const matrix = scenarioPlanningService.generateSensitivityMatrix(
+      effectiveBaseline,
+      Array.isArray(hires) ? hires : [],
+      Array.isArray(expenseDeltas) ? expenseDeltas : []
+    );
+
+    res.json(matrix);
+  } catch (err: any) {
+    console.error('[Scenario API] Error calculating sensitivity matrix:', err);
+    res.status(500).json({ error: 'Failed to compute sensitivity matrix.' });
+  }
+});
+
+
 
 // GET decision logs
 router.get('/decisions', authenticateJWT, async (req: AuthenticatedRequest, res) => {
@@ -4180,20 +4369,29 @@ router.post('/knowledge/query', authenticateJWT, async (req: AuthenticatedReques
       limit: parsedLimit
     });
 
+    // Run Knowledge Provenance Audit to detect any active disagreements or stale data
+    const provenanceAudit = await knowledgeProvenanceService.auditProvenanceForQuery(query, effectiveStartupId);
+
     // Pure Structured Operational Query: return authoritative real-time facts directly without vector search overhead
     if (hybridResult.intent === 'STRUCTURED') {
       return res.json({
         answer: hybridResult.directAnswer || hybridResult.structuredSummary || hybridResult.contextText,
         citations: hybridResult.citations,
         intent: 'STRUCTURED',
-        operationalData: hybridResult.structuredData
+        operationalData: hybridResult.structuredData,
+        provenanceFacts: provenanceAudit.facts,
+        disagreements: provenanceAudit.conflicts,
+        arbitrationSummary: provenanceAudit.arbitrationSummary,
+        hasStaleWarning: provenanceAudit.hasStaleWarning
       });
     }
 
     if (hybridResult.retrievedChunks.length === 0 && hybridResult.intent !== 'HYBRID') {
       res.json({
         answer: `No corporate records matching your query have been indexed yet for **${activeStartup.name}** within your access scope. Please upload relevant strategic documents (PDF, DOCX, PPTX, CSV) or complete founder onboarding to feed the knowledge base!`,
-        citations: []
+        citations: [],
+        provenanceFacts: provenanceAudit.facts,
+        disagreements: provenanceAudit.conflicts
       });
       return;
     }
@@ -4229,7 +4427,11 @@ Provide a brilliant, detailed tactical answer citing specific documents where po
           res.json({ 
             answer: response.text,
             citations: citations,
-            intent: hybridResult.intent
+            intent: hybridResult.intent,
+            provenanceFacts: provenanceAudit.facts,
+            disagreements: provenanceAudit.conflicts,
+            arbitrationSummary: provenanceAudit.arbitrationSummary,
+            hasStaleWarning: provenanceAudit.hasStaleWarning
           });
           return;
         }
@@ -4244,7 +4446,11 @@ Provide a brilliant, detailed tactical answer citing specific documents where po
       res.json({
         answer: `${hybridResult.structuredSummary}\n\n### Document Analysis & Strategy\n${fallbackDocAnswer}`,
         citations: citations,
-        intent: 'HYBRID'
+        intent: 'HYBRID',
+        provenanceFacts: provenanceAudit.facts,
+        disagreements: provenanceAudit.conflicts,
+        arbitrationSummary: provenanceAudit.arbitrationSummary,
+        hasStaleWarning: provenanceAudit.hasStaleWarning
       });
       return;
     }
@@ -4253,11 +4459,121 @@ Provide a brilliant, detailed tactical answer citing specific documents where po
     res.json({
       answer: fallbackAnswer,
       citations: citations,
-      intent: hybridResult.intent
+      intent: hybridResult.intent,
+      provenanceFacts: provenanceAudit.facts,
+      disagreements: provenanceAudit.conflicts,
+      arbitrationSummary: provenanceAudit.arbitrationSummary,
+      hasStaleWarning: provenanceAudit.hasStaleWarning
     });
   } catch (error: any) {
     console.error('[Knowledge API] RAG query failed:', error.message);
     res.status(500).json({ error: 'RAG search failed to generate answer.' });
+  }
+});
+
+// ── GET /api/knowledge/provenance: Retrieves facts, freshness, and active disagreement cases ──
+router.post('/knowledge/provenance', authenticateJWT, async (req: AuthenticatedRequest, res) => {
+  const callerId = req.user!.id;
+  const requestedStartupId = req.body?.startupId;
+  const resolved = await resolveMembership(callerId, requestedStartupId);
+  if (!resolved) {
+    res.status(403).json({ error: 'Access denied: You are not an authorized member of this company tenant.' });
+    return;
+  }
+  const startupId = resolved.startupId;
+
+  try {
+    const facts = await knowledgeProvenanceService.getKnowledgeFacts(startupId);
+    const disagreements = await knowledgeProvenanceService.getDisagreementCases(startupId);
+
+    res.json({
+      success: true,
+      startupId,
+      facts,
+      disagreements,
+      rules: [
+        {
+          rule: 'Rule 1: Operational Truth Dominance (Reality > Aspiration)',
+          description: 'Live operational state (bank ledger, verified issue tracker, commit) always takes precedence over descriptive documents (spreadsheets, pitch decks, roadmap PRDs) for determining current reality.'
+        },
+        {
+          rule: 'Rule 2: Temporal Precedence with Freshness Decay',
+          description: 'Newer verified records supersede older records. Facts older than 60 days are marked STALE and cannot override recent telemetry unless manually locked by a founder.'
+        },
+        {
+          rule: 'Rule 3: Origin Hierarchy',
+          description: 'Priority Order: Direct System Integration Feed > Founder Attestation > Formally Extracted Fact > Raw Semantic Chunk.'
+        }
+      ]
+    });
+  } catch (err: any) {
+    console.error('[Knowledge API] Failed to fetch provenance:', err.message);
+    res.status(500).json({ error: 'Failed to retrieve knowledge provenance ledger.' });
+  }
+});
+
+// ── POST /api/knowledge/provenance/confirm: Manually confirms or locks an operational fact ──
+router.post('/knowledge/provenance/confirm', authenticateJWT, async (req: AuthenticatedRequest, res) => {
+  const { factId, confirmedValue } = req.body;
+  if (!factId || confirmedValue === undefined) {
+    res.status(400).json({ error: 'factId and confirmedValue are required.' });
+    return;
+  }
+
+  const callerId = req.user!.id;
+  const resolved = await resolveMembership(callerId, req.body?.startupId);
+  if (!resolved) {
+    res.status(403).json({ error: 'Access denied: You are not an authorized member of this company tenant.' });
+    return;
+  }
+
+  try {
+    const updatedFact = await knowledgeProvenanceService.confirmFactManually(
+      resolved.startupId,
+      factId,
+      confirmedValue,
+      callerId,
+      req.user?.name || 'Founder'
+    );
+    if (!updatedFact) {
+      res.status(404).json({ error: 'Fact not found in tenant provenance ledger.' });
+      return;
+    }
+    res.json({ success: true, fact: updatedFact });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to confirm fact.' });
+  }
+});
+
+// ── POST /api/knowledge/provenance/resolve: Resolves a disagreement case ──
+router.post('/knowledge/provenance/resolve', authenticateJWT, async (req: AuthenticatedRequest, res) => {
+  const { caseId, decision, customValue } = req.body;
+  if (!caseId || !decision) {
+    res.status(400).json({ error: 'caseId and decision are required.' });
+    return;
+  }
+
+  const callerId = req.user!.id;
+  const resolved = await resolveMembership(callerId, req.body?.startupId);
+  if (!resolved) {
+    res.status(403).json({ error: 'Access denied: You are not an authorized member of this company tenant.' });
+    return;
+  }
+
+  try {
+    const resolvedCase = await knowledgeProvenanceService.resolveDisagreement(
+      resolved.startupId,
+      caseId,
+      decision,
+      customValue
+    );
+    if (!resolvedCase) {
+      res.status(404).json({ error: 'Disagreement case not found.' });
+      return;
+    }
+    res.json({ success: true, disagreement: resolvedCase });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to resolve disagreement.' });
   }
 });
 

@@ -21,6 +21,7 @@ export interface StartupProfile {
   burnRate: number;
   runwayMonths: number;
   healthScore: number;
+  provenance?: MetricAuditProvenance;
   metrics: {
     velocity: number;
     financialHealth: number;
@@ -28,6 +29,45 @@ export interface StartupProfile {
     growthRate: number;
     operationsEfficiency: number;
   };
+}
+
+export type MetricConfidence = 'VERIFIED' | 'ESTIMATED' | 'MISSING_DATA' | 'STALE';
+
+export interface AuditedMetric<T = number> {
+  id: string;
+  metricKey: 'treasury' | 'monthlyBurn' | 'runway' | 'healthScore';
+  title: string;
+  value: T;
+  formattedValue: string;
+  unit?: string;
+  confidence: MetricConfidence;
+  asOfDate: string;
+  isStale: boolean;
+  source: {
+    type: 'BANK_STATEMENT' | 'INGESTED_LEDGER' | 'FOUNDER_INPUT' | 'COUNCIL_ESTIMATE';
+    label: string;
+    documentId?: string;
+    verifiedByAgent?: string;
+  };
+  calculation?: {
+    formula: string;
+    methodology: string;
+    inputs: Record<string, { label: string; value: number | string }>;
+    assumptions: string[];
+  };
+  forecast?: {
+    adjustedValue: T;
+    formattedAdjustedValue: string;
+    deltaNote: string;
+    scenarioAssumptions: string[];
+  };
+}
+
+export interface MetricAuditProvenance {
+  treasury: AuditedMetric<number>;
+  monthlyBurn: AuditedMetric<number>;
+  runway: AuditedMetric<number>;
+  healthScore: AuditedMetric<number>;
 }
 
 export interface HumanRoleRequirement {
@@ -229,13 +269,46 @@ export interface BoardConsensus {
   votes: AgentVote[];
 }
 
+export type ApprovalStatus =
+  | 'draft'
+  | 'validated'
+  | 'pending_review'
+  | 'approved'
+  | 'executing'
+  | 'completed'
+  | 'rejected'
+  | 'cancelled'
+  | 'failed'
+  | 'changes_requested'
+  | 'expired';
+
+export type ExecutionStatus =
+  | 'not_started'
+  | 'scheduled'
+  | 'executing'
+  | 'completed'
+  | 'verified'
+  | 'failed'
+  | 'cancelled';
+
+export interface ApprovalEvidence {
+  source: string;
+  freshness: 'VERIFIED' | 'STALE' | 'ESTIMATED' | 'MISSING_DATA';
+  lastUpdated?: string;
+  confidenceScore?: number;
+  citation?: string;
+}
+
 export interface Deliverable {
   id: string;
+  proposalId?: string;
+  version?: number;
+  startupId?: string;
   initiativeId: string;
   title: string;
   description: string;
   type: 'document' | 'contract' | 'financials' | 'marketing_plan' | 'policy';
-  status: 'pending_review' | 'approved' | 'rejected' | 'changes_requested';
+  status: ApprovalStatus;
   content: string;
   impact: string;
   financialChange?: number;
@@ -253,7 +326,7 @@ export interface Deliverable {
   headcount?: number;
   conditions?: string[];
   urgency?: string;
-  // Phase D — Employee Review -> Founder Approval Experience
+  // Phase D & 5.5 — Strict Lifecycle & Accountability
   preparedBy?: string;
   preparedByRole?: string;
   aiAssistance?: string;
@@ -261,6 +334,20 @@ export interface Deliverable {
   recommendation?: string;
   taskId?: string;
   founderFeedback?: string;
+  businessRationale?: string;
+  supportingEvidence?: ApprovalEvidence[];
+  authorizedApprover?: string;
+  approvedAt?: string;
+  decidedAt?: string;
+  executionStatus?: ExecutionStatus;
+  executedAt?: string;
+  verifiedAt?: string;
+  executionDetails?: {
+    executor?: string;
+    targetSystem?: string;
+    verificationProof?: string;
+    notes?: string;
+  };
 }
 
 export interface Initiative {
@@ -313,6 +400,78 @@ export interface KnowledgeFile {
   errorMessage?: string | null;
   createdAt?: string;
   updatedAt?: string;
+}
+
+// ── Section 5.7 Knowledge Provenance & Disagreement Resolution Types ────────
+export type VerificationMethod = 'EXTRACTED' | 'CALCULATED' | 'MANUALLY_CONFIRMED' | 'INTEGRATION_FEED';
+
+export type KnowledgeCategory = 'DESCRIPTIVE' | 'OPERATIONAL_STATE';
+
+export type FactFreshness = 'FRESH' | 'AGING' | 'STALE' | 'SUPERSEDED';
+
+export type ConflictSeverity = 'NO_CONFLICT' | 'DIVERGENT' | 'HARD_CONFLICT';
+
+export interface FactProvenance {
+  factId: string;
+  key: string;
+  label: string;
+  value: any;
+  formattedValue?: string;
+  unit?: string;
+  category: KnowledgeCategory;
+  department: string;
+  sourceType: 'DOCUMENT' | 'INTEGRATION' | 'SYSTEM_RECORD' | 'FOUNDER_ATTESTATION';
+  sourceName: string;
+  sourceDate: string;
+  extractionTimestamp: string;
+  verificationMethod: VerificationMethod;
+  verifiedBy?: string;
+  freshness: FactFreshness;
+  staleReason?: string;
+  isAuthoritative: boolean;
+  hasConflict: boolean;
+  conflictDetails?: {
+    conflictingFactId: string;
+    conflictingSource: string;
+    conflictingValue: any;
+    conflictingDate: string;
+    conflictingCategory: KnowledgeCategory;
+    severity: ConflictSeverity;
+    arbitrationRule: string;
+    resolution: string;
+  };
+}
+
+export interface DisagreementResolutionCase {
+  id: string;
+  topic: string;
+  metricOrFeature: string;
+  department: string;
+  descriptiveClaim: {
+    source: string;
+    sourceType: string;
+    date: string;
+    value: string;
+    interpretation: string;
+    statusBadge: 'STALE' | 'SUPERSEDED' | 'ASPIRATIONAL_PLAN';
+  };
+  operationalReality: {
+    source: string;
+    sourceType: string;
+    date: string;
+    value: string;
+    interpretation: string;
+    statusBadge: 'VERIFIED_LIVE' | 'IN_PROGRESS' | 'BANK_FEED';
+  };
+  arbitrationVerdict: {
+    ruling: 'OPERATIONAL_TRUTH_WINS' | 'NEWEST_CONFIRMED_RECORD_WINS' | 'FLAG_FOR_FOUNDER_CONFIRMATION';
+    ruleApplied: string;
+    authoritativeValue: string;
+    explanation: string;
+    impactOnPlanning: string;
+    arbitratedAt: string;
+    arbitratedBy: string;
+  };
 }
 
 export type UserRole =
@@ -735,3 +894,261 @@ export interface NotificationItem {
   taskId?: string | null;
   targetUserId?: string | null;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Section 5.8: Workflows as Explicit Execution Objects
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ExecutionTaskStatus = 'BLOCKED' | 'READY' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED' | 'REVISED';
+export type TaskOwnerType = 'HUMAN_EMPLOYEE' | 'AI_AGENT' | 'HYBRID';
+export type FailurePolicy = 'HALT_CASCADE' | 'ROLLBACK' | 'FALLBACK_ROUTE' | 'REVISE_DEADLINES';
+
+export interface WorkflowPrecondition {
+  id: string;
+  description: string;
+  status: 'MET' | 'BLOCKED' | 'PENDING_CHECK';
+  verifiedAt?: string;
+  evidenceUri?: string;
+}
+
+export interface WorkflowApprovalRequirement {
+  id: string;
+  role: string;
+  approverName: string;
+  isSatisfied: boolean;
+  approvalRequestId?: string;
+  notes?: string;
+}
+
+export interface WorkflowExecutionHistoryEntry {
+  id: string;
+  timestamp: string;
+  actor: string;
+  actorRole: string;
+  action: string;
+  statusBefore: ExecutionTaskStatus;
+  statusAfter: ExecutionTaskStatus;
+  comment?: string;
+  evidenceProof?: string;
+}
+
+export interface ExplicitWorkflowTask {
+  id: string;
+  title: string;
+  description: string;
+  department: 'ENGINEERING' | 'MARKETING' | 'SALES' | 'FINANCE' | 'LEGAL' | 'EXECUTIVE' | 'OPERATIONS';
+  responsibleOwner: {
+    name: string;
+    role: string;
+    type: TaskOwnerType;
+    email?: string;
+    avatar?: string;
+  };
+  deadline: string; // ISO date format
+  originalDeadline?: string;
+  isDeadlineRevised?: boolean;
+  deadlineRevisionReason?: string;
+  dependencies: string[]; // Task IDs that must be COMPLETED before this task can become READY
+  preconditions: WorkflowPrecondition[];
+  approvalRequirements: WorkflowApprovalRequirement[];
+  completionCriteria: string[];
+  failureHandling: {
+    policy: FailurePolicy;
+    remediationAction: string;
+    escalateTo: string;
+  };
+  status: ExecutionTaskStatus;
+  progressPercent: number;
+  outputArtifact?: {
+    name: string;
+    type: string;
+    uri?: string;
+    summary: string;
+  };
+  executionHistory: WorkflowExecutionHistoryEntry[];
+}
+
+export interface ExecutionWorkflow {
+  id: string;
+  title: string;
+  businessObjective: string;
+  targetOutcomeMetric: string;
+  category: 'product_launch' | 'funding' | 'hiring' | 'operations' | 'compliance';
+  status: 'planning' | 'executing' | 'blocked' | 'completed' | 'revising';
+  createdAt: string;
+  updatedAt: string;
+  overallProgress: number;
+  tasks: ExplicitWorkflowTask[];
+  history: {
+    timestamp: string;
+    event: string;
+    actor: string;
+  }[];
+}
+
+// ==========================================
+// Section 5.9: Scenario Planning Types
+// ==========================================
+
+export interface ActualCompanyState {
+  cashBalance: number;
+  monthlyBurn: number;
+  runwayMonths: number;
+  activeHeadcount: number;
+  contractualCommitmentsMonthly: number;
+  lastVerifiedAt: string;
+  verificationSource: string;
+}
+
+export interface PlannedHire {
+  id: string;
+  role: string;
+  department: string;
+  annualBaseSalary: number;
+  startMonth: number; // 1 = Month 1, 2 = Month 2, 3 = Month 3
+  recruitingFeePercent?: number; // e.g. 8.33% (~1 month CTC)
+  hardwareCostOneTime?: number; // e.g. ₹1,50,000 (MacBook Pro + Peripherals)
+  softwareToolingMonthly?: number; // e.g. ₹15,000/mo (GitHub, JetBrains, AWS)
+  benefitsMultiplier?: number; // e.g. 1.168 (16.8%: EPF 12% + Gratuity 4.81%)
+}
+
+export interface OperatingExpenseDelta {
+  id: string;
+  category: 'recruiting' | 'equipment' | 'software_licenses' | 'benefits_statutory' | 'marketing' | 'infrastructure' | 'facilities';
+  type: 'ONE_TIME' | 'RECURRING_MONTHLY';
+  amount: number;
+  startMonth: number;
+  description: string;
+}
+
+export interface RevenueAssumption {
+  monthlyAmount: number;
+  confidence: 'HIGH' | 'SPECULATIVE' | 'CONTRACT_BACKED';
+  basis: string;
+  startMonth: number;
+}
+
+export interface ScenarioAssumptions {
+  benefitsMultiplierPercent: number; // e.g. 16.8%
+  recruitingFeePercent: number; // e.g. 8.33%
+  hardwarePerEngineer: number; // e.g. 150000
+  toolingPerEngineerMonthly: number; // e.g. 15000
+  contractualCommitmentFloorMonthly: number; // e.g. 345000 (AWS RI + Office)
+  staggeredScheduleDescription: string;
+  rampLagMonths: number; // e.g. 3 months before engineering adds revenue
+  items: Array<{
+    category: string;
+    assumption: string;
+    costImpact: string;
+    rationale: string;
+    isExplicit: boolean;
+  }>;
+}
+
+export interface MonthlyTrajectoryPoint {
+  month: number;
+  activeHires: number;
+  sunkCostsDeducted: number;
+  recurringBurn: number;
+  projectedRevenue: number;
+  endingCash: number;
+  runwayRemaining: number;
+  notes: string;
+}
+
+export interface ScenarioCalculationMethod {
+  formula: string;
+  mathEngine: string;
+  rulesEnforced: string[];
+  deterministicIntegrityCheck: {
+    passed: boolean;
+    hash: string;
+    verifiedAt: string;
+  };
+}
+
+export interface MajorUncertainty {
+  risk: string;
+  likelihood: 'LOW' | 'MEDIUM' | 'HIGH';
+  impactOnRunway: 'DRASTIC_REDUCTION' | 'MODERATE_REDUCTION' | 'EXTENDS_RUNWAY';
+  mitigation: string;
+}
+
+export interface ExecutiveRecommendation {
+  verdict: 'PROCEED' | 'CONDITIONAL_APPROVAL' | 'EXECUTIVE_VETO';
+  summary: string;
+  votes: {
+    cfo: { name: string; vote: 'APPROVE' | 'CONDITIONAL' | 'VETO'; rationale: string };
+    talent: { name: string; vote: 'APPROVE' | 'CONDITIONAL' | 'VETO'; rationale: string };
+    auditor: { name: string; vote: 'APPROVE' | 'CONDITIONAL' | 'VETO'; rationale: string };
+  };
+}
+
+export interface SensitivityCase {
+  caseId: string;
+  title: string;
+  question: string; // e.g. "What if revenue is 20% lower than expected?"
+  changeApplied: string;
+  projectedRunway: number;
+  runwayShiftVsPrimary: number;
+  projectedCashAtMonth6: number;
+  riskRating: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  recommendationShift: string;
+  isTriggerBreached: boolean;
+}
+
+export interface ScenarioPlanningObject {
+  id: string;
+  scenarioTitle: string;
+  branchName: string;
+  isHypothetical: boolean;
+  createdAt: string;
+
+  // The 8 Required Elements:
+  // 1. Baseline
+  baseline: ActualCompanyState;
+
+  // 2. Proposed Change
+  proposedChange: {
+    title: string;
+    description: string;
+    hires: PlannedHire[];
+    expenseDeltas: OperatingExpenseDelta[];
+    revenueExpectation: RevenueAssumption;
+  };
+
+  // 3. Assumptions
+  assumptions: ScenarioAssumptions;
+
+  // 4. Calculation Method
+  calculationMethod: ScenarioCalculationMethod;
+
+  // 5. Projected Result
+  projectedResult: {
+    initialCash: number;
+    sunkCapitalOutlay: number;
+    postSunkCash: number;
+    initialMonthlyBurn: number;
+    steadyStateMonthlyBurn: number;
+    initialRunwayMonths: number;
+    projectedRunwayMonths: number;
+    runwayDeltaMonths: number;
+    netBurnDeltaMonthly: number;
+    riskRating: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+    covenantBreached: boolean;
+    trajectory: MonthlyTrajectoryPoint[];
+  };
+
+  // 6. Major Uncertainties
+  majorUncertainties: MajorUncertainty[];
+
+  // 7. Recommended Decision
+  recommendedDecision: ExecutiveRecommendation;
+
+  // 8. Conditions Under Which Recommendation Changes
+  conditionsUnderWhichRecommendationChanges: string[];
+
+  // Sensitivity Analysis Matrix
+  sensitivityMatrix: SensitivityCase[];
+}
+

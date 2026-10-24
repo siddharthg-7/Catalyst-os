@@ -7,11 +7,20 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Initiative, AgentRole, Deliverable } from '../types';
+import { 
+  Initiative, 
+  AgentRole, 
+  Deliverable, 
+  ExecutionWorkflow, 
+  ExplicitWorkflowTask,
+  ExecutionTaskStatus 
+} from '../types';
 import {
   Play, Plus, RefreshCw, AlertTriangle, FileText, CheckCircle2,
   ChevronRight, ArrowRight, ArrowLeft,
-  Sparkles, Check, X
+  Sparkles, Check, X, Clock, Lock, Calendar, ShieldCheck,
+  Layers, AlertOctagon, GitCommit, UserCheck, ArrowUpRight,
+  GitBranch, CheckSquare, Zap, Activity, Info, History as HistoryIcon
 } from 'lucide-react';
 import Section from './Section';
 
@@ -20,9 +29,10 @@ interface WorkflowCanvasProps {
   onLaunchInitiative: (title: string, description: string, category: 'funding' | 'hiring' | 'growth' | 'operations' | 'legal') => Promise<void>;
   onSimulateInitiative: (id: string) => Promise<void>;
   onNavigate?: (tab: string) => void;
+  apiFetch?: any;
 }
 
-export default function WorkflowCanvas({ initiatives, onLaunchInitiative, onSimulateInitiative, onNavigate }: WorkflowCanvasProps) {
+export default function WorkflowCanvas({ initiatives, onLaunchInitiative, onSimulateInitiative, onNavigate, apiFetch }: WorkflowCanvasProps) {
   const [selectedInitId, setSelectedInitId] = useState<string>(initiatives[0]?.id || '');
   const [workflowView, setWorkflowView] = useState<'list' | 'detail'>('detail');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -36,8 +46,132 @@ export default function WorkflowCanvas({ initiatives, onLaunchInitiative, onSimu
   const [selectedAgents, setSelectedAgents] = useState<string[]>(['CEO', 'Finance', 'Legal']);
   const [targetMilestone, setTargetMilestone] = useState('30-Day Execution Cycle');
 
-  // Detail View Sub-tabs: 'topology' | 'debate' | 'deliverables'
-  const [detailTab, setDetailTab] = useState<'topology' | 'debate' | 'deliverables'>('topology');
+  // Detail View Sub-tabs: 'execution' | 'topology' | 'debate' | 'deliverables'
+  const [detailTab, setDetailTab] = useState<'execution' | 'topology' | 'debate' | 'deliverables'>('execution');
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Section 5.8: Workflows as Explicit Execution Objects State & Handlers
+  // ─────────────────────────────────────────────────────────────────────────────
+  const [executionWorkflow, setExecutionWorkflow] = useState<ExecutionWorkflow | null>(null);
+  const [execLoading, setExecLoading] = useState(false);
+  const [cascadeAlert, setCascadeAlert] = useState<{
+    summary: string;
+    revisedCount: number;
+    delayDays: number;
+  } | null>(null);
+  const [actionInProgress, setActionInProgress] = useState<string | null>(null);
+  const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
+  const [evidenceInput, setEvidenceInput] = useState<string>('');
+  const [expandedTaskHistories, setExpandedTaskHistories] = useState<Record<string, boolean>>({});
+
+  const toggleTaskHistory = (taskId: string) => {
+    setExpandedTaskHistories(prev => ({
+      ...prev,
+      [taskId]: !prev[taskId]
+    }));
+  };
+
+  const fetchExecutionWorkflow = async () => {
+    try {
+      setExecLoading(true);
+      const fetchImpl = apiFetch || fetch;
+      const res = await fetchImpl('/api/workflows/execution');
+      if (res.ok) {
+        const list: ExecutionWorkflow[] = await res.json();
+        if (list && list.length > 0) {
+          setExecutionWorkflow(list[0]);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load execution workflow:', err);
+    } finally {
+      setExecLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchExecutionWorkflow();
+  }, []);
+
+  const handleSimulateEngineeringDelay = async () => {
+    if (!executionWorkflow) return;
+    setActionInProgress('delay');
+    try {
+      const fetchImpl = apiFetch || fetch;
+      const res = await fetchImpl(`/api/workflows/execution/${executionWorkflow.id}/task/task_eng_readiness/reschedule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          daysShift: 7,
+          reason: 'OAuth 2.0 & SAML Token Revocation re-scan required (GitHub Issue #410)',
+          actor: 'Founder & CEO (Jeswitha)'
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setExecutionWorkflow(data.workflow);
+        setCascadeAlert({
+          summary: data.summary,
+          revisedCount: data.revisedTasks.length,
+          delayDays: 7
+        });
+      }
+    } catch (err) {
+      console.error('Error cascading delay:', err);
+    } finally {
+      setActionInProgress(null);
+    }
+  };
+
+  const handleCompleteTask = async (taskId: string) => {
+    if (!executionWorkflow || !evidenceInput.trim()) return;
+    setActionInProgress(taskId);
+    try {
+      const fetchImpl = apiFetch || fetch;
+      const res = await fetchImpl(`/api/workflows/execution/${executionWorkflow.id}/task/${taskId}/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          evidenceProof: evidenceInput.trim(),
+          actor: 'Vikram Seth (Staff Platform Engineer)'
+        })
+      });
+
+      if (res.ok) {
+        const updatedWf = await res.json();
+        setExecutionWorkflow(updatedWf);
+        setCompletingTaskId(null);
+        setEvidenceInput('');
+      }
+    } catch (err) {
+      console.error('Error completing task:', err);
+    } finally {
+      setActionInProgress(null);
+    }
+  };
+
+  const handleResetWorkflow = async () => {
+    if (!executionWorkflow) return;
+    setActionInProgress('reset');
+    try {
+      const fetchImpl = apiFetch || fetch;
+      const res = await fetchImpl(`/api/workflows/execution/${executionWorkflow.id}/reset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (res.ok) {
+        const resetWf = await res.json();
+        setExecutionWorkflow(resetWf);
+        setCascadeAlert(null);
+        setCompletingTaskId(null);
+      }
+    } catch (err) {
+      console.error('Error resetting workflow:', err);
+    } finally {
+      setActionInProgress(null);
+    }
+  };
 
   // Interactive Live Simulation Tracking
   const [simStep, setSimStep] = useState<number>(-1);
@@ -559,9 +693,10 @@ export default function WorkflowCanvas({ initiatives, onLaunchInitiative, onSimu
                 {/* Sub-tab Navigation */}
                 <div className="flex items-center gap-1.5 pb-2" style={{ borderBottom: '1px solid var(--c-border)' }}>
                   {[
+                    { id: 'execution', label: 'Execution Coordination Engine', isPrimary: true },
                     { id: 'topology', label: 'Council Topology & Network' },
-                    { id: 'debate', label: 'Debate Logs', count: activeInit.messages.length },
-                    { id: 'deliverables', label: 'Verified Assets', count: activeInit.deliverables.length },
+                    { id: 'debate', label: 'Debate Logs', count: activeInit?.messages?.length || 0 },
+                    { id: 'deliverables', label: 'Verified Assets', count: activeInit?.deliverables?.length || 0 },
                   ].map((tab) => {
                     const isActive = detailTab === tab.id;
                     return (
@@ -581,7 +716,10 @@ export default function WorkflowCanvas({ initiatives, onLaunchInitiative, onSimu
                             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
                           />
                         )}
-                        <span className="relative z-10">{tab.label}</span>
+                        <span className="relative z-10 flex items-center gap-1.5">
+                          {tab.id === 'execution' && <Zap className="w-3.5 h-3.5 text-indigo-500" />}
+                          {tab.label}
+                        </span>
                         {tab.count !== undefined && (
                           <span
                             className="relative z-10 px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold transition-colors"
@@ -598,6 +736,481 @@ export default function WorkflowCanvas({ initiatives, onLaunchInitiative, onSimu
                     );
                   })}
                 </div>
+
+                {/* Sub-tab 0: Workflows as Explicit Execution Objects */}
+                {detailTab === 'execution' && executionWorkflow && (
+                  <div className="space-y-6 animate-fade-in">
+                    {/* 1. BUSINESS OBJECTIVE & OUTCOME CARD */}
+                    <div 
+                      className="p-5 rounded-2xl space-y-4"
+                      style={{
+                        backgroundColor: 'var(--c-surface-2)',
+                        border: '1px solid var(--c-border)',
+                        boxShadow: 'var(--shadow-sm)'
+                      }}
+                    >
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
+                              Authoritative Execution Object
+                            </span>
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider ${
+                              executionWorkflow.status === 'revising' 
+                                ? 'bg-amber-500/15 text-amber-500 border border-amber-500/30 animate-pulse'
+                                : 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30'
+                            }`}>
+                              {executionWorkflow.status === 'revising' ? 'Active Revision (Cascade In Flight)' : 'Executing (Live Coordination)'}
+                            </span>
+                          </div>
+                          <h3 className="text-base font-bold text-fg">
+                            {executionWorkflow.title}
+                          </h3>
+                        </div>
+
+                        {/* Action Controls */}
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={handleSimulateEngineeringDelay}
+                            disabled={actionInProgress !== null}
+                            className="px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer bg-amber-500 text-white shadow-sm hover:bg-amber-600 disabled:opacity-50"
+                            title="Simulate delay in Engineering release gate and observe automatic deadline revisions cascading across Marketing and Sales"
+                          >
+                            <Clock className="w-3.5 h-3.5" />
+                            {actionInProgress === 'delay' ? 'Cascading...' : 'Simulate Engineering Delay (+7d)'}
+                          </button>
+                          
+                          <button
+                            onClick={handleResetWorkflow}
+                            disabled={actionInProgress !== null}
+                            className="px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border border-border text-muted hover:text-fg hover:bg-surface disabled:opacity-50"
+                            title="Reset workflow to baseline dates"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            Reset Baseline
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="p-3.5 rounded-xl bg-surface border border-border/80 space-y-2">
+                        <div className="text-[11px] font-mono font-bold uppercase tracking-wider text-muted flex items-center gap-1.5">
+                          <Zap className="w-3.5 h-3.5 text-indigo-500" />
+                          Primary Business Objective
+                        </div>
+                        <p className="text-xs text-fg leading-relaxed">
+                          {executionWorkflow.businessObjective}
+                        </p>
+                        <div className="pt-2 border-t border-border/60 flex flex-wrap items-center justify-between gap-2 text-xs">
+                          <span className="text-[11px] text-muted">
+                            <strong className="text-fg font-semibold">Target Metrics:</strong> {executionWorkflow.targetOutcomeMetric}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-mono text-muted">Execution Progress:</span>
+                            <div className="w-24 h-2 rounded-full bg-surface-2 border border-border overflow-hidden">
+                              <div 
+                                className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                                style={{ width: `${executionWorkflow.overallProgress}%` }}
+                              />
+                            </div>
+                            <span className="text-xs font-mono font-bold text-emerald-500">{executionWorkflow.overallProgress}%</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 2. CASCADE REVISION IMPACT ALERT */}
+                    {(cascadeAlert || executionWorkflow.tasks.some(t => t.isDeadlineRevised)) && (
+                      <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-3 animate-fade-in">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            <div className="p-1.5 rounded-lg bg-amber-500 text-white">
+                              <Clock className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-bold uppercase tracking-wider text-amber-500 font-mono">
+                                Active Coordination Alert: Upstream Release Date Shifted
+                              </h4>
+                              <p className="text-xs text-fg mt-0.5">
+                                Engineering release readiness was delayed by +7 days due to Pen-Test Ticket #410. CatalystOS automatically traversed the dependency graph and adjusted downstream deadlines for Marketing Announcement and Sales Outbound to prevent premature public claims.
+                              </p>
+                            </div>
+                          </div>
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-500 border border-amber-500/40 shrink-0">
+                            {executionWorkflow.tasks.filter(t => t.isDeadlineRevised).length} Tasks Re-aligned
+                          </span>
+                        </div>
+
+                        {/* Downstream Revised Deadlines comparison table */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-amber-500/20 text-[11px] font-mono">
+                          <div className="p-2 rounded-lg bg-surface/80 border border-border">
+                            <span className="text-muted block text-[10px]">1. Engineering Release</span>
+                            <span className="line-through text-muted text-[10px]">Nov 02, 2026</span>
+                            <span className="text-amber-500 font-bold block">Nov 09, 2026 (+7d)</span>
+                          </div>
+                          <div className="p-2 rounded-lg bg-surface/80 border border-border">
+                            <span className="text-muted block text-[10px]">2. Marketing Announcement</span>
+                            <span className="line-through text-muted text-[10px]">Nov 04, 2026</span>
+                            <span className="text-amber-500 font-bold block">Nov 11, 2026 (+7d)</span>
+                          </div>
+                          <div className="p-2 rounded-lg bg-surface/80 border border-border">
+                            <span className="text-muted block text-[10px]">3. Sales Launch Outreach</span>
+                            <span className="line-through text-muted text-[10px]">Nov 05, 2026</span>
+                            <span className="text-amber-500 font-bold block">Nov 12, 2026 (+7d)</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 3. CROSS-DEPARTMENT EXECUTION STEPPER */}
+                    <div className="p-4 rounded-2xl bg-surface border border-border">
+                      <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted mb-3 flex items-center justify-between">
+                        <span>Cross-Department Dependency Chain</span>
+                        <span>Deterministic Topological Order</span>
+                      </div>
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
+                        {executionWorkflow.tasks.map((task, idx) => {
+                          const isDone = task.status === 'COMPLETED';
+                          const isCurrent = task.status === 'IN_PROGRESS' || task.status === 'READY';
+                          const isBlocked = task.status === 'BLOCKED';
+
+                          return (
+                            <React.Fragment key={task.id}>
+                              <div className="flex items-center gap-2.5 w-full sm:w-auto p-2 rounded-xl bg-surface-2 border border-border/80">
+                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-mono font-bold ${
+                                  isDone ? 'bg-emerald-500 text-white' :
+                                  isCurrent ? 'bg-indigo-500 text-white animate-pulse' :
+                                  isBlocked ? 'bg-rose-500/20 text-rose-500' : 'bg-surface text-muted'
+                                }`}>
+                                  {isDone ? <Check className="w-3.5 h-3.5" /> : idx + 1}
+                                </div>
+                                <div className="text-left">
+                                  <span className="text-[11px] font-bold block text-fg truncate max-w-[140px]">
+                                    {task.department}
+                                  </span>
+                                  <span className="text-[10px] font-mono text-muted block truncate max-w-[140px]">
+                                    {task.responsibleOwner.name}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {idx < executionWorkflow.tasks.length - 1 && (
+                                <div className="hidden sm:flex text-muted">
+                                  <ChevronRight className="w-4 h-4 text-border-strong" />
+                                </div>
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* 4. EXPLICIT EXECUTION TASKS LIST */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-fg flex items-center gap-2">
+                          <Layers className="w-4 h-4 text-accent" />
+                          Explicit Task Execution Registry ({executionWorkflow.tasks.length} Tasks)
+                        </h4>
+                        <span className="text-xs text-muted font-mono">
+                          Strict Preconditions & Failure Policies Enforced
+                        </span>
+                      </div>
+
+                      {executionWorkflow.tasks.map((task) => {
+                        const isDone = task.status === 'COMPLETED';
+                        const isBlocked = task.status === 'BLOCKED';
+                        const isRevised = task.isDeadlineRevised;
+                        const isHistoryExpanded = !!expandedTaskHistories[task.id];
+
+                        // Find parent dependency task names
+                        const depNames = task.dependencies.map(dId => {
+                          const dep = executionWorkflow.tasks.find(t => t.id === dId);
+                          return dep ? dep.title : dId;
+                        });
+
+                        return (
+                          <div
+                            key={task.id}
+                            className="p-5 rounded-2xl bg-surface border transition-all space-y-4 shadow-sm"
+                            style={{
+                              borderColor: isBlocked ? 'rgba(244, 63, 94, 0.3)' : isRevised ? 'rgba(245, 158, 11, 0.4)' : isDone ? 'rgba(16, 185, 129, 0.3)' : 'var(--c-border)'
+                            }}
+                          >
+                            {/* Task Card Header */}
+                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                              <div className="space-y-1.5">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider ${
+                                    task.department === 'ENGINEERING' ? 'bg-indigo-500/10 text-indigo-500 border border-indigo-500/20' :
+                                    task.department === 'MARKETING' ? 'bg-fuchsia-500/10 text-fuchsia-500 border border-fuchsia-500/20' :
+                                    task.department === 'SALES' ? 'bg-sky-500/10 text-sky-500 border border-sky-500/20' :
+                                    'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                                  }`}>
+                                    {task.department}
+                                  </span>
+
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold flex items-center gap-1 ${
+                                    isDone ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30' :
+                                    task.status === 'IN_PROGRESS' ? 'bg-blue-500/15 text-blue-500 border border-blue-500/30' :
+                                    isBlocked ? 'bg-rose-500/15 text-rose-500 border border-rose-500/30' :
+                                    task.status === 'READY' ? 'bg-cyan-500/15 text-cyan-500 border border-cyan-500/30' :
+                                    'bg-amber-500/15 text-amber-500 border border-amber-500/30'
+                                  }`}>
+                                    {isDone && <CheckCircle2 className="w-3 h-3" />}
+                                    {task.status === 'IN_PROGRESS' && <RefreshCw className="w-3 h-3 animate-spin" />}
+                                    {isBlocked && <Lock className="w-3 h-3" />}
+                                    {task.status === 'READY' && <CheckSquare className="w-3 h-3" />}
+                                    {task.status}
+                                  </span>
+
+                                  {isRevised && (
+                                    <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-amber-500/20 text-amber-500 border border-amber-500/30 flex items-center gap-1">
+                                      <Clock className="w-2.5 h-2.5" />
+                                      REVISED (+7d SLACK)
+                                    </span>
+                                  )}
+                                </div>
+
+                                <h3 className="text-sm font-bold text-fg leading-snug">
+                                  {task.title}
+                                </h3>
+                                <p className="text-xs text-muted leading-relaxed max-w-2xl">
+                                  {task.description}
+                                </p>
+                              </div>
+
+                              {/* Deadline & Owner info */}
+                              <div className="shrink-0 sm:text-right space-y-1">
+                                <div className="flex sm:justify-end items-center gap-2">
+                                  <img
+                                    src={task.responsibleOwner.avatar}
+                                    alt={task.responsibleOwner.name}
+                                    className="w-6 h-6 rounded-full border border-border object-cover"
+                                  />
+                                  <div className="text-left sm:text-right">
+                                    <span className="text-xs font-bold text-fg block">{task.responsibleOwner.name}</span>
+                                    <span className="text-[10px] text-muted block font-mono">{task.responsibleOwner.role}</span>
+                                  </div>
+                                </div>
+
+                                <div className="text-xs pt-1">
+                                  {isRevised ? (
+                                    <div>
+                                      <span className="text-[10px] line-through text-muted mr-1.5 font-mono">
+                                        {new Date(task.originalDeadline || task.deadline).toLocaleDateString()}
+                                      </span>
+                                      <span className="font-mono font-bold text-amber-500">
+                                        {new Date(task.deadline).toLocaleDateString()}
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <span className="font-mono text-muted text-[11px]">
+                                      Deadline: <strong className="text-fg">{new Date(task.deadline).toLocaleDateString()}</strong>
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Revision Reason Callout if Revised */}
+                            {isRevised && task.deadlineRevisionReason && (
+                              <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] font-mono text-amber-600 dark:text-amber-400 flex items-center gap-2">
+                                <Clock className="w-3.5 h-3.5 shrink-0" />
+                                <span><strong>Revision Impact:</strong> {task.deadlineRevisionReason}</span>
+                              </div>
+                            )}
+
+                            {/* 3-Column Specifications Grid */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-3 border-t border-border/80">
+                              {/* Col 1: Preconditions */}
+                              <div className="p-3 rounded-xl bg-surface-2 border border-border/70 space-y-2">
+                                <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted flex items-center gap-1.5">
+                                  <ShieldCheck className="w-3 h-3 text-indigo-500" />
+                                  Preconditions ({task.preconditions.length})
+                                </div>
+                                <div className="space-y-1.5">
+                                  {task.preconditions.map(pre => (
+                                    <div key={pre.id} className="text-[11px] space-y-0.5">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className={`w-1.5 h-1.5 rounded-full ${
+                                          pre.status === 'MET' ? 'bg-emerald-500' :
+                                          pre.status === 'BLOCKED' ? 'bg-rose-500' : 'bg-amber-500 animate-pulse'
+                                        }`} />
+                                        <span className="text-fg font-medium line-clamp-2">{pre.description}</span>
+                                      </div>
+                                      <span className={`text-[9px] font-mono ml-3 block ${
+                                        pre.status === 'MET' ? 'text-emerald-500' :
+                                        pre.status === 'BLOCKED' ? 'text-rose-500 font-bold' : 'text-amber-500'
+                                      }`}>
+                                        [{pre.status}] {pre.verifiedAt ? `Verified: ${new Date(pre.verifiedAt).toLocaleTimeString()}` : ''}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Col 2: Dependencies & Approvals */}
+                              <div className="p-3 rounded-xl bg-surface-2 border border-border/70 space-y-2">
+                                <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted flex items-center gap-1.5">
+                                  <GitBranch className="w-3 h-3 text-cyan-500" />
+                                  Dependencies & Approvals
+                                </div>
+                                <div className="space-y-1 text-[11px]">
+                                  <div className="text-muted text-[10px]">
+                                    <strong>Prerequisites:</strong>{' '}
+                                    {depNames.length > 0 ? depNames.join(', ') : 'None (Root Milestone)'}
+                                  </div>
+                                  {task.approvalRequirements.map(appr => (
+                                    <div key={appr.id} className="p-1.5 rounded-lg bg-surface border border-border text-[10px] space-y-0.5">
+                                      <span className="font-bold text-fg block">{appr.role}</span>
+                                      <span className="text-muted block">{appr.approverName}</span>
+                                      <span className={`font-mono text-[9px] font-bold ${appr.isSatisfied ? 'text-emerald-500' : 'text-amber-500'}`}>
+                                        {appr.isSatisfied ? '✓ Approved' : '⏳ Pending Gate Review'}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Col 3: Completion Criteria & Failure Handling */}
+                              <div className="p-3 rounded-xl bg-surface-2 border border-border/70 space-y-2">
+                                <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted flex items-center gap-1.5">
+                                  <AlertOctagon className="w-3 h-3 text-rose-500" />
+                                  Criteria & Failure Policy
+                                </div>
+                                <div className="space-y-1.5 text-[11px]">
+                                  <div className="space-y-0.5">
+                                    <span className="text-[10px] font-bold text-fg block">Completion Criteria:</span>
+                                    <ul className="list-disc list-inside text-muted space-y-0.5 text-[10px]">
+                                      {task.completionCriteria.slice(0, 2).map((crit, cIdx) => (
+                                        <li key={cIdx} className="truncate">{crit}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+
+                                  <div className="pt-1 border-t border-border/60">
+                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-surface border border-border text-fg inline-block mb-1">
+                                      Policy: {task.failureHandling.policy}
+                                    </span>
+                                    <p className="text-[10px] text-muted line-clamp-2 leading-tight">
+                                      {task.failureHandling.remediationAction}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Task Action Bar & Evidence Verification */}
+                            <div className="pt-3 border-t border-border/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                              {isDone ? (
+                                <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-2 w-full">
+                                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                                  <span className="font-medium truncate">
+                                    Verified Complete with evidence artifact. Downstream dependencies unlocked.
+                                  </span>
+                                </div>
+                              ) : isBlocked ? (
+                                <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-600 dark:text-rose-400 flex items-center gap-2 w-full">
+                                  <Lock className="w-4 h-4 shrink-0" />
+                                  <span>
+                                    <strong>Execution Blocked:</strong> Prerequisite [<strong>{depNames[0] || 'Upstream Task'}</strong>] must reach COMPLETED before work can proceed.
+                                  </span>
+                                </div>
+                              ) : completingTaskId === task.id ? (
+                                <div className="w-full p-3 rounded-xl bg-surface-2 border border-border space-y-2">
+                                  <span className="text-xs font-bold text-fg block">
+                                    Submit Verifiable Completion Evidence:
+                                  </span>
+                                  <div className="flex gap-2">
+                                    <input
+                                      type="text"
+                                      value={evidenceInput}
+                                      onChange={(e) => setEvidenceInput(e.target.value)}
+                                      placeholder="e.g. Git commit hash #8bf32e, PR #284 merged, Snyk report URL..."
+                                      className="flex-1 px-3 py-1.5 text-xs rounded-lg bg-surface border border-border text-fg"
+                                      autoFocus
+                                    />
+                                    <button
+                                      onClick={() => handleCompleteTask(task.id)}
+                                      disabled={!evidenceInput.trim() || actionInProgress !== null}
+                                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500 text-white cursor-pointer hover:bg-emerald-600 disabled:opacity-50"
+                                    >
+                                      {actionInProgress === task.id ? 'Verifying...' : 'Confirm'}
+                                    </button>
+                                    <button
+                                      onClick={() => setCompletingTaskId(null)}
+                                      className="px-3 py-1.5 rounded-lg text-xs font-medium border border-border text-muted hover:text-fg cursor-pointer"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2 w-full sm:w-auto">
+                                  <button
+                                    onClick={() => {
+                                      setCompletingTaskId(task.id);
+                                      setEvidenceInput('PR #284 merged with signed commit hash. Snyk clean.');
+                                    }}
+                                    disabled={actionInProgress !== null}
+                                    className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-fg text-bg flex items-center gap-1.5 cursor-pointer hover:opacity-90 transition-all shadow-sm"
+                                  >
+                                    <CheckSquare className="w-3.5 h-3.5" />
+                                    Mark Verified & Completed
+                                  </button>
+
+                                  <button
+                                    onClick={() => handleSimulateEngineeringDelay()}
+                                    disabled={actionInProgress !== null}
+                                    className="px-3 py-1.5 rounded-xl text-xs font-medium border border-border text-muted hover:text-fg hover:bg-surface-2 cursor-pointer transition-all"
+                                  >
+                                    Report Blocker
+                                  </button>
+                                </div>
+                              )}
+
+                              {/* Toggle History Log */}
+                              <button
+                                onClick={() => toggleTaskHistory(task.id)}
+                                className="text-[11px] font-mono text-muted hover:text-fg flex items-center gap-1 cursor-pointer self-end sm:self-auto"
+                              >
+                                <HistoryIcon className="w-3 h-3" />
+                                {isHistoryExpanded ? 'Hide History' : `Execution Audit (${task.executionHistory.length})`}
+                              </button>
+                            </div>
+
+                            {/* Execution Audit History Drawer */}
+                            {isHistoryExpanded && (
+                              <div className="p-3 rounded-xl bg-surface-2 border border-border/80 space-y-2 animate-fade-in text-xs font-mono">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted block">
+                                  Immutable Execution Audit Log:
+                                </span>
+                                <div className="space-y-2">
+                                  {task.executionHistory.map((hist) => (
+                                    <div key={hist.id} className="p-2 rounded-lg bg-surface border border-border text-[11px] space-y-1">
+                                      <div className="flex items-center justify-between text-muted text-[10px]">
+                                        <span>{new Date(hist.timestamp).toLocaleTimeString()} · {hist.actor} ({hist.actorRole})</span>
+                                        <span className="font-bold text-fg">{hist.action}</span>
+                                      </div>
+                                      {hist.comment && (
+                                        <p className="text-fg font-sans text-xs">{hist.comment}</p>
+                                      )}
+                                      {hist.evidenceProof && (
+                                        <span className="text-indigo-500 text-[10px] block truncate">
+                                          Proof: {hist.evidenceProof}
+                                        </span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* Sub-tab 1: SVG Multi-Agent Collaboration Topology */}
                 {detailTab === 'topology' && (

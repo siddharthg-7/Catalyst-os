@@ -124,12 +124,25 @@ export const ROLE_PERMISSIONS: Record<Role, Permissions> = {
  * being promoted — fail closed, matching the P0 middleware hardening.
  */
 export function normalizeRole(raw: string | null | undefined): Role {
-  const key = (raw || '').trim().toUpperCase().replace(/[\s-]+/g, '_');
+  const str = (raw || '').trim().toUpperCase();
+  const key = str.replace(/[\s-]+/g, '_');
   if ((ROLES as readonly string[]).includes(key)) return key as Role;
+
+  // Robust detection for founders, CEOs, owners, and co-founders (e.g. "Founder & CEO")
+  if (
+    str.includes('FOUNDER') ||
+    str.includes('CEO') ||
+    str.includes('OWNER') ||
+    str.includes('COFOUNDER')
+  ) {
+    return 'FOUNDER';
+  }
+
+  if (str.includes('ADMIN')) {
+    return 'ADMIN';
+  }
+
   switch (key) {
-    case 'OWNER':
-    case 'CEO':
-      return 'FOUNDER';
     case 'EXECUTIVE':
     case 'EMPLOYEE':
     case 'EMPLOYEES':

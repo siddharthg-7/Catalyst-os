@@ -2,22 +2,25 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  * 
- * Multi-Agent Orchestration & Live Head Monitoring Dashboard
- * Implements the 5-Step Autonomous Multi-Agent Resource Allocation Pipeline:
- * [ Input Task ] ──► (1. Select Agents) ──► (2. Check Employee DB) 
- *                                                  │
- *                      ┌───────────────────────────┴───────────┐
- *                      ▼ (Available)                           ▼ (Not Available)
- *              (3A. Assign Work)                       (3B. Notify Head to Hire)
- *                      │                                       │
- *                      ▼                                       ▼
- *              (4. Generate Plan)                     (Suggest Domain Specs)
- *                      │
- *                      ▼
- *         (5. Live Monitoring Dashboard)
+ * Multi-Agent Orchestration & Executive Decision Dashboard (Section 5.6)
+ * Separates Internal Technical Orchestration from Founder Executive Decision-Making:
+ * 
+ * 1. Founder Executive Decision View (Concise Results First):
+ *    - What will be done? (Proposed Business Outcomes & Ordered Deliverables)
+ *    - What resources are needed? (Personnel & Domain Roles)
+ *    - What will it cost? (Budget, Comp Bands & Tooling)
+ *    - What could go wrong? (Delivery Risks & Dependencies)
+ *    - What do I need to approve? (Governance Gate & Direct Unblocking CTA)
+ *    - When can I expect the result? (Delivery Ramp & Timeline)
+ *    - Dedicated Blocker & Required Action Callout
+ * 
+ * 2. Internal Technical Engine (5-Stage Architecture & Live Roster):
+ *    - 5-Step Visual Stepper (Select Agents → Check DB → Assign/Alert → Generate Plan → Monitoring)
+ *    - Domain Allocation Cards (Case A vs Case B)
+ *    - Master Tracking Blueprint Table with Live Telemetry & Head Controls
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Bot,
@@ -45,9 +48,18 @@ import {
   Workflow,
   Lightbulb,
   FileText,
-  BadgeCheck
+  BadgeCheck,
+  Target,
+  DollarSign,
+  Calendar,
+  ShieldCheck,
+  ChevronRight,
+  Sliders,
+  CheckSquare,
+  Lock
 } from 'lucide-react';
 import type { HiringReasoning } from '../types';
+import { formatINR } from '../utils/currency';
 
 export interface AgentTaskAllocation {
   requiredDomain: string;
@@ -153,6 +165,9 @@ export default function MultiAgentOrchestrationDashboard({
   const [loading, setLoading] = useState<boolean>(false);
   const [assessment, setAssessment] = useState<MultiAgentAssessmentResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // View Mode: 'FOUNDER_BRIEF' (Concise Result First) vs 'TECHNICAL_ENGINE' (Internal Orchestration)
+  const [viewMode, setViewMode] = useState<'FOUNDER_BRIEF' | 'TECHNICAL_ENGINE'>('FOUNDER_BRIEF');
 
   // Quick Hire / Assign Modal State
   const [hireModalOpen, setHireModalOpen] = useState<boolean>(false);
@@ -271,6 +286,67 @@ export default function MultiAgentOrchestrationDashboard({
     }
   };
 
+  // Derive concise business outcomes from allocations plan steps or preset
+  const derivedOutcomes = useMemo(() => {
+    if (!assessment) return [];
+    
+    const promptLower = (assessment.inputTask || taskInput || '').toLowerCase();
+    if (promptLower.includes('email') || promptLower.includes('marketing')) {
+      return [
+        'Draft the email campaign messaging, templates, and multi-variant creative copy.',
+        'Prepare the audience segmentation and target ICP parameters.',
+        'Validate the sending configuration, credentials, and deliverability checks.',
+        'Run an automated staging test campaign before live deployment.',
+        'Obtain founder approval before dispatching communications to customers.'
+      ];
+    }
+    if (promptLower.includes('billing') || promptLower.includes('stripe')) {
+      return [
+        'Construct the SaaS billing interface and subscription management portal.',
+        'Configure Stripe webhook listener daemon and payment reconciliation queue.',
+        'Validate currency localization, GST tax rules, and invoice generation.',
+        'Simulate failed payment retry loops and webhook fallback idempotency.',
+        'Obtain CFO / founder sign-off before connecting live merchant bank account.'
+      ];
+    }
+    if (promptLower.includes('knowledge') || promptLower.includes('vector') || promptLower.includes('rag')) {
+      return [
+        'Build multi-tenant document viewer and corporate policy ingestion interface.',
+        'Provision background PDF text chunking and vector embedding pipelines.',
+        'Index corporate strategy documents with semantic metadata and citation anchors.',
+        'Audit grounded response fidelity and tenant access permissions.',
+        'Obtain founder review before enabling executive question-answering.'
+      ];
+    }
+
+    // Generic fallback: synthesize from plan steps
+    const steps: string[] = [];
+    assessment.allocations.forEach(a => {
+      a.planSteps.forEach(step => {
+        if (!steps.includes(step) && steps.length < 5) {
+          steps.push(step);
+        }
+      });
+    });
+    if (steps.length === 0) {
+      steps.push('Decompose requirement into technical and operational work streams.');
+      steps.push('Verify personnel availability against company database.');
+      steps.push('Execute validated stages under continuous automated monitoring.');
+      steps.push('Submit completed deliverables for founder review and sign-off.');
+    }
+    return steps;
+  }, [assessment, taskInput]);
+
+  // Find unstaffed domain if any
+  const unstaffedDomain = useMemo(() => {
+    return assessment?.allocations.find(a => a.status === 'HIRE_REQUIRED') || null;
+  }, [assessment]);
+
+  // Find staffed domains
+  const staffedDomains = useMemo(() => {
+    return assessment?.allocations.filter(a => a.status === 'ASSIGNED') || [];
+  }, [assessment]);
+
   return (
     <div className="space-y-6 font-sans">
       {/* ── Top Header & Title ────────────────────────────────────────────── */}
@@ -282,105 +358,46 @@ export default function MultiAgentOrchestrationDashboard({
               Executive AI Engine
             </span>
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold tracking-wider uppercase bg-emerald-50 text-emerald-800 border border-emerald-200/80">
-              5-Step Sequential Pipeline
+              Founder-Outcome Architecture
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-[#141413] tracking-tight flex items-center gap-3">
-            Multi-Agent Orchestration &amp; Resource Allocation
+            Multi-Agent Orchestrator
           </h1>
           <p className="text-xs sm:text-sm text-[#666562] mt-1 max-w-2xl leading-relaxed">
-            Decomposes founder initiatives into technical domains, inspects real-time employee availability, assigns available talent, and gates execution until missing roles are staffed.
+            Autonomous resource reasoning: separates executive decision outcomes from internal agent coordination. Communicates deliverables, costs, and blockers before technical allocation.
           </p>
         </div>
 
         {assessment && (
           <div className="flex items-center gap-3 bg-[#FDFCFA] border border-[#141413]/10 rounded-xl p-3.5 shadow-xs">
             <div className="text-right">
-              <div className="text-[10px] font-mono uppercase tracking-wider text-[#666562]">Pipeline State</div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-[#666562]">Governance State</div>
               <div className={`text-xs font-bold font-mono flex items-center gap-1.5 justify-end ${
                 assessment.executionGated ? 'text-amber-800' : 'text-emerald-700'
               }`}>
                 {assessment.executionGated ? (
                   <>
                     <ShieldAlert className="w-3.5 h-3.5 text-amber-700 animate-pulse" />
-                    BLOCKED ON HIRE
+                    ACTION REQUIRED
                   </>
                 ) : (
                   <>
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
-                    EXECUTING
+                    READY TO EXECUTE
                   </>
                 )}
               </div>
             </div>
             <div className="h-8 w-px bg-[#141413]/10" />
             <div className="text-right">
-              <div className="text-[10px] font-mono uppercase tracking-wider text-[#666562]">Headcount Match</div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-[#666562]">Staffing Readiness</div>
               <div className="text-xs font-bold font-mono text-[#141413]">
-                {assessment.assignedCount} / {assessment.totalDomains} Assigned
+                {assessment.assignedCount} / {assessment.totalDomains} Staffed
               </div>
             </div>
           </div>
         )}
-      </div>
-
-      {/* ── 5-Step Visual Pipeline Stepper ───────────────────────────────── */}
-      <div className="bg-white border border-[#141413]/10 rounded-xl p-5 shadow-[rgba(20,20,19,0.02)_0px_1px_4px_0px]">
-        <div className="text-xs font-bold uppercase tracking-wider text-[#666562] mb-3 flex items-center gap-2 font-mono">
-          <Workflow className="w-3.5 h-3.5 text-[#141413]" />
-          5-Stage Execution Architecture
-        </div>
-        
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          {[
-            {
-              step: 'Step 1',
-              title: 'Select Agents',
-              desc: 'AI analyzes requirement and identifies required domains',
-              active: true
-            },
-            {
-              step: 'Step 2',
-              title: 'Check Employee DB',
-              desc: 'Queries active database for available domain workers',
-              active: true
-            },
-            {
-              step: 'Step 3',
-              title: 'Assign / Hire Alert',
-              desc: 'Assigns available workers or triggers Action Required alerts',
-              active: true
-            },
-            {
-              step: 'Step 4',
-              title: 'Generate Plan',
-              desc: 'Constructs sub-module plan & gates multi-agent execution',
-              active: true
-            },
-            {
-              step: 'Step 5',
-              title: 'Head Monitoring',
-              desc: 'Live master dashboard with Pause, Revoke & Post Job controls',
-              active: true
-            }
-          ].map((s, idx) => (
-            <div
-              key={idx}
-              className="relative p-3.5 rounded-lg border border-[#141413]/08 bg-[#FDFCFA] hover:bg-white hover:border-[#141413]/25 transition-all flex flex-col justify-between shadow-[rgba(20,20,19,0.01)_0px_1px_3px_0px]"
-            >
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#141413]">
-                    {s.step}
-                  </span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                </div>
-                <div className="text-xs font-bold text-[#141413] mb-0.5">{s.title}</div>
-                <div className="text-[11px] text-[#666562] leading-snug">{s.desc}</div>
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
 
       {/* ── Input Task Console ───────────────────────────────────────────── */}
@@ -388,10 +405,10 @@ export default function MultiAgentOrchestrationDashboard({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
           <label className="text-xs font-bold text-[#141413] uppercase tracking-wider font-mono flex items-center gap-2">
             <Sparkles className="w-3.5 h-3.5 text-[#141413]" />
-            Project Requirement Input (Head / Assigner Console)
+            Founder Command / Initiative Input
           </label>
           <div className="text-[11px] text-[#666562]">
-            Powered by Google Gemini &amp; Real-time Postgres Worker Roster
+            Reasoning over real-time company staffing &amp; dependencies
           </div>
         </div>
 
@@ -400,14 +417,14 @@ export default function MultiAgentOrchestrationDashboard({
             rows={3}
             value={taskInput}
             onChange={(e) => setTaskInput(e.target.value)}
-            placeholder="Describe the initiative or system to orchestrate..."
+            placeholder="Describe the initiative or business workflow you want executed..."
             className="w-full bg-[#FDFCFA] border border-[#141413]/10 rounded-xl p-3.5 text-xs sm:text-[13px] text-[#141413] placeholder:text-[#666562]/60 focus:outline-none focus:border-[#141413] focus:bg-white focus:ring-1 focus:ring-[#141413]/10 transition-all font-mono leading-relaxed"
           />
         </div>
 
         {/* Preset Task Buttons */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold text-[#666562] mr-1">Presets:</span>
+          <span className="text-xs font-semibold text-[#666562] mr-1">Sample Initiatives:</span>
           {PRESET_TASKS.map((p, idx) => (
             <button
               key={idx}
@@ -434,12 +451,12 @@ export default function MultiAgentOrchestrationDashboard({
             {loading ? (
               <>
                 <Loader2 className="w-3.5 h-3.5 animate-spin text-[#FDFCFA]" />
-                <span>Analyzing Agents &amp; Employee DB...</span>
+                <span>Reasoning on Staffing &amp; Deliverables...</span>
               </>
             ) : (
               <>
                 <Play className="w-3.5 h-3.5 fill-[#FDFCFA]" />
-                <span>Run Multi-Agent Orchestration</span>
+                <span>Analyze &amp; Plan Execution</span>
               </>
             )}
           </button>
@@ -453,512 +470,933 @@ export default function MultiAgentOrchestrationDashboard({
         </div>
       )}
 
-      {/* ── Dependency Gating Alert Banner ────────────────────────────────── */}
+      {/* ── VIEW MODE SWITCHER (Section 5.6 Core Recommendation) ──────────── */}
       {assessment && (
-        <div className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-          assessment.executionGated
-            ? 'bg-amber-50 border-amber-200/80 text-amber-900'
-            : 'bg-emerald-50 border-emerald-200/80 text-emerald-900'
-        }`}>
-          <div className="flex items-start gap-3">
-            {assessment.executionGated ? (
-              <ShieldAlert className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
-            ) : (
-              <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
-            )}
-            <div>
-              <div className="text-xs font-bold uppercase tracking-wider font-mono">
-                {assessment.executionGated ? 'Execution Pipeline Gated' : 'Sequential Pipeline Unblocked'}
-              </div>
-              <div className="text-xs opacity-90 mt-0.5">
-                {assessment.executionGated
-                  ? (assessment.gateReason || 'Cannot proceed with automated AI execution until all required technical domain roles are staffed.')
-                  : 'All technical domain slots have active workers assigned. Multi-agent workflow is executing.'}
-              </div>
-            </div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-[#141413]/10 rounded-xl p-2.5 shadow-xs">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setViewMode('FOUNDER_BRIEF')}
+              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                viewMode === 'FOUNDER_BRIEF'
+                  ? 'bg-[#141413] text-[#FDFCFA] shadow-xs'
+                  : 'bg-transparent text-[#666562] hover:text-[#141413] hover:bg-[#F3F0EE]'
+              }`}
+            >
+              <Target className="w-4 h-4 text-emerald-400" />
+              <span>Founder Decision Brief (Outcomes First)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setViewMode('TECHNICAL_ENGINE')}
+              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                viewMode === 'TECHNICAL_ENGINE'
+                  ? 'bg-[#141413] text-[#FDFCFA] shadow-xs'
+                  : 'bg-transparent text-[#666562] hover:text-[#141413] hover:bg-[#F3F0EE]'
+              }`}
+            >
+              <Cpu className="w-4 h-4 text-indigo-400" />
+              <span>Technical Engine (5-Stage Telemetry)</span>
+            </button>
           </div>
 
-          {assessment.executionGated && (
-            <div className="text-xs font-mono font-bold text-amber-900 bg-amber-100 border border-amber-300 px-3 py-1.5 rounded-lg shrink-0">
-              {assessment.hireRequiredCount} Domain(s) Need Staffing
-            </div>
-          )}
+          <div className="text-[11px] font-mono text-[#666562] px-2">
+            {viewMode === 'FOUNDER_BRIEF' 
+              ? 'Displaying actionable business results, risks, and required approvals.' 
+              : 'Displaying internal domain decomposition, worker presence, and telemetry table.'}
+          </div>
         </div>
       )}
 
-      {/* ── Step 3: Domain Allocation Cards (Case A vs Case B) ────────────── */}
-      {assessment && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-[#141413] flex items-center gap-2">
-              <Users className="w-4 h-4 text-[#141413]" />
-              Step 3 & 4: Resource Allocation & Domain Assessment
-            </h2>
-            <span className="text-xs text-[#666562]">
-              {assessment.allocations.length} Required Technical Modules
-            </span>
-          </div>
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {/* ── MODE 1: FOUNDER DECISION BRIEF (Concise Results First) ─────────── */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {assessment && viewMode === 'FOUNDER_BRIEF' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          
+          {/* ── Dedicated Blocker & Required Action Callout ─────────────────── */}
+          {assessment.executionGated ? (
+            <div className="p-5 rounded-2xl bg-amber-50/90 border border-amber-300 text-amber-950 space-y-4 shadow-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-amber-200">
+                <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-900 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-700 animate-pulse" />
+                  Execution Gated — Immediate Decision Required
+                </span>
+                <span className="text-[10px] font-mono font-bold text-amber-900 bg-amber-200/80 px-2.5 py-1 rounded-full border border-amber-300 self-start sm:self-auto">
+                  Status: Waiting for Staffing / Configuration
+                </span>
+              </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {assessment.allocations.map((alloc, idx) => {
-              const isAssigned = alloc.status === 'ASSIGNED';
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5 text-xs">
+                <div className="space-y-1">
+                  <span className="font-bold uppercase tracking-wider text-[10px] text-amber-800 block">
+                    What Happened (The Blocker)?
+                  </span>
+                  <p className="leading-relaxed text-amber-950">
+                    {unstaffedDomain 
+                      ? `The ${unstaffedDomain.requiredDomain} background worker has no assigned human owner in the company employee database.`
+                      : 'The delivery integration has not been configured and requires an authorized domain owner.'}
+                  </p>
+                </div>
 
-              return (
-                <div
-                  key={idx}
-                  className={`rounded-2xl border p-5 transition-all shadow-xs flex flex-col justify-between ${
-                    isAssigned
-                      ? 'bg-white border-[#141413]/10 hover:border-[#141413]/20'
-                      : 'bg-white border-amber-200/80 hover:border-amber-300'
-                  }`}
-                >
-                  <div>
-                    {/* Header: Domain & Status */}
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-[#141413]">
-                          [{alloc.requiredDomain} Domain]
+                <div className="space-y-1">
+                  <span className="font-bold uppercase tracking-wider text-[10px] text-amber-800 block">
+                    Why It Matters (Delivery Risk)?
+                  </span>
+                  <p className="leading-relaxed text-amber-950">
+                    Campaign dispatch and automated processing cannot execute or be independently verified until a domain owner is assigned.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <span className="font-bold uppercase tracking-wider text-[10px] text-amber-800 block">
+                    Required Founder Action
+                  </span>
+                  <p className="leading-relaxed text-amber-950">
+                    Assign an existing authorized employee or post a targeted job spec to unblock the multi-agent pipeline.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenHireModal(unstaffedDomain?.requiredDomain || 'Backend')}
+                    className="w-full px-3.5 py-2 rounded-xl bg-[#141413] hover:bg-[#282725] text-white text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <UserPlus className="w-3.5 h-3.5 text-white" />
+                    <span>Assign Worker / Post Job Spec</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-center justify-between shadow-xs">
+              <div className="flex items-center gap-2.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <span>
+                  <strong>All Required Domains Staffed:</strong> Automated multi-agent workflow is executing with human-in-the-loop oversight.
+                </span>
+              </div>
+              <span className="text-[10px] font-mono font-bold bg-white text-emerald-800 px-2.5 py-1 rounded-md border border-emerald-200">
+                Pipeline: Active
+              </span>
+            </div>
+          )}
+
+          {/* ── The 6 Core Founder Answers Grid ────────────────────────────── */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            
+            {/* 1. What will be done? */}
+            <div className="bg-white border border-[#141413]/10 rounded-2xl p-5 shadow-[rgba(20,20,19,0.02)_0px_1px_4px_0px] space-y-3 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between pb-2 border-b border-[#141413]/08">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#666562] flex items-center gap-1.5">
+                    <Target className="w-3.5 h-3.5 text-[#141413]" />
+                    1. What will be done?
+                  </span>
+                  <span className="text-[10px] font-mono text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200/80">
+                    Proposed Outcome
+                  </span>
+                </div>
+
+                <div className="mt-3">
+                  <h4 className="text-xs font-bold text-[#141413] mb-2">
+                    Sequential Deliverable Milestones:
+                  </h4>
+                  <ol className="space-y-2 text-xs text-[#141413]">
+                    {derivedOutcomes.map((outcome, oIdx) => (
+                      <li key={oIdx} className="flex items-start gap-2">
+                        <span className="w-4 h-4 rounded-full bg-[#141413]/08 text-[#141413] font-mono text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                          {oIdx + 1}
                         </span>
-                        {isAssigned ? (
-                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase bg-emerald-50 text-emerald-800 border border-emerald-200">
-                            Available & Assigned
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
-                            <AlertTriangle className="w-3 h-3 text-amber-600" />
-                            Action Required
-                          </span>
-                        )}
-                      </div>
+                        <span className="leading-relaxed text-[#141413]">{outcome}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              </div>
 
-                      <div className="text-[11px] font-medium text-[#666562]">
-                        {alloc.subTaskTitle}
-                      </div>
-                    </div>
+              <div className="pt-2 border-t border-[#141413]/08 text-[11px] text-[#666562]">
+                Guaranteed outcome: Zero autonomous dispatch without human validation.
+              </div>
+            </div>
 
-                    {/* Assigned Agent Details */}
-                    <div className="bg-[#FDFCFA] rounded-xl p-3 border border-[#141413]/10 mb-3 flex items-center gap-3">
-                      <img
-                        src={alloc.assignedAgent.avatar}
-                        alt={alloc.assignedAgent.name}
-                        className="w-9 h-9 rounded-full object-cover border border-[#141413]/10"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-bold text-[#141413] flex items-center gap-1.5">
-                          <span>{alloc.assignedAgent.name}</span>
-                          <span className="text-[10px] text-[#666562] font-medium">
-                            ({alloc.assignedAgent.role.split(' ')[0]})
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-[#666562] truncate">
-                          {alloc.assignedAgent.description}
-                        </div>
-                      </div>
-                    </div>
+            {/* 2. What resources are needed? */}
+            <div className="bg-white border border-[#141413]/10 rounded-2xl p-5 shadow-[rgba(20,20,19,0.02)_0px_1px_4px_0px] space-y-3 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between pb-2 border-b border-[#141413]/08">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#666562] flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-[#141413]" />
+                    2. Resources Needed
+                  </span>
+                  <span className="text-[10px] font-mono text-[#666562]">
+                    Staffing Audit
+                  </span>
+                </div>
 
-                    {/* Case A: Worker is Available & Present */}
-                    {isAssigned && alloc.assignedWorker && (
-                      <div className="space-y-3 mb-4">
-                        <div className="bg-emerald-50/50 border border-emerald-200/80 rounded-xl p-3.5">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
-                              <BadgeCheck className="w-4 h-4 text-emerald-700" />
-                              <span>Assigned: {alloc.assignedWorker.name}</span>
+                <div className="mt-3 space-y-3 text-xs">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 block mb-1.5 flex items-center gap-1">
+                      <Check className="w-3 h-3 text-emerald-700" />
+                      Staffed Personnel (Available):
+                    </span>
+                    {staffedDomains.length > 0 ? (
+                      <div className="space-y-1.5">
+                        {staffedDomains.map((s, idx) => (
+                          <div key={idx} className="p-2 rounded-lg bg-[#FDFCFA] border border-[#141413]/08 flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-[#141413]">{s.assignedWorker?.name}</span>
+                              <span className="text-[10px] text-[#666562] ml-1.5">({s.requiredDomain})</span>
                             </div>
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
-                              {alloc.assignedWorker.status} · Present
+                            <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                              Ready
                             </span>
                           </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-[#666562]">No internal workers allocated.</span>
+                    )}
+                  </div>
 
-                          <div className="text-[11px] text-[#141413] flex flex-wrap items-center gap-x-4 gap-y-1">
-                            <span>Role: <strong className="text-[#141413]">{alloc.assignedWorker.role || `${alloc.requiredDomain} Specialist`}</strong></span>
-                            {alloc.assignedWorker.email && (
-                              <span className="text-[#666562] font-mono">{alloc.assignedWorker.email}</span>
-                            )}
-                          </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 block mb-1.5 flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3 text-amber-700" />
+                      Missing Technical Roles:
+                    </span>
+                    {unstaffedDomain ? (
+                      <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 space-y-1">
+                        <div className="font-bold text-amber-950 flex items-center justify-between">
+                          <span>{unstaffedDomain.hiringReasoning?.roleTitle || `${unstaffedDomain.requiredDomain} Specialist`}</span>
+                          <span className="text-[10px] font-mono text-amber-900 bg-amber-200/60 px-1.5 py-0.5 rounded">
+                            Unstaffed
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-amber-900 leading-snug">
+                          {unstaffedDomain.hiringReasoning?.diagnostic || 'Required for background execution.'}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="text-[11px] text-emerald-800 font-medium">All domains fully staffed.</div>
+                    )}
+                  </div>
+                </div>
+              </div>
 
-                          {/* Verified Skills */}
-                          {alloc.assignedWorker.skills && alloc.assignedWorker.skills.length > 0 && (
-                            <div className="mt-2.5 pt-2 border-t border-emerald-200/60">
-                              <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 mb-1.5">
-                                Verified Competencies & Skills:
-                              </div>
-                              <div className="flex flex-wrap gap-1.5">
-                                {alloc.assignedWorker.skills.map((skill, sIdx) => (
-                                  <span
-                                    key={sIdx}
-                                    className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-white text-emerald-900 border border-emerald-200"
-                                  >
-                                    {skill}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
+              <div className="pt-2 border-t border-[#141413]/08 text-[11px] text-[#666562]">
+                Total Domain Scope: {assessment.totalDomains} Technical Modules
+              </div>
+            </div>
 
-                          {/* Role Responsibilities */}
-                          {alloc.assignedWorker.responsibilities && alloc.assignedWorker.responsibilities.length > 0 && (
-                            <div className="mt-2.5 pt-2 border-t border-emerald-200/60">
-                              <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 mb-1 flex items-center gap-1">
-                                <Briefcase className="w-3 h-3 text-emerald-700" />
-                                Domain Responsibilities:
-                              </div>
-                              <ul className="space-y-1 text-[11px] text-[#141413]">
-                                {alloc.assignedWorker.responsibilities.slice(0, 3).map((resp, rIdx) => (
-                                  <li key={rIdx} className="flex items-start gap-1.5">
-                                    <Check className="w-3 h-3 text-emerald-700 mt-0.5 flex-shrink-0" />
-                                    <span>{resp}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
+            {/* 3. What will it cost? */}
+            <div className="bg-white border border-[#141413]/10 rounded-2xl p-5 shadow-[rgba(20,20,19,0.02)_0px_1px_4px_0px] space-y-3 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between pb-2 border-b border-[#141413]/08">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#666562] flex items-center gap-1.5">
+                    <DollarSign className="w-3.5 h-3.5 text-[#141413]" />
+                    3. What will it cost?
+                  </span>
+                  <span className="text-[10px] font-mono text-[#666562]">
+                    Treasury Impact
+                  </span>
+                </div>
+
+                <div className="mt-3 space-y-3 text-xs">
+                  <div className="p-3 rounded-xl bg-[#FDFCFA] border border-[#141413]/08 space-y-1">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-[#666562] block">
+                      Target Role Market Comp Band
+                    </span>
+                    <div className="text-base font-bold font-mono text-[#141413]">
+                      {unstaffedDomain?.hiringReasoning?.estimatedCompBand || '$85,000 - $115,000 / yr'}
+                    </div>
+                    <span className="text-[10px] text-[#666562] block">
+                      Benchmark derived from startup peer compensation data.
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-[#FDFCFA] border border-[#141413]/08 space-y-1">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-[#666562] block">
+                      Tooling &amp; Infrastructure
+                    </span>
+                    <div className="text-xs font-bold text-[#141413]">
+                      Operational Integration: ~₹15,000 - ₹35,000 / mo
+                    </div>
+                    <span className="text-[10px] text-[#666562] block">
+                      Standard provider API fees &amp; dedicated worker instances.
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-[#141413]/08 text-[11px] text-[#666562]">
+                Zero unexpected financial commitments without founder approval.
+              </div>
+            </div>
+
+            {/* 4. What could go wrong? */}
+            <div className="bg-white border border-[#141413]/10 rounded-2xl p-5 shadow-[rgba(20,20,19,0.02)_0px_1px_4px_0px] space-y-3 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between pb-2 border-b border-[#141413]/08">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#666562] flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-700" />
+                    4. What could go wrong?
+                  </span>
+                  <span className="text-[10px] font-mono text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                    Risk Assessment
+                  </span>
+                </div>
+
+                <div className="mt-3 space-y-2.5 text-xs text-[#141413]">
+                  <div className="flex items-start gap-2">
+                    <span className="text-rose-600 font-bold leading-none mt-0.5">•</span>
+                    <p className="leading-relaxed">
+                      <strong>Delivery Unverified:</strong> Automated dispatch cannot be verified until the background processing integration is connected.
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-amber-600 font-bold leading-none mt-0.5">•</span>
+                    <p className="leading-relaxed">
+                      <strong>Credential Exposure:</strong> Email credentials and sending tokens must remain encrypted within vault security.
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-amber-600 font-bold leading-none mt-0.5">•</span>
+                    <p className="leading-relaxed">
+                      <strong>Deliverability Drop:</strong> Unverified domain records risk spam tagging if DKIM/SPF are not verified.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-[#141413]/08 text-[11px] text-[#666562]">
+                Safeguard: Sequential execution gates prevent unverified release.
+              </div>
+            </div>
+
+            {/* 5. What do I need to approve? */}
+            <div className="bg-white border border-[#141413]/10 rounded-2xl p-5 shadow-[rgba(20,20,19,0.02)_0px_1px_4px_0px] space-y-3 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between pb-2 border-b border-[#141413]/08">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#666562] flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
+                    5. Required Approvals
+                  </span>
+                  <span className="text-[10px] font-mono text-[#666562]">
+                    Governance Gate
+                  </span>
+                </div>
+
+                <div className="mt-3 space-y-2.5 text-xs">
+                  <div className="p-3 rounded-lg bg-[#FDFCFA] border border-[#141413]/08 space-y-1">
+                    <span className="font-bold text-[#141413] block">Stage 1: Staffing Authorization</span>
+                    <p className="text-[#666562] text-[11px] leading-relaxed">
+                      Authorize candidate hire or reassign internal worker to unlock pipeline gating.
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-lg bg-[#FDFCFA] border border-[#141413]/08 space-y-1">
+                    <span className="font-bold text-[#141413] block">Stage 2: Deliverable Sign-off</span>
+                    <p className="text-[#666562] text-[11px] leading-relaxed">
+                      Founder sign-off in Decision Inbox required before customer-facing dispatch.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {onNavigate && (
+                <button
+                  type="button"
+                  onClick={() => onNavigate('approvals')}
+                  className="w-full text-center text-xs font-bold text-[#141413] hover:underline pt-2 border-t border-[#141413]/08 flex items-center justify-center gap-1 cursor-pointer"
+                >
+                  <span>Go to Decision Inbox Queue</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* 6. When can I expect the result? */}
+            <div className="bg-white border border-[#141413]/10 rounded-2xl p-5 shadow-[rgba(20,20,19,0.02)_0px_1px_4px_0px] space-y-3 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between pb-2 border-b border-[#141413]/08">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#666562] flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-[#141413]" />
+                    6. Expected Delivery Ramp
+                  </span>
+                  <span className="text-[10px] font-mono text-[#666562]">
+                    Timeline
+                  </span>
+                </div>
+
+                <div className="mt-3 space-y-2 text-xs">
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-[#FDFCFA] border border-[#141413]/08">
+                    <span className="font-medium text-[#141413]">UI &amp; Dashboard Draft</span>
+                    <span className="font-mono text-emerald-700 font-bold">48 Hours</span>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-[#FDFCFA] border border-[#141413]/08">
+                    <span className="font-medium text-[#141413]">Target Staffing SLA</span>
+                    <span className="font-mono text-[#666562] font-bold">3–7 Days</span>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-[#FDFCFA] border border-[#141413]/08">
+                    <span className="font-medium text-[#141413]">Full Production Release</span>
+                    <span className="font-mono text-[#141413] font-bold">Upon Unblocking</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-[#141413]/08 text-[11px] text-[#666562]">
+                Telemetry is updated continuously as stages complete.
+              </div>
+            </div>
+
+          </div>
+
+          {/* Quick link to switch to Technical Engine */}
+          <div className="p-4 rounded-xl bg-[#FDFCFA] border border-[#141413]/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="text-[#666562]">
+              Need to inspect technical agent allocations, AI matching reasoning, or raw execution telemetry?
+            </div>
+            <button
+              type="button"
+              onClick={() => setViewMode('TECHNICAL_ENGINE')}
+              className="px-3.5 py-1.5 rounded-lg bg-white border border-[#141413]/15 text-[#141413] font-bold hover:border-[#141413]/40 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+            >
+              <Cpu className="w-3.5 h-3.5 text-[#141413]" />
+              <span>Switch to Technical Orchestration Engine →</span>
+            </button>
+          </div>
+
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {/* ── MODE 2: INTERNAL ORCHESTRATION ENGINE (Technical 5-Step Pipeline) ─ */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {assessment && viewMode === 'TECHNICAL_ENGINE' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+
+          {/* ── 5-Step Visual Pipeline Stepper ───────────────────────────────── */}
+          <div className="bg-white border border-[#141413]/10 rounded-xl p-5 shadow-[rgba(20,20,19,0.02)_0px_1px_4px_0px]">
+            <div className="text-xs font-bold uppercase tracking-wider text-[#666562] mb-3 flex items-center justify-between font-mono">
+              <span className="flex items-center gap-2 text-[#141413]">
+                <Workflow className="w-3.5 h-3.5 text-[#141413]" />
+                5-Stage Execution Architecture
+              </span>
+              <span className="text-[11px] text-[#666562] font-normal">
+                Autonomous Resource Reasoning
+              </span>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              {[
+                {
+                  step: 'Step 1',
+                  title: 'Select Agents',
+                  desc: 'AI analyzes requirement and identifies required domains',
+                  active: true
+                },
+                {
+                  step: 'Step 2',
+                  title: 'Check Employee DB',
+                  desc: 'Queries active database for available domain workers',
+                  active: true
+                },
+                {
+                  step: 'Step 3',
+                  title: 'Assign / Hire Alert',
+                  desc: 'Assigns available workers or triggers Action Required alerts',
+                  active: true
+                },
+                {
+                  step: 'Step 4',
+                  title: 'Generate Plan',
+                  desc: 'Constructs sub-module plan & gates multi-agent execution',
+                  active: true
+                },
+                {
+                  step: 'Step 5',
+                  title: 'Head Monitoring',
+                  desc: 'Live master dashboard with Pause, Revoke & Post Job controls',
+                  active: true
+                }
+              ].map((s, idx) => (
+                <div
+                  key={idx}
+                  className="relative p-3.5 rounded-lg border border-[#141413]/08 bg-[#FDFCFA] hover:bg-white hover:border-[#141413]/25 transition-all flex flex-col justify-between shadow-[rgba(20,20,19,0.01)_0px_1px_3px_0px]"
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#141413]">
+                        {s.step}
+                      </span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                    </div>
+                    <div className="text-xs font-bold text-[#141413] mb-0.5">{s.title}</div>
+                    <div className="text-[11px] text-[#666562] leading-snug">{s.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Dependency Gating Alert Banner ────────────────────────────────── */}
+          <div className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+            assessment.executionGated
+              ? 'bg-amber-50 border-amber-200/80 text-amber-900'
+              : 'bg-emerald-50 border-emerald-200/80 text-emerald-900'
+          }`}>
+            <div className="flex items-start gap-3">
+              {assessment.executionGated ? (
+                <ShieldAlert className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+              ) : (
+                <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+              )}
+              <div>
+                <div className="text-xs font-bold uppercase tracking-wider font-mono">
+                  {assessment.executionGated ? 'Execution Pipeline Gated' : 'Sequential Pipeline Unblocked'}
+                </div>
+                <div className="text-xs opacity-90 mt-0.5">
+                  {assessment.executionGated
+                    ? (assessment.gateReason || 'Cannot proceed with automated AI execution until all required technical domain roles are staffed.')
+                    : 'All technical domain slots have active workers assigned. Multi-agent workflow is executing.'}
+                </div>
+              </div>
+            </div>
+
+            {assessment.executionGated && (
+              <div className="text-xs font-mono font-bold text-amber-900 bg-amber-100 border border-amber-300 px-3 py-1.5 rounded-lg shrink-0">
+                {assessment.hireRequiredCount} Domain(s) Need Staffing
+              </div>
+            )}
+          </div>
+
+          {/* ── Step 3: Domain Allocation Cards (Case A vs Case B) ────────────── */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-bold text-[#141413] flex items-center gap-2">
+                <Users className="w-4 h-4 text-[#141413]" />
+                Step 3 &amp; 4: Resource Allocation &amp; Domain Assessment
+              </h2>
+              <span className="text-xs text-[#666562]">
+                {assessment.allocations.length} Required Technical Modules
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {assessment.allocations.map((alloc, idx) => {
+                const isAssigned = alloc.status === 'ASSIGNED';
+
+                return (
+                  <div
+                    key={idx}
+                    className={`rounded-2xl border p-5 transition-all shadow-xs flex flex-col justify-between ${
+                      isAssigned
+                        ? 'bg-white border-[#141413]/10 hover:border-[#141413]/20'
+                        : 'bg-white border-amber-200/80 hover:border-amber-300'
+                    }`}
+                  >
+                    <div>
+                      {/* Header: Domain & Status */}
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-[#141413]">
+                            [{alloc.requiredDomain} Domain]
+                          </span>
+                          {isAssigned ? (
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase bg-emerald-50 text-emerald-800 border border-emerald-200">
+                              Available &amp; Assigned
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
+                              <AlertTriangle className="w-3 h-3 text-amber-600" />
+                              Action Required
+                            </span>
                           )}
                         </div>
 
-                        {/* Assignment Reasoning Callout */}
-                        {alloc.assignmentReasoning && (
-                          <div className="bg-[#FDFCFA] border border-[#141413]/10 rounded-xl p-3 text-xs text-[#666562]">
-                            <div className="font-bold text-[#141413] mb-1 flex items-center gap-1.5 text-[11px] uppercase tracking-wider">
-                              <Lightbulb className="w-3.5 h-3.5 text-[#141413]" />
-                              AI Matching & Presence Reasoning:
-                            </div>
-                            <p className="leading-relaxed text-[11px] text-[#666562]">
-                              {alloc.assignmentReasoning}
-                            </p>
-                          </div>
-                        )}
+                        <div className="text-[11px] font-medium text-[#666562]">
+                          {alloc.subTaskTitle}
+                        </div>
+                      </div>
 
-                        {/* Execution Plan */}
-                        <div className="bg-[#FDFCFA] border border-[#141413]/10 rounded-xl p-3 space-y-1.5">
-                          <div className="text-[11px] text-[#141413]">
-                            <span className="font-bold text-[#141413]">Execution Plan: </span>
-                            {alloc.planSteps.join(' ')}
+                      {/* Assigned Agent Details */}
+                      <div className="bg-[#FDFCFA] rounded-xl p-3 border border-[#141413]/10 mb-3 flex items-center gap-3">
+                        <img
+                          src={alloc.assignedAgent.avatar}
+                          alt={alloc.assignedAgent.name}
+                          className="w-9 h-9 rounded-full object-cover border border-[#141413]/10"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-bold text-[#141413] flex items-center gap-1.5">
+                            <span>{alloc.assignedAgent.name}</span>
+                            <span className="text-[10px] text-[#666562] font-medium">
+                              ({alloc.assignedAgent.role.split(' ')[0]})
+                            </span>
                           </div>
-                          <div className="text-[11px] text-[#666562] flex items-center justify-between">
-                            <span>Monitoring Status: <strong className="text-[#141413]">{alloc.monitoringStatus}</strong></span>
-                            <span className="text-[10px] text-emerald-700 font-mono font-medium">Sequential Gate: Unblocked</span>
+                          <div className="text-[11px] text-[#666562] truncate">
+                            {alloc.assignedAgent.description}
                           </div>
                         </div>
                       </div>
-                    )}
 
-                    {/* Case B: Worker is NOT Available (Core Requirement: AI Diagnostic & Role Responsibilities) */}
-                    {!isAssigned && (
-                      <div className="space-y-3 mb-4">
-                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5">
-                          <div className="flex items-center gap-2 text-xs font-bold text-amber-900 mb-1">
-                            <AlertTriangle className="w-4 h-4 text-amber-700 flex-shrink-0" />
-                            <span>{alloc.systemAlert || `No active or available worker found for ${alloc.requiredDomain}`}</span>
-                          </div>
-                          <div className="text-[11px] text-amber-800 leading-snug">
-                            Multi-agent execution is gated. A human domain owner must be hired or assigned to oversee this module.
-                          </div>
-                        </div>
-
-                        {/* Structured Autonomous Reasoning Card */}
-                        <div className="bg-[#FDFCFA] border border-[#141413]/10 rounded-xl p-3.5 shadow-xs">
-                          <div className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-[#141413] mb-2">
-                            <Lightbulb className="w-3.5 h-3.5 text-amber-600" />
-                            Roster Diagnostic & AI Hiring Reasoning:
-                          </div>
-
-                          {alloc.hiringReasoning?.diagnostic && (
-                            <div className="text-xs text-[#141413] mb-2 leading-relaxed bg-white p-2.5 rounded-lg border border-[#141413]/10">
-                              <strong className="text-amber-800">Diagnostic: </strong>
-                              {alloc.hiringReasoning.diagnostic}
-                            </div>
-                          )}
-
-                          {alloc.hiringReasoning?.rationale && (
-                            <div className="text-xs text-[#666562] mb-2 leading-relaxed bg-white p-2.5 rounded-lg border border-[#141413]/10">
-                              <strong className="text-[#141413]">Governance Rationale: </strong>
-                              {alloc.hiringReasoning.rationale}
-                            </div>
-                          )}
-
-                          {/* Target Role & Responsibilities */}
-                          <div className="mt-3 pt-2.5 border-t border-[#141413]/10 space-y-2.5">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                              <div>
-                                <div className="text-[10px] font-bold uppercase tracking-wider text-[#666562]">Recommended Target Role</div>
-                                <div className="text-xs font-extrabold text-[#141413] flex items-center gap-1.5">
-                                  <Briefcase className="w-3.5 h-3.5 text-[#141413]" />
-                                  {alloc.hiringReasoning?.roleTitle || `${alloc.requiredDomain} Specialist`}
-                                </div>
+                      {/* Case A: Worker is Available & Present */}
+                      {isAssigned && alloc.assignedWorker && (
+                        <div className="space-y-3 mb-4">
+                          <div className="bg-emerald-50/50 border border-emerald-200/80 rounded-xl p-3.5">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                                <BadgeCheck className="w-4 h-4 text-emerald-700" />
+                                <span>Assigned: {alloc.assignedWorker.name}</span>
                               </div>
-                              {alloc.hiringReasoning?.estimatedCompBand && (
-                                <div className="text-right">
-                                  <div className="text-[10px] font-bold uppercase tracking-wider text-[#666562]">Market Benchmark</div>
-                                  <div className="text-[11px] font-mono font-bold text-emerald-700">
-                                    {alloc.hiringReasoning.estimatedCompBand}
-                                  </div>
-                                </div>
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                                {alloc.assignedWorker.status} · Present
+                              </span>
+                            </div>
+
+                            <div className="text-[11px] text-[#141413] flex flex-wrap items-center gap-x-4 gap-y-1">
+                              <span>Role: <strong className="text-[#141413]">{alloc.assignedWorker.role || `${alloc.requiredDomain} Specialist`}</strong></span>
+                              {alloc.assignedWorker.email && (
+                                <span className="text-[#666562] font-mono">{alloc.assignedWorker.email}</span>
                               )}
                             </div>
 
-                            {/* Core Responsibilities List */}
-                            {alloc.hiringReasoning?.coreResponsibilities && alloc.hiringReasoning.coreResponsibilities.length > 0 && (
-                              <div className="bg-amber-50/50 rounded-lg p-3 border border-amber-200">
-                                <div className="text-[10px] font-extrabold uppercase tracking-wider text-amber-900 mb-1.5 flex items-center gap-1.5">
-                                  <FileText className="w-3 h-3 text-amber-700" />
-                                  Role Responsibilities (Why We Must Hire This Person):
+                            {/* Verified Skills */}
+                            {alloc.assignedWorker.skills && alloc.assignedWorker.skills.length > 0 && (
+                              <div className="mt-2.5 pt-2 border-t border-emerald-200/60">
+                                <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 mb-1.5">
+                                  Verified Competencies &amp; Skills:
                                 </div>
-                                <ul className="space-y-1.5 text-xs text-amber-950">
-                                  {alloc.hiringReasoning.coreResponsibilities.map((resp, rIdx) => (
-                                    <li key={rIdx} className="flex items-start gap-2">
-                                      <span className="text-amber-700 font-bold leading-none mt-0.5">•</span>
-                                      <span className="leading-relaxed">{resp}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-
-                            {/* Required Competencies Pills */}
-                            {alloc.hiringReasoning?.requiredSkills && alloc.hiringReasoning.requiredSkills.length > 0 && (
-                              <div>
-                                <div className="text-[10px] font-bold uppercase tracking-wider text-[#666562] mb-1">
-                                  Required Technical Competencies:
-                                </div>
-                                <div className="flex flex-wrap gap-1">
-                                  {alloc.hiringReasoning.requiredSkills.map((sk, skIdx) => (
+                                <div className="flex flex-wrap gap-1.5">
+                                  {alloc.assignedWorker.skills.map((skill, sIdx) => (
                                     <span
-                                      key={skIdx}
-                                      className="px-2 py-0.5 rounded text-[10px] font-medium bg-[#F3F0EE] text-[#141413] border border-[#141413]/10"
+                                      key={sIdx}
+                                      className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-white text-emerald-900 border border-emerald-200"
                                     >
-                                      {sk}
+                                      {skill}
                                     </span>
                                   ))}
                                 </div>
                               </div>
                             )}
 
-                            {/* Immediate Deliverables */}
-                            {alloc.hiringReasoning?.immediateDeliverables && alloc.hiringReasoning.immediateDeliverables.length > 0 && (
-                              <div>
-                                <div className="text-[10px] font-bold uppercase tracking-wider text-[#666562] mb-1">
-                                  Immediate Ramp Deliverables:
+                            {/* Role Responsibilities */}
+                            {alloc.assignedWorker.responsibilities && alloc.assignedWorker.responsibilities.length > 0 && (
+                              <div className="mt-2.5 pt-2 border-t border-emerald-200/60">
+                                <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 mb-1 flex items-center gap-1">
+                                  <Briefcase className="w-3 h-3 text-emerald-700" />
+                                  Domain Responsibilities:
                                 </div>
-                                <div className="space-y-1">
-                                  {alloc.hiringReasoning.immediateDeliverables.map((deliv, dIdx) => (
-                                    <div key={dIdx} className="text-[11px] text-[#141413] flex items-center gap-1.5">
-                                      <CheckCircle2 className="w-3 h-3 text-emerald-700 flex-shrink-0" />
-                                      <span>{deliv}</span>
-                                    </div>
+                                <ul className="space-y-1 text-[11px] text-[#141413]">
+                                  {alloc.assignedWorker.responsibilities.slice(0, 3).map((resp, rIdx) => (
+                                    <li key={rIdx} className="flex items-start gap-1.5">
+                                      <Check className="w-3 h-3 text-emerald-700 mt-0.5 shrink-0" />
+                                      <span>{resp}</span>
+                                    </li>
                                   ))}
-                                </div>
+                                </ul>
                               </div>
                             )}
                           </div>
 
-                          {alloc.hinglishRecommendation && (
-                            <div className="mt-3 text-xs text-[#666562] bg-[#F3F0EE] border border-[#141413]/10 rounded-lg p-2.5 italic">
-                              <span className="font-bold text-[#141413] not-italic">Founder / Head Directive: </span>
-                              "{alloc.hinglishRecommendation}"
+                          {/* Assignment Reasoning Callout */}
+                          {alloc.assignmentReasoning && (
+                            <div className="bg-[#FDFCFA] border border-[#141413]/10 rounded-xl p-3 text-xs text-[#666562]">
+                              <div className="font-bold text-[#141413] mb-1 flex items-center gap-1.5 text-[11px] uppercase tracking-wider">
+                                <Lightbulb className="w-3.5 h-3.5 text-[#141413]" />
+                                AI Matching &amp; Presence Reasoning:
+                              </div>
+                              <p className="leading-relaxed text-[11px] text-[#666562]">
+                                {alloc.assignmentReasoning}
+                              </p>
                             </div>
                           )}
+
+                          {/* Execution Plan */}
+                          <div className="bg-[#FDFCFA] border border-[#141413]/10 rounded-xl p-3 space-y-1.5">
+                            <div className="text-[11px] text-[#141413]">
+                              <span className="font-bold text-[#141413]">Execution Plan: </span>
+                              {alloc.planSteps.join(' ')}
+                            </div>
+                            <div className="text-[11px] text-[#666562] flex items-center justify-between">
+                              <span>Monitoring Status: <strong className="text-[#141413]">{alloc.monitoringStatus}</strong></span>
+                              <span className="text-[10px] text-emerald-700 font-mono font-medium">Sequential Gate: Unblocked</span>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
+                      )}
 
-                  {/* Head Action Buttons */}
-                  <div className="pt-3 border-t border-[#141413]/10 flex items-center justify-between gap-2">
-                    <span className="text-[11px] text-[#666562]">
-                      Module: <strong className="text-[#141413]">{alloc.subTaskTitle}</strong>
-                    </span>
+                      {/* Case B: Worker is NOT Available */}
+                      {!isAssigned && (
+                        <div className="space-y-3 mb-4">
+                          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5">
+                            <div className="flex items-center gap-2 text-xs font-bold text-amber-900 mb-1">
+                              <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" />
+                              <span>{alloc.systemAlert || `No active or available worker found for ${alloc.requiredDomain}`}</span>
+                            </div>
+                            <div className="text-[11px] text-amber-800 leading-snug">
+                              Multi-agent execution is gated. A human domain owner must be hired or assigned to oversee this module.
+                            </div>
+                          </div>
 
-                    {isAssigned ? (
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          disabled={actionLoading}
-                          onClick={() => handleSlotControl(alloc.requiredDomain, alloc.executionStatus === 'PAUSED' ? 'resume' : 'pause')}
-                          className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-[#F3F0EE] hover:bg-[#EAE6E2] text-[#141413] border border-[#141413]/10 transition-all flex items-center gap-1"
-                        >
-                          {alloc.executionStatus === 'PAUSED' ? (
-                            <>
-                              <Play className="w-3 h-3 text-emerald-700" />
-                              Resume
-                            </>
-                          ) : (
-                            <>
-                              <Pause className="w-3 h-3 text-amber-700" />
-                              Pause
-                            </>
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          disabled={actionLoading}
-                          onClick={() => handleSlotControl(alloc.requiredDomain, 'revoke')}
-                          className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 transition-all flex items-center gap-1"
-                        >
-                          <RotateCcw className="w-3 h-3 text-rose-700" />
-                          Revoke
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={actionLoading}
-                        onClick={() => handleOpenHireModal(alloc.requiredDomain)}
-                        className="px-3 py-1.5 text-xs font-bold rounded-lg bg-[#141413] hover:bg-[#282725] text-white border border-[#141413] transition-all flex items-center gap-1.5 shadow-xs"
-                      >
-                        <UserPlus className="w-3.5 h-3.5 text-white" />
-                        Click to Post Job / Hire
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+                          {/* Structured Autonomous Reasoning Card */}
+                          <div className="bg-[#FDFCFA] border border-[#141413]/10 rounded-xl p-3.5 shadow-xs">
+                            <div className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-[#141413] mb-2">
+                              <Lightbulb className="w-3.5 h-3.5 text-amber-600" />
+                              Roster Diagnostic &amp; AI Hiring Reasoning:
+                            </div>
 
-      {/* ── Step 5: Master Tracking Blueprint (Live Monitoring Table) ───── */}
-      {assessment && (
-        <div className="bg-white border border-[#141413]/10 rounded-2xl p-5 shadow-xs overflow-hidden">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
-            <div>
-              <h2 className="text-base font-bold text-[#141413] flex items-center gap-2">
-                <Workflow className="w-4 h-4 text-[#141413]" />
-                Step 5: Master Tracking Blueprint (Head Monitoring Dashboard)
-              </h2>
-              <p className="text-xs text-[#666562] mt-0.5">
-                Live state variable returned from backend: updates synchronously as workers are staffed or paused.
-              </p>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
-              <span className="text-xs font-mono text-emerald-700 font-medium">Live Telemetry Active</span>
-            </div>
-          </div>
+                            {alloc.hiringReasoning?.diagnostic && (
+                              <div className="text-xs text-[#141413] mb-2 leading-relaxed bg-white p-2.5 rounded-lg border border-[#141413]/10">
+                                <strong className="text-amber-800">Diagnostic: </strong>
+                                {alloc.hiringReasoning.diagnostic}
+                              </div>
+                            )}
 
-          <div className="overflow-x-auto rounded-xl border border-[#141413]/10">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#FDFCFA] text-[#666562] uppercase tracking-wider font-extrabold text-[11px] border-b border-[#141413]/10">
-                <tr>
-                  <th className="py-3 px-4">Sub-Task</th>
-                  <th className="py-3 px-4">Assigned Agent</th>
-                  <th className="py-3 px-4">Human Employee</th>
-                  <th className="py-3 px-4">Execution Status</th>
-                  <th className="py-3 px-4 text-right">Head Controls</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#141413]/10 bg-white">
-                {assessment.monitoringBlueprint.map((row, idx) => {
-                  const isBlocked = row.rawExecutionStatus === 'BLOCKED';
-                  const isPaused = row.rawExecutionStatus === 'PAUSED';
-                  const isProgress = row.rawExecutionStatus === 'IN_PROGRESS';
+                            {alloc.hiringReasoning?.rationale && (
+                              <div className="text-xs text-[#666562] mb-2 leading-relaxed bg-white p-2.5 rounded-lg border border-[#141413]/10">
+                                <strong className="text-[#141413]">Governance Rationale: </strong>
+                                {alloc.hiringReasoning.rationale}
+                              </div>
+                            )}
 
-                  return (
-                    <tr
-                      key={idx}
-                      className={`hover:bg-[#F3F0EE]/50 transition-colors ${
-                        isBlocked ? 'bg-amber-50/40' : ''
-                      }`}
-                    >
-                      {/* Sub-Task */}
-                      <td className="py-3.5 px-4 font-bold text-[#141413] flex items-center gap-2">
-                        <Layers className="w-3.5 h-3.5 text-[#666562]" />
-                        {row.subTask}
-                      </td>
+                            {/* Target Role & Responsibilities */}
+                            <div className="mt-3 pt-2.5 border-t border-[#141413]/10 space-y-2.5">
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                                <div>
+                                  <div className="text-[10px] font-bold uppercase tracking-wider text-[#666562]">Recommended Target Role</div>
+                                  <div className="text-xs font-extrabold text-[#141413] flex items-center gap-1.5">
+                                    <Briefcase className="w-3.5 h-3.5 text-[#141413]" />
+                                    {alloc.hiringReasoning?.roleTitle || `${alloc.requiredDomain} Specialist`}
+                                  </div>
+                                </div>
+                                {alloc.hiringReasoning?.estimatedCompBand && (
+                                  <div className="text-right">
+                                    <div className="text-[10px] font-bold uppercase tracking-wider text-[#666562]">Market Benchmark</div>
+                                    <div className="text-[11px] font-mono font-bold text-emerald-700">
+                                      {alloc.hiringReasoning.estimatedCompBand}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
 
-                      {/* Assigned Agent */}
-                      <td className="py-3.5 px-4 text-[#666562] font-medium">
-                        {row.assignedAgent}
-                      </td>
+                              {/* Core Responsibilities List */}
+                              {alloc.hiringReasoning?.coreResponsibilities && alloc.hiringReasoning.coreResponsibilities.length > 0 && (
+                                <div className="bg-amber-50/50 rounded-lg p-3 border border-amber-200">
+                                  <div className="text-[10px] font-extrabold uppercase tracking-wider text-amber-900 mb-1.5 flex items-center gap-1.5">
+                                    <FileText className="w-3 h-3 text-amber-700" />
+                                    Role Responsibilities (Why We Must Staff This):
+                                  </div>
+                                  <ul className="space-y-1.5 text-xs text-amber-950">
+                                    {alloc.hiringReasoning.coreResponsibilities.map((resp, rIdx) => (
+                                      <li key={rIdx} className="flex items-start gap-2">
+                                        <span className="text-amber-700 font-bold leading-none mt-0.5">•</span>
+                                        <span className="leading-relaxed">{resp}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
 
-                      {/* Human Employee */}
-                      <td className="py-3.5 px-4">
-                        {row.humanEmployee === 'None' ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-rose-50 text-rose-800 border border-rose-200">
-                            <AlertTriangle className="w-3 h-3 text-rose-700" />
-                            None (Unassigned)
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                            <Check className="w-3 h-3 text-emerald-700" />
-                            {row.humanEmployee}
-                          </span>
-                        )}
-                      </td>
+                    {/* Head Action Buttons */}
+                    <div className="pt-3 border-t border-[#141413]/10 flex items-center justify-between gap-2">
+                      <span className="text-[11px] text-[#666562]">
+                        Module: <strong className="text-[#141413]">{alloc.subTaskTitle}</strong>
+                      </span>
 
-                      {/* Execution Status */}
-                      <td className="py-3.5 px-4">
-                        {isBlocked && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                            <AlertTriangle className="w-3.5 h-3.5 text-amber-700 animate-pulse" />
-                            BLOCKED (Hire Recommended)
-                          </span>
-                        )}
-                        {isProgress && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-[#F3F0EE] text-[#141413] border border-[#141413]/10">
-                            <Clock className="w-3.5 h-3.5 text-[#666562]" />
-                            In Progress
-                          </span>
-                        )}
-                        {isPaused && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-stone-100 text-[#666562] border border-[#141413]/10">
-                            <Pause className="w-3.5 h-3.5 text-[#666562]" />
-                            Paused
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Head Controls */}
-                      <td className="py-3.5 px-4 text-right">
-                        {isBlocked ? (
+                      {isAssigned ? (
+                        <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            onClick={() => {
-                              const alloc = assessment.allocations.find(a => a.subTaskTitle === row.subTask);
-                              handleOpenHireModal(alloc?.requiredDomain || 'Backend');
-                            }}
-                            className="px-3 py-1 rounded-lg bg-[#141413] hover:bg-[#282725] text-white font-bold text-xs shadow-xs transition-all flex items-center gap-1.5 ml-auto"
+                            disabled={actionLoading}
+                            onClick={() => handleSlotControl(alloc.requiredDomain, alloc.executionStatus === 'PAUSED' ? 'resume' : 'pause')}
+                            className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-[#F3F0EE] hover:bg-[#EAE6E2] text-[#141413] border border-[#141413]/10 transition-all flex items-center gap-1 cursor-pointer"
                           >
-                            <UserPlus className="w-3.5 h-3.5" />
-                            Click to Post Job
+                            {alloc.executionStatus === 'PAUSED' ? (
+                              <>
+                                <Play className="w-3 h-3 text-emerald-700" />
+                                Resume
+                              </>
+                            ) : (
+                              <>
+                                <Pause className="w-3 h-3 text-amber-700" />
+                                Pause
+                              </>
+                            )}
                           </button>
-                        ) : (
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const alloc = assessment.allocations.find(a => a.subTaskTitle === row.subTask);
-                                if (alloc) {
-                                  handleSlotControl(alloc.requiredDomain, isPaused ? 'resume' : 'pause');
-                                }
-                              }}
-                              className="px-2.5 py-1 rounded-lg bg-[#F3F0EE] hover:bg-[#EAE6E2] text-[#141413] border border-[#141413]/10 transition-all font-medium text-xs flex items-center gap-1"
-                            >
-                              {isPaused ? 'Resume' : 'Pause'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const alloc = assessment.allocations.find(a => a.subTaskTitle === row.subTask);
-                                if (alloc) {
-                                  handleSlotControl(alloc.requiredDomain, 'revoke');
-                                }
-                              }}
-                              className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 transition-all font-medium text-xs flex items-center gap-1"
-                            >
-                              Revoke
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                          <button
+                            type="button"
+                            disabled={actionLoading}
+                            onClick={() => handleSlotControl(alloc.requiredDomain, 'revoke')}
+                            className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            <RotateCcw className="w-3 h-3 text-rose-700" />
+                            Revoke
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={actionLoading}
+                          onClick={() => handleOpenHireModal(alloc.requiredDomain)}
+                          className="px-3 py-1.5 text-xs font-bold rounded-lg bg-[#141413] hover:bg-[#282725] text-white border border-[#141413] transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+                        >
+                          <UserPlus className="w-3.5 h-3.5 text-white" />
+                          Click to Post Job / Hire
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
+
+          {/* ── Step 5: Master Tracking Blueprint (Live Monitoring Table) ───── */}
+          <div className="bg-white border border-[#141413]/10 rounded-2xl p-5 shadow-xs overflow-hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+              <div>
+                <h2 className="text-base font-bold text-[#141413] flex items-center gap-2">
+                  <Workflow className="w-4 h-4 text-[#141413]" />
+                  Step 5: Master Tracking Blueprint (Live Telemetry Table)
+                </h2>
+                <p className="text-xs text-[#666562] mt-0.5">
+                  Live state variable returned from backend: updates synchronously as workers are staffed or paused.
+                </p>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
+                <span className="text-xs font-mono text-emerald-700 font-medium">Live Telemetry Active</span>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border border-[#141413]/10">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#FDFCFA] text-[#666562] uppercase tracking-wider font-extrabold text-[11px] border-b border-[#141413]/10">
+                  <tr>
+                    <th className="py-3 px-4">Sub-Task</th>
+                    <th className="py-3 px-4">Assigned Agent</th>
+                    <th className="py-3 px-4">Human Employee</th>
+                    <th className="py-3 px-4">Execution Status</th>
+                    <th className="py-3 px-4 text-right">Head Controls</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#141413]/10 bg-white">
+                  {assessment.monitoringBlueprint.map((row, idx) => {
+                    const isBlocked = row.rawExecutionStatus === 'BLOCKED';
+                    const isPaused = row.rawExecutionStatus === 'PAUSED';
+                    const isProgress = row.rawExecutionStatus === 'IN_PROGRESS';
+
+                    return (
+                      <tr
+                        key={idx}
+                        className={`hover:bg-[#F3F0EE]/50 transition-colors ${
+                          isBlocked ? 'bg-amber-50/40' : ''
+                        }`}
+                      >
+                        {/* Sub-Task */}
+                        <td className="py-3.5 px-4 font-bold text-[#141413] flex items-center gap-2">
+                          <Layers className="w-3.5 h-3.5 text-[#666562]" />
+                          {row.subTask}
+                        </td>
+
+                        {/* Assigned Agent */}
+                        <td className="py-3.5 px-4 text-[#666562] font-medium">
+                          {row.assignedAgent}
+                        </td>
+
+                        {/* Human Employee */}
+                        <td className="py-3.5 px-4">
+                          {row.humanEmployee === 'None' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-rose-50 text-rose-800 border border-rose-200">
+                              <AlertTriangle className="w-3 h-3 text-rose-700" />
+                              None (Unassigned)
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                              <Check className="w-3 h-3 text-emerald-700" />
+                              {row.humanEmployee}
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Execution Status */}
+                        <td className="py-3.5 px-4">
+                          {isBlocked && (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                              <AlertTriangle className="w-3.5 h-3.5 text-amber-700 animate-pulse" />
+                              BLOCKED (Hire Recommended)
+                            </span>
+                          )}
+                          {isProgress && (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-[#F3F0EE] text-[#141413] border border-[#141413]/10">
+                              <Clock className="w-3.5 h-3.5 text-[#666562]" />
+                              In Progress
+                            </span>
+                          )}
+                          {isPaused && (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-stone-100 text-[#666562] border border-[#141413]/10">
+                              <Pause className="w-3.5 h-3.5 text-[#666562]" />
+                              Paused
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Head Controls */}
+                        <td className="py-3.5 px-4 text-right">
+                          {isBlocked ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const alloc = assessment.allocations.find(a => a.subTaskTitle === row.subTask);
+                                handleOpenHireModal(alloc?.requiredDomain || 'Backend');
+                              }}
+                              className="px-3 py-1 rounded-lg bg-[#141413] hover:bg-[#282725] text-white font-bold text-xs shadow-xs transition-all flex items-center gap-1.5 ml-auto cursor-pointer"
+                            >
+                              <UserPlus className="w-3.5 h-3.5" />
+                              Click to Post Job
+                            </button>
+                          ) : (
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const alloc = assessment.allocations.find(a => a.subTaskTitle === row.subTask);
+                                  if (alloc) {
+                                    handleSlotControl(alloc.requiredDomain, isPaused ? 'resume' : 'pause');
+                                  }
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-[#F3F0EE] hover:bg-[#EAE6E2] text-[#141413] border border-[#141413]/10 transition-all font-medium text-xs flex items-center gap-1 cursor-pointer"
+                              >
+                                {isPaused ? 'Resume' : 'Pause'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const alloc = assessment.allocations.find(a => a.subTaskTitle === row.subTask);
+                                  if (alloc) {
+                                    handleSlotControl(alloc.requiredDomain, 'revoke');
+                                  }
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 transition-all font-medium text-xs flex items-center gap-1 cursor-pointer"
+                              >
+                                Revoke
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
         </div>
       )}
 
@@ -975,7 +1413,7 @@ export default function MultiAgentOrchestrationDashboard({
               <button
                 type="button"
                 onClick={() => setHireModalOpen(false)}
-                className="absolute top-4 right-4 text-[#666562] hover:text-[#141413] p-1 rounded-lg hover:bg-[#F3F0EE]"
+                className="absolute top-4 right-4 text-[#666562] hover:text-[#141413] p-1 rounded-lg hover:bg-[#F3F0EE] cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1075,14 +1513,14 @@ export default function MultiAgentOrchestrationDashboard({
 
                 <div className="p-3 rounded-xl bg-[#FDFCFA] border border-[#141413]/10 text-xs text-[#666562]">
                   <div className="font-bold text-[#141413] mb-0.5">Automated Multi-Agent Gating:</div>
-                  Once assigned, this worker will be marked <strong>Available & Present</strong> in the company database and this domain slot will transition from <strong>BLOCKED</strong> to <strong>In Progress</strong>.
+                  Once assigned, this worker will be marked <strong>Available &amp; Present</strong> in the company database and this domain slot will transition from <strong>BLOCKED</strong> to <strong>In Progress</strong>.
                 </div>
 
                 <div className="flex items-center justify-end gap-3 pt-2">
                   <button
                     type="button"
                     onClick={() => setHireModalOpen(false)}
-                    className="px-4 py-2 text-xs font-semibold rounded-xl bg-[#F3F0EE] hover:bg-[#EAE6E2] text-[#141413] border border-[#141413]/10"
+                    className="px-4 py-2 text-xs font-semibold rounded-xl bg-[#F3F0EE] hover:bg-[#EAE6E2] text-[#141413] border border-[#141413]/10 cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -1090,7 +1528,7 @@ export default function MultiAgentOrchestrationDashboard({
                     type="button"
                     disabled={!hiredName.trim() || actionLoading}
                     onClick={handleConfirmHire}
-                    className="px-4 py-2 text-xs font-bold rounded-xl bg-[#141413] hover:bg-[#282725] text-white border border-[#141413] shadow-xs disabled:opacity-50 flex items-center gap-2"
+                    className="px-4 py-2 text-xs font-bold rounded-xl bg-[#141413] hover:bg-[#282725] text-white border border-[#141413] shadow-xs disabled:opacity-50 flex items-center gap-2 cursor-pointer"
                   >
                     {actionLoading ? (
                       <>
@@ -1100,7 +1538,7 @@ export default function MultiAgentOrchestrationDashboard({
                     ) : (
                       <>
                         <Check className="w-3.5 h-3.5" />
-                        Confirm Hire & Unblock
+                        Confirm Hire &amp; Unblock
                       </>
                     )}
                   </button>

@@ -457,7 +457,20 @@ export default function App() {
   });
 
   const hasPermission = (action: UserPermissions['actions'][number]) => permissions.actions.includes(action);
-  const isEmployeeRole = (role?: string) => Boolean(role && !['FOUNDER', 'ADMIN', 'Founder'].includes(role.toUpperCase()));
+  const isEmployeeRole = (role?: string) => {
+    if (!role) return false;
+    const upper = role.toUpperCase();
+    if (
+      upper.includes('FOUNDER') ||
+      upper.includes('ADMIN') ||
+      upper.includes('CEO') ||
+      upper.includes('OWNER') ||
+      upper === 'EXECUTIVE'
+    ) {
+      return false;
+    }
+    return true;
+  };
 
   const [toast, setToast] = useState<{ message: string; type: 'info' | 'success' | 'error' } | null>(null);
 
@@ -1123,7 +1136,7 @@ export default function App() {
 
             {/* Dedicated Employee Workspace Action */}
             <button
-              onClick={() => navigate('/employee')}
+              onClick={() => navigate('/employee/overview?tab=overview')}
               className={`w-full flex items-center rounded-[10px] text-xs font-medium text-[#141413] hover:bg-[#F3F0EE] transition-colors cursor-pointer ${
                 sidebarCollapsed ? 'justify-center p-2' : 'justify-between px-2.5 py-2'
               }`}
@@ -1363,7 +1376,7 @@ export default function App() {
                         </div>
                       </div>
                       <button
-                        onClick={() => navigate('/employee')}
+                        onClick={() => navigate('/employee/overview?tab=overview')}
                         className="px-3.5 py-1.5 bg-[#141413] hover:bg-[#262627] text-[#FDFCFA] rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 shadow-xs shrink-0 self-start sm:self-auto cursor-pointer"
                       >
                         <span>Open Employee Workspace</span>
@@ -1433,6 +1446,7 @@ export default function App() {
                     onLaunchInitiative={handleLaunchInitiative} 
                     onSimulateInitiative={handleSimulateInitiative} 
                     onNavigate={(tab) => handleTabChange(tab as any)}
+                    apiFetch={apiFetch}
                   />
                 )}
 
@@ -1690,11 +1704,9 @@ export default function App() {
               </div>
             ) : user ? (
               isEmployeeRole(user?.role || permissions.role) ? (
-                <Navigate to="/employee" replace />
-              ) : onboardingCompleted ? (
-                <Navigate to="/dashboard" replace />
+                <Navigate to="/employee/overview?tab=overview" replace />
               ) : (
-                <Navigate to="/onboarding" replace />
+                <Navigate to="/dashboard" replace />
               )
             ) : (
               <AuthScreen key="landing" initialView="landing" />
@@ -1731,11 +1743,9 @@ export default function App() {
             </div>
           ) : user ? (
             isEmployeeRole(user?.role || permissions.role) ? (
-              <Navigate to="/employee" replace />
-            ) : onboardingCompleted ? (
-              <Navigate to="/dashboard" replace />
+              <Navigate to="/employee/overview?tab=overview" replace />
             ) : (
-              <Navigate to="/onboarding" replace />
+              <Navigate to="/dashboard" replace />
             )
           ) : (
             <AuthScreen key="auth" initialView="auth" />
@@ -1758,8 +1768,8 @@ export default function App() {
             </div>
           ) : !user ? (
             <Navigate to="/auth" replace />
-          ) : onboardingCompleted ? (
-            <Navigate to="/dashboard" replace />
+          ) : isEmployeeRole(user?.role || permissions.role) ? (
+            <Navigate to="/employee/overview?tab=overview" replace />
           ) : (
             <AuthScreen
               key="onboarding"
@@ -1781,7 +1791,7 @@ export default function App() {
       <Route path="/agents" element={<Navigate to="/dashboard/agents" replace />} />
       <Route path="/agents/:agentId" element={<Navigate to="/dashboard/agents" replace />} />
       <Route path="/council" element={<Navigate to="/dashboard/council" replace />} />
-      <Route path="/workspace/employee" element={<Navigate to="/employee" replace />} />
+      <Route path="/workspace/employee" element={<Navigate to="/employee/overview?tab=overview" replace />} />
 
       {/* Dedicated Employee Operating System Workspace Route */}
       <Route
@@ -1811,7 +1821,7 @@ export default function App() {
           )
         }
       />
-      <Route path="/employee" element={<Navigate to="/employee/overview" replace />} />
+      <Route path="/employee" element={<Navigate to="/employee/overview?tab=overview" replace />} />
 
       {/* Executive Workspace Dashboard Phase Route */}
       <Route
@@ -1829,9 +1839,7 @@ export default function App() {
           ) : !user ? (
             <Navigate to="/auth" replace />
           ) : isEmployeeRole(user?.role || permissions.role) ? (
-            <Navigate to="/employee" replace />
-          ) : !onboardingCompleted ? (
-            <Navigate to="/onboarding" replace />
+            <Navigate to="/employee/overview?tab=overview" replace />
           ) : (
             renderDashboard()
           )

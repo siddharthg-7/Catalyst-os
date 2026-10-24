@@ -74,13 +74,11 @@ export default function AuthForm({ onBackToLanding }: AuthFormProps) {
           setAuthSuccess('Authentication verified. Accessing your workspace...');
           setTimeout(() => {
             const roleUpper = (res.user?.role || '').toUpperCase();
-            const isEmployee = roleUpper && !['FOUNDER', 'ADMIN'].includes(roleUpper);
+            const isEmployee = roleUpper && !(roleUpper.includes('FOUNDER') || roleUpper.includes('ADMIN') || roleUpper.includes('CEO') || roleUpper.includes('OWNER'));
             if (isEmployee) {
-              navigate('/employee');
-            } else if (res.onboarded) {
-              navigate('/dashboard');
+              navigate('/employee/overview?tab=overview');
             } else {
-              navigate('/onboarding');
+              navigate('/dashboard');
             }
           }, 450);
         }
@@ -93,13 +91,11 @@ export default function AuthForm({ onBackToLanding }: AuthFormProps) {
           setAuthSuccess('Account initialized successfully. Welcome aboard!');
           setTimeout(() => {
             const roleUpper = (role || '').toUpperCase();
-            const isEmployee = !['FOUNDER', 'ADMIN'].includes(roleUpper);
+            const isEmployee = !(roleUpper.includes('FOUNDER') || roleUpper.includes('ADMIN') || roleUpper.includes('CEO') || roleUpper.includes('OWNER'));
             if (isEmployee) {
-              navigate('/employee');
-            } else if (res.onboarded) {
-              navigate('/dashboard');
+              navigate('/employee/overview?tab=overview');
             } else {
-              navigate('/onboarding');
+              navigate('/dashboard');
             }
           }, 450);
         }
@@ -179,8 +175,8 @@ export default function AuthForm({ onBackToLanding }: AuthFormProps) {
           </h2>
           <p className="text-xs sm:text-sm text-[#666562] font-sans leading-relaxed">
             {authTab === 'signin'
-              ? 'Enter your credentials to access your autonomous executive council.'
-              : 'Deploy your organization workspace with multi-agent orchestration.'}
+              ? 'Enter your credentials to access your organization workspace.'
+              : 'Calibrate your workspace around your immediate priority in 60 seconds.'}
           </p>
         </div>
 
@@ -449,6 +445,9 @@ export default function AuthForm({ onBackToLanding }: AuthFormProps) {
           <Sparkles className="w-4 h-4 text-[#141413] transition-transform group-hover:rotate-12 group-hover:scale-110" />
           <span className="font-sans">Launch Founder Demo (1-Click Instant Sandbox)</span>
         </button>
+        <p className="text-[11px] text-[#8E8D8A] text-center font-sans mt-1.5">
+          Loads a pre-calibrated workspace with active launch readiness milestones.
+        </p>
 
         {/* ── Footer Switcher ──────────────────────────────────────────────── */}
         <div className="mt-6 text-center">
@@ -486,7 +485,7 @@ export default function AuthForm({ onBackToLanding }: AuthFormProps) {
           <ShieldCheck className="w-3.5 h-3.5 text-[#141413]" />
           <span className="text-[#666562]">TLS 1.3 Encrypted Session</span>
         </div>
-        <span className="text-[#141413] font-semibold">SOC-2 Ready</span>
+        <span className="text-[#141413] font-semibold">PostgreSQL Data Isolation</span>
       </div>
 
       {/* ── Forgot Password Modal ──────────────────────────────────────────── */}
