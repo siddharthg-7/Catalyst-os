@@ -1,394 +1,386 @@
-# TASK 03 — FRONTEND ARCHITECTURE BOUNDARY ANALYSIS
+# CatalystOS Landing Page Content Refinement — Preserve Existing UI
 
-## PURPOSE
+## Objective
 
-We have completed the safe structural cleanup.
+Refine the content and product messaging of the existing CatalystOS landing page to communicate its real value to startup founders.
 
-The next goal is to clean the ACTIVE frontend architecture.
+The website currently has a polished, minimal design with a light neutral background, black typography, rounded cards, subtle borders, a product dashboard preview, pricing cards, an FAQ section, and a dark footer. Preserve this visual identity.
 
-However, this task is still primarily ANALYSIS.
+**The primary objective is to improve what the website communicates, not redesign how it looks.**
 
-DO NOT perform a large refactor.
+Use the existing CatalystOS project resources, repository, product architecture, implemented features, dashboard screens, workflow definitions, integrations, agent capabilities, and previous project documentation as the source of truth.
 
-DO NOT change application behavior.
-
-DO NOT move files yet.
-
-DO NOT delete files.
-
-DO NOT create a new state-management library.
-
-DO NOT introduce React Router.
-
-DO NOT change backend APIs.
-
-DO NOT modify database code.
+Do not introduce a new product concept or replace existing functionality with invented capabilities.
 
 ---
 
-# CURRENT PROBLEM
+## 1. Strict UI Preservation Rules
 
-The previous audit identified:
+Treat this as a content-first refinement, not a UI redesign.
 
-* `src/App.tsx` is approximately 771 lines
-* `App.tsx` performs many direct API calls
-* several components directly call APIs
-* `src/services/api.ts` contains only a small subset of API operations
-* significant business/state logic exists inside UI components
+- Preserve the current page structure, section order, and overall layout.
+- Retain the existing typography, font sizes, font weights, spacing, alignment, colors, and background treatments wherever possible.
+- Keep the existing navigation bar, buttons, dashboard preview, feature cards, pricing cards, FAQ accordions, CTA section, and footer.
+- Preserve the existing illustrations, robot graphic, icons, decorative elements, and animations.
+- Retain existing responsive behavior for desktop, tablet, and mobile.
+- Do not introduce new sections unless a small content adjustment is essential.
+- Do not replace the existing visual system with a new design system.
+- Do not change routes, authentication flows, pricing logic, API calls, application state, backend services, or database behavior.
+- Preserve all existing functional interactions.
+- Avoid unnecessary component refactoring or dependency changes.
+- Make only minimal spacing or text adjustments when new content requires them to fit the existing layout.
+- Do not shrink text excessively, truncate meaningful content, or introduce awkward line breaks to force longer copy into existing components.
 
-We now need to design a clean frontend boundary BEFORE making changes.
+The result should look recognizably like the current CatalystOS website, with substantially clearer messaging.
 
----
+## 2. Inspect Existing Project Resources Before Editing
 
-# 1. TRACE EVERY FRONTEND API CALL
+Before making changes, inspect the existing codebase and all relevant project resources available in the repository.
 
-Inspect every `.tsx` and `.ts` file under `src/`.
+Review:
 
-Find:
+- The current landing page implementation and reusable UI components.
+- The existing dashboard and its real product workflows.
+- Authentication and onboarding flows.
+- AI agent orchestration and available agent responsibilities.
+- Task, project, deadline, dependency, and team-management functionality.
+- Existing integrations and connected data sources.
+- Current pricing configuration and plan restrictions.
+- Security, permissions, tenant isolation, and approval mechanisms.
+- Existing pitch deck, problem statement, architecture documentation, and product requirements.
 
-* `fetch(...)`
-* `apiFetch(...)`
-* `sendChatMessage(...)`
-* `streamChatMessage(...)`
-* `fetchTTSAudio(...)`
-* any other HTTP/network call
+Use the actual implementation to determine what CatalystOS can currently do.
 
-Create a table:
+**Do not claim that a feature exists merely because it appears in a pitch deck or proposed architecture.** Distinguish implemented features from planned capabilities.
 
-| File | Function/Location | HTTP Method | Endpoint | Purpose | Should Belong In |
+Do not fabricate customer testimonials, measured productivity improvements, adoption figures, integrations, security certifications, or validated commercial results.
 
-The final column should identify the appropriate future service domain.
+If a capability is not implemented or cannot be verified, do not present it as a confirmed capability.
 
-Possible domains:
+## 3. Navigation Bar
 
-* auth
-* startup
-* agents
-* initiatives
-* approvals
-* decisions
-* notifications
-* knowledge
-* chat
-* audio
-* vault
-* simulation
-* orchestration
+Keep the existing navigation layout and styling.
 
-Do NOT create these services yet.
+Refine the navigation labels only where it improves clarity.
 
----
+Suggested labels:
 
-# 2. ANALYZE APP.TSX
+- Product
+- Process
+- Pricing
+- FAQ
 
-Inspect `src/App.tsx` completely.
+Keep the CatalystOS logo and existing primary CTA.
 
-Separate its responsibilities into:
+Ensure that every navigation item points to its correct existing section or route. Do not create broken anchors or unnecessary new pages.
 
-### A. UI rendering
+## 4. Hero Section — Replace Generic Messaging With a Founder Problem
 
-### B. Application state
+The current headline describes CatalystOS as an AI operating system but does not immediately explain the problem it solves.
 
-### C. API communication
+Replace the hero copy with the following direction.
 
-### D. Business logic
+**Headline:**
 
-### E. Authentication
+"Run Your Startup Without Losing Track of What Matters."
 
-### F. Notifications
+**Supporting copy:**
 
-### G. Navigation
+"Connect your team's work, business priorities, and critical dependencies in one workspace. CatalystOS helps you understand what needs attention, identify blockers, and coordinate the next steps."
 
-### H. Demo/development logic
+**Primary CTA:**
 
-For every responsibility identify:
+"Start Free Trial"
 
-* exact code location
-* whether it should remain in App.tsx
-* proposed future destination
+Keep the existing secondary demo CTA, using the label:
 
-Do NOT move anything yet.
+"Explore the Workflow"
 
----
+Retain the existing hero illustration and its position.
 
-# 3. ANALYZE EACH MAJOR COMPONENT
+The messaging must communicate three things immediately:
 
-Inspect:
+1. Startup work is fragmented across people, tasks, and information.
+2. Founders need visibility into priorities, blockers, and dependencies.
+3. CatalystOS helps bring that work together into a more coordinated workflow.
 
-* SaaSDashboard.tsx
-* ApprovalQueue.tsx
-* AgentWorkspace.tsx
-* WorkflowCanvas.tsx
-* KnowledgeBase.tsx
-* NotificationPanel.tsx
-* AuthScreen.tsx
-* chatbot/*
-* CommandPalette.tsx
+Avoid generic claims such as "revolutionary AI," "fully autonomous company," or "everything automated."
 
-For each identify:
+Do not claim that CatalystOS replaces every existing startup tool.
 
-* UI responsibilities
-* state responsibilities
-* API responsibilities
-* business logic
-* duplicated logic
-* reusable logic
+If the current implementation supports a more specific capability, use that capability to make the supporting copy more concrete.
 
-Do NOT modify them.
+## 5. Hero Dashboard Preview — Preserve the Existing Visual
 
----
+Keep the current dashboard screenshot or dashboard-style preview in its existing position.
 
-# 4. DETERMINE PAGE VS COMPONENT BOUNDARIES
+Update only the visible text labels and sample content where appropriate.
 
-The current application does not use React Router.
+Use a realistic example that demonstrates startup execution rather than a generic collection of AI features.
 
-Do NOT introduce React Router.
+Suggested example:
 
-Instead determine which existing components are actually:
+**Workspace:** Product Launch
 
-### PAGE / VIEW LEVEL
+**Priority:** Launch readiness
 
-versus
+**Example status:** At risk
 
-### REUSABLE COMPONENT
+**Identified dependency:** Final product testing must be completed before the launch announcement.
 
-Create a proposed structure such as:
+**Business impact:** A delayed testing milestone may affect the planned launch date.
 
-src/
-pages/
-components/
-chatbot/
-hooks/
-context/
-services/
-types/
+**Recommended next step:** Confirm testing ownership, review unresolved issues, and update the launch timeline.
 
-But do NOT implement it.
+**Approval:** Awaiting founder review
 
-Use actual current files rather than theoretical examples.
+**Team tasks:** Show realistic owners, task statuses, and deadlines consistent with the actual dashboard capabilities.
 
----
+These are illustrative sample records, not claims about real customers or actual events.
 
-# 5. DESIGN THE API SERVICE LAYER
+Use only fields and status labels supported by the existing UI and product model. If the dashboard cannot represent these fields, retain its existing structure and update only the text that fits.
 
-Based on actual calls found in the codebase, propose the future service structure.
+Do not hardcode new demo data into production workflows or modify backend behavior just to match the example.
 
-Example:
+## 6. Product Value Proposition — Explain the Outcome
 
-src/services/
-apiClient.ts
-authService.ts
-startupService.ts
-agentService.ts
-initiativeService.ts
-approvalService.ts
-decisionService.ts
-notificationService.ts
-knowledgeService.ts
-chatService.ts
-audioService.ts
+The landing page should explain the value of CatalystOS in terms of the founder's daily work.
 
-IMPORTANT:
+Prioritize these benefits, where supported by the implementation:
 
-Do not blindly use this exact structure.
+- **Shared visibility:** Understand what is happening across the startup.
+- **Priority awareness:** Identify work that needs attention.
+- **Dependency awareness:** Understand how blocked tasks affect other work.
+- **Coordinated execution:** Connect decisions, responsibilities, and next steps.
+- **Founder oversight:** Keep important decisions and approvals visible.
+- **Progress tracking:** Monitor execution and identify unresolved issues.
 
-If a different grouping makes more architectural sense based on the actual code, explain why.
+Do not add a new feature grid if the current page already communicates these capabilities through its existing dashboard and workflow sections.
 
-For every proposed service state:
+Use the existing content areas to communicate outcomes instead of adding more UI.
 
-* functions that should move there
-* current source location
-* endpoint used
-* data returned
+## 7. "From Idea to Execution" Section
 
----
+Keep the existing four-card layout, numbering, icons, and card styling.
 
-# 6. IDENTIFY FRONTEND TYPES
+Retain the section heading:
 
-Inspect:
+"From Idea to Execution"
 
-src/types.ts
+Refine the four cards as follows.
 
-and all other frontend type definitions.
+### Card 01 — Connect Your Startup
 
-Determine:
+**Description:**
+"Bring your team's priorities, projects, and relevant business information into a shared workspace using supported connections and workflows."
 
-* domain types
-* API response types
-* UI-only types
-* duplicated types
-* types that should eventually be separated by domain
+### Card 02 — Understand Your Business
 
-Do NOT change them yet.
+**Description:**
+"See important tasks, emerging blockers, and dependencies that may affect your team's progress."
 
----
+### Card 03 — Move Work Forward
 
-# 7. IDENTIFY STATE OWNERSHIP
+**Description:**
+"Turn identified priorities into clear next steps, with responsibilities and approvals where supported."
 
-For every major state variable in:
+### Card 04 — Track Progress
 
-* App.tsx
-* AuthContext
-* SaaSDashboard
-* ApprovalQueue
-* AgentWorkspace
-* KnowledgeBase
-* chatbot
+**Description:**
+"Monitor execution, review outstanding work, and keep your startup aligned as priorities change."
 
-identify:
+Adjust the wording to match the actual implementation. If the product does not currently support a particular connection, automated task creation, or approval workflow, do not imply that it does.
 
-STATE
-CURRENT OWNER
-WHO READS IT
-WHO WRITES IT
-PROPOSED OWNER
+The purpose of these cards is to explain the user journey, not to advertise a list of AI technologies.
 
-Do not introduce Redux, Zustand, React Query, or another state library.
+## 8. Demonstrate One Concrete Workflow
 
-Use existing React state/context patterns for the proposal.
+Use the existing product demo or dashboard area to make the value proposition understandable.
 
----
+The example should follow this sequence:
 
-# 8. IDENTIFY BUSINESS LOGIC IN UI
+1. A founder is preparing for a product launch.
+2. A critical task becomes delayed or remains incomplete.
+3. CatalystOS surfaces the blocker or dependency, if supported.
+4. The founder can understand the potential impact on the launch.
+5. The system presents an appropriate next step or recommendation, if implemented.
+6. The founder reviews or approves consequential actions where the product supports approval.
+7. The team proceeds with assigned work and updated priorities where those workflows are available.
 
-Find calculations and decisions currently performed inside UI components.
+The sequence must reflect the actual product.
 
-Examples:
+Do not suggest that the system autonomously changes deadlines, contacts team members, or executes external actions unless those behaviors are implemented and appropriately authorized.
 
-* financial calculations
-* date calculations
-* formatting
-* startup health calculations
-* initiative logic
-* approval logic
-* data transformations
-* API response transformations
+Keep the existing UI. Prefer better labels, descriptions, and demo content over new components.
 
-Classify each as:
+## 9. Pricing Section — Improve Clarity Without Inventing Prices
 
-UI LOGIC
-DOMAIN LOGIC
-API MAPPING
-UTILITY
+Keep the existing pricing section, its four cards, visual hierarchy, billing toggle, highlighted plan, and CTA buttons.
 
-Do not move anything.
+Preserve the existing pricing amounts and billing logic unless the project owner has explicitly approved a pricing change.
 
----
+Refine the plan descriptions so a founder can understand the intended use case of each tier.
 
-# 9. IDENTIFY DUPLICATION
+Suggested positioning:
 
-Find duplicated:
+### Free Trial
 
-* API calls
-* types
-* formatting
-* state transformations
-* business calculations
-* endpoint definitions
-* error handling
-* loading handling
+"For founders who want to explore the core CatalystOS workflow before committing."
 
-Do not fix them.
+### Starter
 
----
+"For early-stage teams that need a clearer view of their work and priorities."
 
-# 10. PROPOSE TARGET FRONTEND STRUCTURE
+### Growth
 
-Based ONLY on what actually exists, propose a clean structure.
+"For growing teams coordinating more projects, responsibilities, and dependencies."
 
-Example:
+### Enterprise
 
-src/
-├── app/
-├── pages/
-├── components/
-├── chatbot/
-├── hooks/
-├── context/
-├── services/
-│   ├── apiClient.ts
-│   └── domains/
-├── types/
-└── utils/
+"For organizations that need a tailored deployment, configuration, or support arrangement, where available."
 
-But adapt this to the actual codebase.
+Keep each card's feature list consistent with its existing plan entitlements.
 
-For every folder explain its responsibility.
+Verify that the billing toggle, displayed prices, plan limits, and checkout actions remain functional.
 
----
+Do not describe a plan as unlimited, enterprise-ready, or fully featured unless the actual plan configuration supports that claim.
 
-# 11. MIGRATION ORDER
+Do not imply that the displayed prices have been validated by customer research.
 
-Provide the safest sequence for implementing the frontend cleanup.
+## 10. FAQ Section — Answer Adoption Concerns
 
-For example:
+Keep the current FAQ heading, accordion behavior, card styling, and layout.
 
-1. Create API client
-2. Extract auth API
-3. Extract startup API
-4. Extract approvals API
-5. Extract remaining APIs
-6. Move API calls out of components
-7. Extract hooks
-8. Reduce App.tsx
-9. Move pages/views
-10. Clean types
+Retain the existing questions where they remain relevant, but refine their answers to address the concerns of startup founders.
 
-But do NOT assume this order is correct.
+### What is CatalystOS?
 
-Determine the safest order from the actual dependency graph.
+"CatalystOS is a workspace designed to help startup teams organize business priorities, coordinate execution, and maintain visibility into important work. Its capabilities depend on the features and integrations available in your current setup."
 
----
+### Which AI advisors are included?
 
-# 12. IMPORTANT SAFETY RULE
+"Available AI capabilities depend on the agents and workflows enabled in your CatalystOS environment. Explore the product to see which capabilities are currently supported."
 
-Do NOT modify the repository.
+Update this answer using the actual agent names and responsibilities found in the project.
 
-At the end verify:
+### Can I invite my team?
 
-FILES MODIFIED: 0
-FILES DELETED: 0
-FILES MOVED: 0
-DEPENDENCIES CHANGED: 0
-DATABASE CHANGED: NO
-API CONTRACTS CHANGED: NO
+Explain the actual team invitation, membership, and permission capabilities. If team invitations are not implemented, state that accurately.
 
----
+### Is my startup data secure?
 
-# 13. REQUIRED OUTPUT
+Describe only verified security controls, such as implemented authentication, authorization, tenant isolation, and access restrictions. Do not claim certifications or guarantees that have not been established.
 
-Return:
+### Can I integrate with my existing tools?
 
-# TASK 03 — FRONTEND ARCHITECTURE ANALYSIS
+List only integrations that are actually supported and available. Explain any current limitations.
 
-## 1. Current Frontend Architecture
+### Do you offer a free trial?
 
-## 2. Complete API Call Inventory
+Use the actual trial configuration, including duration, eligibility, limitations, and conversion behavior. Do not invent a trial period.
 
-## 3. App.tsx Responsibility Map
+Ensure every answer is concise, factual, and useful to a prospective customer.
 
-## 4. Component Responsibility Map
+## 11. Final Call-to-Action Section
 
-## 5. State Ownership Map
+Preserve the existing dark CTA panel, illustration, centered content, button, rounded corners, and surrounding whitespace.
 
-## 6. Business Logic Found in UI
+Replace the generic heading with:
 
-## 7. Type Architecture
+**"Bring Your Startup's Work Into Focus."**
 
-## 8. Duplication
+Supporting copy:
 
-## 9. Proposed Service Layer
+"Get a clearer view of your priorities, responsibilities, and blockers. Start with the workflows available in CatalystOS and see how they fit the way your team works."
 
-## 10. Proposed Frontend Directory Structure
+CTA:
 
-## 11. Migration Plan
+"Start Free Trial"
 
-## 12. Risks
+Keep the existing CTA destination and trial behavior unchanged.
 
-## 13. Files That Should NOT Be Touched
+Avoid promising guaranteed growth, autonomous execution of every business function, or measurable productivity improvements without evidence.
 
-## 14. Final Verification
+## 12. Footer
 
-STOP AFTER REPORTING.
+Preserve the current dark footer and its existing column layout.
 
-Do NOT implement the proposed architecture.
+Keep the CatalystOS branding and existing links.
+
+Update link labels only when necessary to improve clarity, and ensure every link points to a valid destination.
+
+Do not add invented social profiles, contact details, policy pages, or external links.
+
+## 13. Tone and Copywriting Rules
+
+The entire website must use consistent messaging.
+
+The tone should be:
+
+- Clear and founder-focused.
+- Practical rather than futuristic.
+- Specific about problems and outcomes.
+- Concise enough to fit the existing components.
+- Honest about current capabilities.
+- Focused on coordination, visibility, priorities, dependencies, and execution.
+
+Avoid:
+
+- Excessive AI terminology.
+- Unsupported claims about autonomy.
+- Repeated use of "all-in-one."
+- Vague promises about transforming startups.
+- Fabricated metrics or customer evidence.
+- Repetitive descriptions of the same feature.
+- Long paragraphs that damage the current visual rhythm.
+
+Explain the user benefit before explaining the underlying technology.
+
+## 14. Technical Implementation Requirements
+
+Before editing, identify the exact files and components responsible for the landing page.
+
+Then:
+
+1. Make the smallest possible changes to existing copy and sample labels.
+2. Reuse the current components and design tokens.
+3. Preserve existing routes, IDs, anchors, state management, and interactions.
+4. Avoid changing backend code unless a verified content-related issue requires it.
+5. Keep content responsive without introducing horizontal overflow.
+6. Check text wrapping and alignment across desktop and mobile breakpoints.
+7. Confirm that the pricing toggle and FAQ accordions still work.
+8. Confirm that navigation and CTA links still work.
+9. Confirm that the product demo and dashboard preview still render correctly.
+10. Check the browser console for errors introduced by the changes.
+
+Do not rewrite the application or introduce unnecessary packages.
+
+## 15. Acceptance Criteria
+
+The work is complete only when:
+
+- The page retains its recognizable existing visual design.
+- The hero immediately communicates a founder-relevant problem and value proposition.
+- The dashboard illustrates a believable workflow rather than merely showcasing AI.
+- The four process cards explain how a founder uses CatalystOS.
+- Pricing descriptions are understandable and consistent with actual entitlements.
+- FAQs answer real adoption concerns with verified information.
+- The final CTA reinforces the same value proposition as the hero.
+- No unsupported product capabilities or commercial claims have been introduced.
+- Existing functionality, navigation, responsiveness, and interactions remain intact.
+- No unnecessary sections, visual redesigns, or backend changes have been made.
+
+## Final Instruction
+
+First inspect the actual CatalystOS repository and its existing project resources. Then implement the content refinements directly in the existing landing page.
+
+Do not return only a proposed design or a list of recommendations. Make the changes in the existing implementation if the necessary files and tools are available.
+
+At the end, report:
+- Files changed.
+- Content and messaging updated.
+- Features and UI behavior preserved.
+- Tests or checks performed.
+- Any product claims that could not be verified and therefore were not included.
+
+**Priority order: factual accuracy → clearer founder value proposition → preservation of existing UI → minimal implementation changes.**
